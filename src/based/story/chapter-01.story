@@ -82,7 +82,7 @@
 @item boots "Black boots" kind=clothes slot=shoes icon=boots bonus=DEXTERITY+1 start=worn "Rubber soles that say nothing on wet tiles. He resoled them in Vienna and hasn't worn anything else since."
 @item gloves "Thin black gloves" kind=clothes slot=gloves icon=gloves bonus=INTIMIDATION+1,DEXTERITY-1 start=1 "In the jacket's inside pocket. A man in gloves indoors is a man with plans, and everybody knows it."
 @item phone "Phone" kind=small icon=phone start=1 "A cheap phone with one number in it. The number starts with a London code."
-@item passport "Passport" kind=document icon=passport start=1 "American, in his own name, which is either very brave or very lazy. London said a cover would only draw attention to him. London says a lot of things."
+@item passport "Passport" kind=document icon=passport start=1 "American, in his own name, which is either very brave or very lazy. London said a false one would only draw attention to him: his own name, then, and a buyer for a wine importer in Boston, over to taste the new vintages. The less he has to remember, the less he can forget. London says a lot of things."
 
 @item matchbook "Le Vauban matches" kind=small icon=matchbook "A book of matches from the bowl on the bar: LE VAUBAN in gold on oxblood, and the hotel's number. Twenty matches, which is nineteen more than a man needs to start a conversation."
 @item cigarettes "Cigarettes" kind=small icon=cigarettes "A blue packet of Corsaires from the machine in the lobby. He quit in Vienna. He bought them anyway."
@@ -137,7 +137,7 @@
 @carry "You told Penhallow what the man in grey wanted." if told_penhallow
 @carry "You kept the man in grey to yourself." if kept_quiet
 @carry "You and Penhallow know the man in grey saw you together. After tonight, neither of you was ever at Le Vauban." if knew_seen
-@carry "The man in grey thinks you sell wine." if wine_cover
+@carry "The man in grey thinks you buy wine for an importer in Boston." if told_grey_wine
 @carry "The man in grey knows your name." if gave_name
 @carry "Delorme has had room forty-one since the election." if delorme_41 and knows_room
 @carry "A car takes room forty-one to Satory at six." if knows_car and (knows_room or heard_41)
@@ -173,7 +173,7 @@ set crowd
 It had rained every day since the results, as if the city were trying to wash something off and hadn't found the right soap.
 @focus none
 @actor BASED street_mid walk
-London had given him a bar, a time and a newspaper. Le Vauban, on the rue de Grenelle, at ten. A woman with The Times, open at the crossword. And a room upstairs at the hotel, booked by Lisle and Hart, wine shippers of the City of London, who had never heard of him.
+London had given him a bar, a time and a newspaper. Le Vauban, on the rue de Grenelle, at ten. A woman with The Times, open at the crossword. And a room upstairs at the hotel, booked by Lisle and Hart, wine shippers of the City of London, who had never heard of him and would swear, if anyone rang, that he bought their claret for an importer in Boston.
 task contact "Meet London's contact at Le Vauban, on the rue de Grenelle, at ten. She'll have The Times, open at the crossword. Ask her about seven down."
 ~ Twenty minutes early. Time to look at the street the way the street was looking at him.
 -> FREE
@@ -1050,7 +1050,7 @@ choose "He's being friendly. He's also asking."
   * [First time] "First time. A friend said it was quiet."
     BARMAN: Your friend is right. Quiet is what we sell. The drinks are only so people have something to hold.
     rel ANSELME +1
-  * white DECEPTION easy [A cover] "I'm in wine. Buying, not drinking. Mostly."
+  * white DECEPTION easy [The cover] "I'm in wine. I buy it for an importer in Boston: buying, not drinking. Mostly."
     The barman's eyebrows told him that was the best joke he'd heard since the election, and that he would remember it.
     BARMAN: Then you must try the Bordeaux. It is terrible. You will buy none of it and feel very professional.
     set wine_cover
@@ -1280,12 +1280,13 @@ STRANGER: Forgive me. I'm here most evenings, and I know every face at this bar.
 His English was very good. London good: a year or two at one of those schools that teach you to sound as if you'd never had to learn it.
 ~ LANGUAGES challenging: Westminster, then Sciences Po. The vowels of a man who learned his English from people who owned things.
 choose "He smiles at the mirror, not at him."
-  * [Play the tourist] "I came for the weather. The brochure was very honest."
-    STRANGER (laughing): A man of culture. You must see the Louvre. Very big. Full of things other people took.
-    rel DELORME +1
-  * if wine_cover [Keep to the wine] "I'm here for the wine. Buying."
-    STRANGER: In this bar? Then you are either a very bad buyer or a very good one. I will decide later.
+  // r26: one cover, the same to everyone: his own name (his own American
+  // passport), a buyer for a wine importer in Boston, over for the tastings.
+  * [The cover] "I buy wine, for an importer in Boston. I'm over for the tastings."
+    STRANGER (amused): In this bar? Then you are either a very bad buyer or a very good one. I will decide later.
     set wine_cover
+    set told_grey_wine
+    rel DELORME +1
   * white INTIMIDATION challenging if came_down and party_man [Call him out] "You came down from upstairs, and you've a party pin under your lapel. Who are you watching?"
     bonus +2 if came_down "He came down from upstairs"
     bonus +1 if party_man "His oak-leaf pin"
@@ -1350,16 +1351,18 @@ choose "He waits for a name."
     He said it the French way, which made it sound like somewhere you'd go for the weekend instead of something a man had to write on forms.
     ~ INSTINCT: Now he has it. Men like him don't ask for things they don't mean to keep.
     set gave_name
-  * white DECEPTION medium [Give him another] "Walker. Tom Walker."
-    bonus +2 if wine_cover "A wine buyer already"
-    bonus +1 if speaks.en_gb "He can sound like anyone"
-    STRANGER: Walker. A good name for a tourist.
-    He believed it, or he believed it enough to stop asking, which in Paris this month came to the same thing.
-    set cover_name
+  * white DECEPTION medium [Keep it to the trade] "In the wine trade, names come with the second bottle."
+    bonus +2 if told_grey_wine "A wine buyer already"
+    STRANGER (amused): Then I will buy the second bottle another night.
+    He let it go, or let it go far enough to stop asking, which in Paris this month came to the same thing.
+    set wine_cover
+    set told_grey_wine
+    set kept_name
   fail
-    STRANGER (smiling): Of course it is.
-    ~ DECEPTION: Too quick. Nobody says their own name that fast.
-    set gave_name
+    STRANGER (smiling): A wine buyer who keeps his name in the cellar. How very discreet.
+    ~ DECEPTION: Too neat. A man with nothing to hide just says it.
+    set wine_cover
+    set told_grey_wine
   * silent [Say nothing]
     STRANGER: A man with no name in a bar where nobody talks. How very romantic.
 end
@@ -1592,7 +1595,7 @@ PENHALLOW: Then I'm blown, and you've been seen with me. That's a very bad start
 set she_is_blown
 set knew_seen
 ~ He's seen them together now, at his bar, in his mirror. Whatever London wanted from this, it isn't going to get it with these two faces.
-PENHALLOW: So we do the only thing there is. I go out of that door, and tomorrow I'm somebody else, in another city. You go up to bed like a tourist with nothing on his mind, because that's what a tourist would do. Running now would tell him everything.
+PENHALLOW: So we do the only thing there is. I go out of that door, and tomorrow I'm somebody else, in another city. You go up to bed like a wine buyer with nothing on his mind but tomorrow's tastings, because that's what one would do. Running now would tell him everything.
 PENHALLOW: And you're out of here before breakfast. After tonight, neither of us was ever in Le Vauban.
 BASED: Never seen again.
 PENHALLOW: It's the one thing London is really good at.
@@ -1613,7 +1616,7 @@ BASED: Every bar has one.
 PENHALLOW (lightly): Every bar has one. Usually he's seventy and tells you about his knee.
 She glanced at the stool the man had left, and then at her crossword, as if one of them might come out.
 ~ Something about the man in grey sat wrong, like a picture an inch off level. He couldn't have said what, and neither, by the look of her, could she.
-PENHALLOW: Well. Nothing either of us can do anything with tonight. Be a tourist for a few days. Be boring. You'd be amazed how well it works.
+PENHALLOW: Well. Nothing either of us can do anything with tonight. Be a wine buyer for a few days. Taste things. Be boring. You'd be amazed how well it works.
 set missed_watch
 -> parting
 
@@ -1791,7 +1794,7 @@ if speaks.ru
 end
 He put the phone down and turned the smile on.
 PORTER: Monsieur? You have a reservation?
-BASED: There should be a room. Booked from London, by Lisle and Hart.
+BASED: There should be a room. Lisle and Hart booked it, from London. I buy their wine, for an importer in Boston.
 The clerk turned a page of the guest book with one finger, keeping it to himself, and found them without having to look for long.
 PORTER: The wine gentlemen. Yes, monsieur: twenty-three, on the second floor. But you are early, and it is not made up. Since the election the girl who does the rooms comes when the Métro lets her. An hour, a little more.
 set room_late
@@ -1810,7 +1813,7 @@ if room_late
   PORTER: Monsieur. Twenty-three is ready: the girl came, the Métro permitting.
 else
   PORTER: Monsieur? You have a reservation?
-  BASED: There should be a room. Booked from London, by Lisle and Hart.
+  BASED: There should be a room. Lisle and Hart booked it, from London. I buy their wine, for an importer in Boston.
   The clerk turned a page of the guest book with one finger, keeping it to himself.
   PORTER: The wine gentlemen. Twenty-three, monsieur, on the second floor. Made up an hour ago.
 end
@@ -2176,12 +2179,13 @@ if gave_name
   COLONEL: He gave his name. Based.
   A silence, of the kind that is only possible in very large rooms.
   PRESIDENT: Find out who that is.
-elif cover_name
-  COLONEL: He says his name is Walker.
-  PRESIDENT: Nobody's name is Walker.
 else
   COLONEL: He didn't give a name.
   PRESIDENT: Then he's somebody. Find out who.
+end
+if told_grey_wine
+  COLONEL: He says he buys wine, for an importer in Boston.
+  PRESIDENT: Nobody comes to Le Vauban for the wine.
 end
 COLONEL: He has a room there. He went up to bed an hour ago.
 PRESIDENT: Then he'll still be there in the morning.
