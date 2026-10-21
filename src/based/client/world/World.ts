@@ -21,6 +21,8 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { leanSpot } from "../../engine/Lean";
+import { MoveWatch } from "../../engine/Moves";
 import { navFor, NavGrid, P } from "../../engine/Nav";
 import { Area, Hotspot, Mark, PlaceDef } from "../../engine/Place";
 import { areaAt, canSee, noticeRange } from "../../engine/Sight";
@@ -329,6 +331,8 @@ export class World {
   /** r25: where each person last set off for, and props waiting for them. */
   private readonly walkTargets = new Map<string, THREE.Vector3>();
   private readonly queues = new Map<string, (() => void)[]>();
+  /** r26: the story's moves under way (storyBusy). */
+  private readonly moves = new MoveWatch();
   onThings: ((h: ThingOnScreen[]) => void) | null = null;
   /** Called when a set of things noticed changes (for the column). */
   onNoticed: ((ids: string[]) => void) | null = null;
@@ -1036,6 +1040,7 @@ export class World {
     // r25: everyone where the stage says, now: nothing left waiting.
     this.queues.clear();
     this.walkTargets.clear();
+    this.moves.clear();
     for (const [id, p] of this.people) {
       if (!actors[id]) p.root.visible = false;
     }
@@ -1057,6 +1062,8 @@ export class World {
       if (st.pose === "sit") {
         const spot = this.sitSpot(p, m);
         p.place(spot.at, spot.face, "sit", spot.seat);
+      } else if (st.pose === "lean") {
+        this.leanAt(p, m);
       } else {
         p.place(
           this.markPos(m),
@@ -1067,6 +1074,34 @@ export class World {
       }
     }
     this.snapCamera = true;
+  }
+
+  /**
+   * r26: where someone leans for a mark: their forearms on the counter in
+   * front of it, their body just clear of the edge (engine/Lean.ts), and
+   * the top's height for their arms (`seat`). Without a counter in front,
+   * at the mark.
+   */
+  /** r26: leaning at a mark now, and again if their body changes. */
+  private leanAt(p: Person, m: Mark): void {
+    const go = () => {
+      const s = this.leanSpotFor(p, m);
+      p.place(s.at, s.face, "lean", s.seat);
+    };
+    p.onRefit = go;
+    go();
+  }
+
+  private leanSpotFor(
+    p: Person,
+    m: Mark,
+  ): { at: THREE.Vector3; seat: number; face: number } {
+    const face = deg(m.face ?? 0);
+    const s = this.place
+      ? leanSpot(this.place.def, m.at[0], m.at[1], face, p.leanFit())
+      : null;
+    if (!s) return { at: this.markPos(m), seat: 0, face };
+    return { at: new THREE.Vector3(s.x, 0, s.z), seat: s.top, face: s.face };
   }
 
   /**
@@ -1199,6 +1234,7 @@ export class World {
         if (pts) {
           this.walkTargets.set(id, at.clone());
           p0.walk(pts, () => (p0.root.visible = false));
+          this.watchMove(id, p0);
           return;
         }
       }
@@ -1212,16 +1248,24 @@ export class World {
     const spot =
       st.pose === "sit"
         ? this.sitSpot(p, m)
-        : { at: this.markPos(m), seat: m.seat ?? 0, face: deg(m.face ?? 0) };
+        : st.pose === "lean"
+          ? this.leanSpotFor(p, m)
+          : { at: this.markPos(m), seat: m.seat ?? 0, face: deg(m.face ?? 0) };
     const target = spot.at;
     const face = spot.face;
     const finish = () => {
       if (st.pose === "sit") p.sitDown(spot.seat, face);
-      else p.setPose(st.pose as Pose, 0, face);
+      else p.setPose(st.pose as Pose, spot.seat, face);
+      // r26: if their body changes while they lean, they lean again.
+      p.onRefit = st.pose === "lean" ? () => this.leanAt(p, m) : null;
     };
     if (!walk || !p.root.visible || !this.place) {
       p.root.visible = true;
-      p.place(target, face, st.pose as Pose, spot.seat);
+      if (st.pose === "lean") this.leanAt(p, m);
+      else {
+        p.onRefit = null;
+        p.place(target, face, st.pose as Pose, spot.seat);
+      }
       return;
     }
     const pts = this.route(p, target.x, target.z) ?? [];
@@ -1229,6 +1273,31 @@ export class World {
     pts.push(target);
     this.walkTargets.set(id, target.clone());
     p.walk(pts, finish, face);
+    this.watchMove(id, p);
+  }
+
+  /**
+   * r26: a move the story asked for (a walk to a mark or out of the door,
+   * and sitting down or getting up at the end of it) is watched until it's
+   * done: the page holds the next line until then. One that runs far past
+   * what its walk should take is finished on the spot, so nothing can
+   * hold the story for ever.
+   */
+  private watchMove(id: string, p: Person): void {
+    this.moves.start(id, this.time, p.walkLeft);
+  }
+
+  /** r26: whether a move the story asked for is still under way. */
+  storyBusy(): boolean {
+    if (this.moves.size === 0) return false;
+    const { busy, overdue } = this.moves.check(this.time, (id) => {
+      const p = this.people.get(id);
+      return !!p && (p.settling || this.queues.has(id));
+    });
+    // Stuck (or far too slow): there now, and what came next for them runs.
+    for (const id of overdue) this.people.get(id)?.finishMove();
+    if (overdue.length > 0) this.settleQueues();
+    return busy;
   }
 
   /**

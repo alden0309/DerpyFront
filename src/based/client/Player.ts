@@ -65,6 +65,7 @@ import {
 } from "./Api";
 import { dossierBody, DossierTab, DossierView } from "./Dossier";
 import { helpBody } from "./Help";
+import { BeatHold } from "./Hold";
 import { inventoryBody, SLOT_NAMES } from "./Inventory";
 import { NotesDesk } from "./Notes";
 import { CPS, levelsOf, Prefs, savePrefs, TextSpeed } from "./Prefs";
@@ -197,6 +198,16 @@ export class BasedPlayer extends LitElement {
   @state() private card: { title: string; sub?: string } | null = null;
   @state() private placeCard: string | null = null;
   @state() private rolled = false;
+  /** r26: the beat waits for someone the story moved (afterStep). */
+  @state() private held = false;
+  private firstStep = false;
+  private readonly hold = new BeatHold<Beat>(
+    () => this.world?.storyBusy() ?? false,
+    (b) => {
+      this.held = false;
+      if (this.beat === b) this.present(b, this.firstStep);
+    },
+  );
   @state() private tab = false;
   @state() private noWorld = false;
   /** r22 BPLAY: the thing picked out in the inventory. */
@@ -342,6 +353,7 @@ export class BasedPlayer extends LitElement {
     document.removeEventListener("visibilitychange", this.onVisible);
     this.countPlayed();
     cancelAnimationFrame(this.typeFrame);
+    this.hold.cancel();
     window.clearTimeout(this.timerTimeout);
     window.clearTimeout(this.rollTimer);
     window.clearTimeout(this.talkTimer);
@@ -442,6 +454,18 @@ export class BasedPlayer extends LitElement {
     for (const e of events) this.onEvent(e, first);
     const b = this.run.beat;
     this.beat = b;
+    // r26: someone the story moved is still on the way: the next line (or
+    // choice) waits until they're there and settled (client/Hold.ts).
+    window.clearTimeout(this.timerTimeout);
+    this.timerTimeout = 0;
+    this.firstStep = first;
+    this.hold.offer(b, b.kind !== "free" && b.kind !== "end", first);
+    this.held = this.hold.held;
+    if (this.held) this.ambience.setDialogue(true);
+  }
+
+  /** The beat on the page: its line typed, its choice timed, its sounds. */
+  private present(b: Beat, first: boolean): void {
     // r25: the score steps back while there's talk or a choice on screen.
     this.ambience.setDialogue(b.kind !== "free" && b.kind !== "end");
     window.clearTimeout(this.timerTimeout);
@@ -816,7 +840,7 @@ export class BasedPlayer extends LitElement {
 
   private advance(): void {
     this.ambience.unlock();
-    if (this.overlay !== null) return;
+    if (this.overlay !== null || this.held) return;
     const b = this.beat;
     if (b.kind === "line") {
       if (this.typing) {
@@ -842,7 +866,7 @@ export class BasedPlayer extends LitElement {
   private choose(id: string): void {
     this.ambience.unlock();
     const b = this.beat;
-    if (b.kind !== "choice") return;
+    if (b.kind !== "choice" || this.held) return;
     const opt = b.options.find((o) => o.id === id);
     if (!opt || opt.check?.locked) return;
     window.clearTimeout(this.timerTimeout);
@@ -862,7 +886,7 @@ export class BasedPlayer extends LitElement {
   private timeout(): void {
     this.timerTimeout = 0;
     const b = this.beat;
-    if (b.kind !== "choice") return;
+    if (b.kind !== "choice" || this.held) return;
     const open = b.options.filter((o) => !o.check?.locked);
     const pick = open.find((o) => o.silent) ?? open[0];
     if (!pick) return;
@@ -872,21 +896,22 @@ export class BasedPlayer extends LitElement {
 
   private examine(id: string): void {
     this.ambience.unlock();
-    if (this.beat.kind !== "investigate") return;
+    if (this.beat.kind !== "investigate" || this.held) return;
     this.run.examine(id);
     this.host.seen([], [id]);
     this.afterStep();
   }
 
   private deduce(id: string): void {
-    if (this.beat.kind !== "investigate") return;
+    if (this.beat.kind !== "investigate" || this.held) return;
     this.run.deduce(id);
     this.host.seen([], [id]);
     this.afterStep();
   }
 
   private leave(): void {
-    if (this.beat.kind !== "investigate" || !this.beat.canLeave) return;
+    if (this.beat.kind !== "investigate" || !this.beat.canLeave || this.held)
+      return;
     this.run.leave();
     this.afterStep();
   }
@@ -2124,6 +2149,16 @@ export class BasedPlayer extends LitElement {
   }
 
   private renderAction(b: Beat): TemplateResult | typeof nothing {
+    // r26: someone's still on the way: a quiet sign that the scene waits.
+    if (this.held) {
+      return html`<button
+        class="mb-continue wait held"
+        disabled
+        aria-label="Waiting for them to get there"
+      >
+        …
+      </button>`;
+    }
     switch (b.kind) {
       case "line":
       case "card":

@@ -20,6 +20,7 @@
 import * as THREE from "three";
 import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { LEAN_FALLBACK, LeanShape } from "../../engine/Lean";
 import type { P } from "../../engine/Nav";
 import { RUN, WALK, Walker } from "../../engine/Walk";
 import { Look, LOOKS } from "./people/Looks";
@@ -119,6 +120,86 @@ export function measureSeat(
   if (!Number.isFinite(lo)) return null;
   // The seat's middle: under the buttocks, a little towards the knees.
   return { y: lo, back: Math.max(0.1, -hip.z - 0.1) };
+}
+
+/**
+ * r26: where a person meets a counter in the leaning clip, in their own
+ * frame (z forward, metres at their height), with the clip's feet put back
+ * under the root: `feet`, how far behind the root the clip stands them (the
+ * model is shifted forward by it while they lean, so the feet stay where
+ * they are); `front`, the furthest forward the body comes below the arms
+ * (what must clear the counter's edge); `elbow`, where the forearms start;
+ * `y`, the underside of the forearms and hands (what rests on the top).
+ */
+export type LeanFit = LeanShape;
+
+const leanFits = new Map<string, LeanFit>();
+
+/** Measures a person's lean (see LeanFit). Null without arms and feet. */
+export function measureLean(
+  model: THREE.Object3D,
+  clip: THREE.AnimationClip,
+  bone: (name: string) => THREE.Object3D | null,
+  frame: THREE.Object3D,
+): LeanFit | null {
+  const need = [
+    "lowerarm_l",
+    "lowerarm_r",
+    "hand_l",
+    "hand_r",
+    "foot_l",
+    "foot_r",
+  ].map((n) => bone(n));
+  if (need.some((b) => !b)) return null;
+  const [elL, elR, haL, haR, ftL, ftR] = need as THREE.Object3D[];
+  const balls = [bone("ball_l") ?? ftL, bone("ball_r") ?? ftR];
+  const mixer = new THREE.AnimationMixer(model);
+  const a = mixer.clipAction(clip);
+  a.play();
+  mixer.setTime(clip.duration * 0.5);
+  frame.updateMatrixWorld(true);
+  const inv = frame.matrixWorld.clone().invert();
+  const at = (o: THREE.Object3D) =>
+    o.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
+  const feet =
+    -[ftL, ftR, ...balls].map((o) => at(o).z).reduce((x, y) => x + y, 0) / 4;
+  // Each forearm from the elbow, on past the wrist to the fingertips.
+  const arm = (e: THREE.Object3D, h: THREE.Object3D) => {
+    const a = at(e);
+    const b = at(h);
+    const tip = b.clone().add(b.clone().sub(a).setLength(0.2));
+    return [a, tip] as [THREE.Vector3, THREE.Vector3];
+  };
+  const arms = [arm(elL, haL), arm(elR, haR)];
+  const elbow = Math.min(arms[0][0].z, arms[1][0].z) + feet;
+  const armTop = Math.min(arms[0][0].y, arms[1][0].y);
+  // From the mesh: the forearms' underside, and the body's front below it.
+  let lo = Infinity;
+  let front = -Infinity;
+  const v = new THREE.Vector3();
+  const seg = new THREE.Line3();
+  const near = new THREE.Vector3();
+  model.traverse((o) => {
+    const m = o as THREE.SkinnedMesh;
+    if (!m.isSkinnedMesh) return;
+    const pos = m.geometry.getAttribute("position");
+    const step = Math.max(1, Math.floor(pos.count / 12000));
+    for (let i = 0; i < pos.count; i += step) {
+      m.getVertexPosition(i, v);
+      v.applyMatrix4(m.matrixWorld).applyMatrix4(inv);
+      let onArm = false;
+      for (const [e, h] of arms) {
+        seg.set(e, h).closestPointToPoint(v, true, near);
+        if (near.distanceTo(v) < 0.08) onArm = true;
+      }
+      if (onArm) lo = Math.min(lo, v.y);
+      else if (v.y < armTop - 0.06) front = Math.max(front, v.z);
+    }
+  });
+  a.stop();
+  mixer.uncacheRoot(model);
+  if (!Number.isFinite(lo) || !Number.isFinite(front)) return null;
+  return { feet, front: front + feet, elbow, y: lo };
 }
 
 /**
@@ -892,6 +973,9 @@ export class Person {
     this.addProps();
   }
 
+  /** r26: the world's way to place them again when their body changes. */
+  onRefit: (() => void) | null = null;
+
   private setModel(
     model: THREE.Object3D,
     mats: THREE.MeshStandardMaterial[],
@@ -957,6 +1041,13 @@ export class Person {
     this.gaitMix = { walk: 0, run: 0 };
     this.setWetness(this.wet);
     this.setHighlight(this.lit);
+    // r26: a new body leans differently: once it's on, the world puts them
+    // at the counter again (onRefit).
+    if (this.pose === "lean" && !this.walker.moving && this.onRefit) {
+      queueMicrotask(() => {
+        if (this.pose === "lean" && !this.walker.moving) this.onRefit?.();
+      });
+    }
   }
 
   /**
@@ -964,6 +1055,74 @@ export class Person {
    * each body and height), so they sit on a stool or a chair, not in it or
    * above it.
    */
+  /** r26: their lean, measured once per body (see LeanFit). */
+  leanFit(): LeanFit {
+    const key = `${this.modelKey}|${this.look.height ?? 1}`;
+    let fit = leanFits.get(key);
+    if (!fit) {
+      const clip = this.clips.find((c) => c.name === "lean");
+      // Measured with the body where the clip puts it (no lean shift).
+      const z0 = this.model.position.z;
+      this.model.position.z = 0;
+      const measured = clip
+        ? measureLean(this.model, clip, (n) => this.bone(n), this.root)
+        : null;
+      this.model.position.z = z0;
+      fit = measured ?? LEAN_FALLBACK;
+      leanFits.set(key, fit);
+    }
+    return fit;
+  }
+
+  /**
+   * r26: how far to lower (or raise) them for their forearms to rest on a
+   * counter top at `top`: a few centimetres at most (the counter hides
+   * their feet).
+   */
+  private leanLift(top: number): number {
+    if (top <= 0) return 0;
+    return Math.max(-0.06, Math.min(0.03, top - this.leanFit().y));
+  }
+
+  /**
+   * r26: on the way somewhere or getting there: walking, sitting down or
+   * getting up, or turning to face what they came to.
+   */
+  get settling(): boolean {
+    return (
+      this.walker.moving ||
+      this.baseName === "sit_down" ||
+      this.baseName === "stand_up" ||
+      this.turnTo !== null
+    );
+  }
+
+  /**
+   * r26: a move that's taking too long: they're there now, in the pose
+   * they were going to (the walk's end runs as if they'd walked it).
+   */
+  finishMove(): void {
+    if (this.walker.moving) {
+      this.walker.finish();
+      this.root.position.x = this.walker.x;
+      this.root.position.z = this.walker.z;
+      this.heading = this.walker.heading;
+      this.root.rotation.y = this.heading;
+      this.arrive();
+    }
+    if (this.turnTo !== null) {
+      this.heading = this.turnTo;
+      this.root.rotation.y = this.heading;
+      this.turnTo = null;
+    }
+    if (this.baseName === "sit_down") this.setBase("sit", 0);
+    if (this.baseName === "stand_up") {
+      this.pose = "stand";
+      this.settle(0);
+    }
+    this.seatLift = this.liftTarget;
+  }
+
   seatFit(): SeatFit {
     const key = `${this.modelKey}|${this.look.height ?? 1}`;
     let fit = seatFits.get(key);
@@ -1130,7 +1289,9 @@ export class Person {
         this.setBase(this.talking ? "sit_talk" : "sit", fade);
         break;
       case "lean":
-        this.setBase(this.talking ? "talk" : "lean", fade);
+        // r26: they talk leaning, arms on the counter (the talk clip
+        // stands them up in a different place).
+        this.setBase("lean", fade);
         break;
       case "fold":
         this.setBase(this.talking ? "talk" : "fold_arms", fade);
@@ -1151,7 +1312,13 @@ export class Person {
     this.heading = heading;
     this.root.rotation.y = heading;
     this.pose = pose;
-    this.seatLift = this.liftTarget = pose === "sit" ? this.liftFor(seat) : 0;
+    // r26: a lean's `seat` is the counter top they rest their arms on.
+    this.seatLift = this.liftTarget =
+      pose === "sit"
+        ? this.liftFor(seat)
+        : pose === "lean"
+          ? this.leanLift(seat)
+          : 0;
     this.root.position.y = this.seatLift;
     this.root.visible = pose !== "hidden";
     this.baseName = "";
@@ -1168,6 +1335,7 @@ export class Person {
   walk(points: THREE.Vector3[], then?: () => void, face?: number): void {
     const go = () => {
       this.pose = "stand";
+      this.liftTarget = 0;
       const w = this.walker;
       w.x = this.root.position.x;
       w.z = this.root.position.z;
@@ -1188,6 +1356,11 @@ export class Person {
 
   get walking(): boolean {
     return this.walker.moving;
+  }
+
+  /** r26: metres of the walk still to go. */
+  get walkLeft(): number {
+    return this.walker.remaining;
   }
 
   stop(): void {
@@ -1271,6 +1444,7 @@ export class Person {
       return;
     }
     this.pose = pose;
+    this.liftTarget = pose === "lean" ? this.leanLift(seat) : 0;
     this.root.visible = pose !== "hidden";
     this.settle();
   }
@@ -1325,6 +1499,12 @@ export class Person {
       m.color.setRGB(1, 0.35 + 0.25 * f, 0.1 * f);
     }
     this.mixer.update(dt);
+    // r26: the leaning clip stands the feet behind the root; while it plays
+    // (by its weight, through the fades) the body is shifted forward so the
+    // feet stay where they are.
+    const lean = this.actions.get("lean");
+    const lw = lean?.isRunning() ? lean.getEffectiveWeight() : 0;
+    this.model.position.z = lw > 0 ? this.leanFit().feet * lw : 0;
     if (this.cloth) swingCloth(this.cloth);
     if (this.held) this.carry(this.held);
   }

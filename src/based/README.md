@@ -1121,3 +1121,34 @@ along the forearm), a baton or a furled umbrella along the line of the
 fist and a little forward; under an open umbrella his forearm comes up
 before his chest and the shaft stands straight over his head. A prop's
 grip is its origin and it runs down its -y (`heldProp` in `World.ts`).
+
+## Leaning on the counter (r26)
+
+`@actor BARMAN behind_bar lean` puts him at the counter in front of the
+mark, not on the mark itself: the leaning clip is measured on each body
+(`measureLean` in `client/world/People.ts`: where the feet are, the body's
+front below the arms, the elbows, the forearms' underside), and
+`engine/Lean.ts` finds the `bar` piece in front of the mark and stands him
+with his body a centimetre clear of the top's edge, his elbows at it and
+his forearms and hands on the top; he's lowered (or raised) the few
+centimetres to the top's height. The clip stands its feet behind its root,
+so while it plays the body is shifted forward by that much (by the clip's
+weight through the fades) and the feet stay where they are. A leaning
+person talks leaning. If their body changes (their own model loads after
+the stand-in), they're put at the counter again. `tests/based/BasedLean.test.ts`
+checks every lean in the story against the counter.
+
+## The story waits for the moves it asks for (r26)
+
+While someone the story moved (`@actor ... walk`: to a mark, onto a stool,
+out of a door, the clerk to the rope, Mr. Based to his stool) is still on
+the way, sitting down or getting up, or turning to face what they came to,
+the next line, card, check, choice or room waits: nothing advances or is
+chosen (clicks, Space or Enter, the number keys), and the continue mark
+shows a dimmed "…". It appears once they're there and settled. The world
+watches each move (`engine/Moves.ts`) and finishes one that runs far past
+what its walk should take (two and a half times its walking time plus four
+seconds, six at least, in the world's own time, so `__basedTimeScale`
+speeds it up in tests): there at once, in their pose, so a stuck walk can
+never hold the story. A loaded game, the free world and the end are never
+held (`client/Hold.ts`).
