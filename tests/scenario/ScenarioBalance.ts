@@ -37,6 +37,11 @@ const difficulty = arg("difficulty", "Medium") as Difficulty;
 const minutes = parseInt(arg("minutes", "120"), 10);
 const size = arg("size", "Normal") as GameMapSize;
 const verbose = args.includes("--verbose");
+// Overtime from this minute on (the bars sink 2 points a minute), or off.
+const overtime = parseInt(
+  arg("overtime", process.env.SCEN_OVERTIME ?? "0"),
+  10,
+);
 const ROOT = process.env.SCEN_ROOT ?? process.cwd();
 
 async function main() {
@@ -65,6 +70,9 @@ async function main() {
       instantBuild: false,
       randomSpawn: false,
       scenario: { id },
+      ...(overtime > 0
+        ? { overtime: { enabled: true, startMinutes: overtime } }
+        : {}),
     },
     players: [],
   };
