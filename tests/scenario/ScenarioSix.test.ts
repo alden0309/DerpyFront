@@ -24,48 +24,17 @@ const en = JSON.parse(
 const LINEUPS: Record<string, Record<string, string[]>> = {
   civilwar1861: {
     Union: [
-      "maine",
-      "new_hampshire",
-      "vermont",
-      "massachusetts_state",
-      "rhode_island",
-      "connecticut",
-      "new_york",
-      "new_jersey",
-      "pennsylvania",
-      "ohio",
-      "indiana",
-      "illinois",
-      "michigan",
-      "wisconsin",
-      "minnesota",
-      "iowa",
-      "missouri",
-      "kansas",
-      "california",
-      "oregon",
-      "maryland",
-      "delaware",
-      "washington_t",
-      "dakota_t",
-      "nebraska_t",
-      "colorado_t",
-      "utah_t",
-      "nevada_t",
-      "new_mexico_t",
+      "new_england",
+      "mid_atlantic",
+      "midwest",
+      "missouri_kansas",
+      "pacific",
     ],
     Confederacy: [
-      "virginia",
-      "north_carolina",
-      "south_carolina",
-      "georgia",
-      "florida",
-      "alabama",
-      "mississippi",
-      "louisiana",
-      "texas",
-      "arkansas",
-      "tennessee",
+      "virginia_nc",
+      "south_atlantic",
+      "tennessee_gulf",
+      "trans_mississippi",
     ],
     neutral: [
       "kentucky",
@@ -187,10 +156,26 @@ describe.each(Object.keys(LINEUPS))("%s line-up", (id) => {
 });
 
 describe("no Confederate flag in the Civil War", () => {
-  it("flies state flags only, and not Georgia's Stars-and-Bars design", () => {
-    const flags = scenarioData("civilwar1861")!.nations.map((n) => n.flag);
-    expect(flags).not.toContain("Confederate States");
-    expect(flags).not.toContain("Georgia_US");
+  it("flies each region's capital-state flag, the Mid-Atlantic the US flag", () => {
+    const flags = Object.fromEntries(
+      scenarioData("civilwar1861")!.nations.map((n) => [n.key, n.flag]),
+    );
+    expect(flags).toMatchObject({
+      new_england: "Massachusetts", // Boston
+      mid_atlantic: "us", // Washington, the federal capital
+      midwest: "Illinois", // Chicago
+      missouri_kansas: "Missouri", // St. Louis
+      pacific: "California", // San Francisco
+      virginia_nc: "Virginia", // Richmond
+      south_atlantic: "South_Carolina", // Charleston
+      tennessee_gulf: "Tennessee", // Nashville
+      trans_mississippi: "Louisiana", // Shreveport
+      kentucky: "Kentucky",
+    });
+    const all = Object.values(flags);
+    expect(all).not.toContain("Confederate States");
+    // Georgia's 2003 flag is drawn from the first Confederate national flag.
+    expect(all).not.toContain("Georgia_US");
   });
 });
 
@@ -203,19 +188,30 @@ const FORTS: Record<string, [string, number, number, string, string][]> = {
       "Fort Sumter and the Charleston forts",
       2168,
       1043,
-      "south_carolina",
+      "south_atlantic",
       "Defense Post",
     ],
-    ["Fort Monroe", 2281, 781, "maryland", "Defense Post"],
-    ["the defences of Washington", 2229, 680, "maryland", "Defense Post"],
-    ["Vicksburg", 1664, 1122, "mississippi", "Defense Post"],
-    ["Fort Donelson", 1784, 883, "tennessee", "Defense Post"],
-    ["Forts Jackson and St. Philip", 1742, 1282, "louisiana", "Defense Post"],
-    ["Fort Pulaski", 2128, 1090, "georgia", "Defense Post"],
-    ["the Brooklyn Navy Yard", 2334, 558, "new_york", "Port"],
-    ["the Gosport Navy Yard, Norfolk", 2284, 791, "virginia", "Port"],
-    ["the Tredegar Iron Works", 2227, 762, "virginia", "Factory"],
-    ["the Springfield Armory", 2371, 469, "massachusetts_state", "Factory"],
+    ["Fort Monroe", 2281, 781, "mid_atlantic", "Defense Post"],
+    ["the defences of Washington", 2229, 680, "mid_atlantic", "Defense Post"],
+    ["Vicksburg", 1664, 1122, "tennessee_gulf", "Defense Post"],
+    ["Fort Donelson", 1784, 883, "tennessee_gulf", "Defense Post"],
+    [
+      "Forts Jackson and St. Philip",
+      1742,
+      1282,
+      "trans_mississippi",
+      "Defense Post",
+    ],
+    ["Fort Pulaski", 2128, 1090, "south_atlantic", "Defense Post"],
+    ["the Brooklyn Navy Yard", 2334, 558, "mid_atlantic", "Port"],
+    ["the Gosport Navy Yard, Norfolk", 2284, 791, "virginia_nc", "Port"],
+    ["the Tredegar Iron Works", 2227, 762, "virginia_nc", "Factory"],
+    ["the Springfield Armory", 2371, 469, "new_england", "Factory"],
+    ["Cairo (Fort Defiance)", 1724, 859, "midwest", "Defense Post"],
+    ["Fort Leavenworth", 1472, 739, "missouri_kansas", "Defense Post"],
+    ["the Presidio", 295, 666, "pacific", "Defense Post"],
+    ["Fort Fisher", 2244, 960, "virginia_nc", "Defense Post"],
+    ["Fort Smith", 1497, 959, "trans_mississippi", "Defense Post"],
   ],
   ww1914: [
     ["Liege", 1232, 839, "belgium", "Defense Post"],
