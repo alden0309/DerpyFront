@@ -8,6 +8,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import {
   SCENARIO_EDITION,
+  scenarioEdition,
   scenarioReplayable,
 } from "@openfront/engine-api/game/Scenarios";
 import { GameConfig } from "@openfront/engine-api/Schemas";
@@ -66,7 +67,7 @@ describe("a scenario's fixed settings", () => {
     expect(target.scenario).toEqual({
       id: "colonies1776",
       seats: {},
-      edition: SCENARIO_EDITION,
+      edition: scenarioEdition("colonies1776"),
     });
     expect(target.gameMap).toBe(GameMapType.AmericanRevolutionDetailed);
     expect(target.bots).toBe(0);
@@ -104,7 +105,7 @@ describe("old scenario games", () => {
       ...testGameConfig(),
       scenario: { id: "colonies1776", seats: {} },
     });
-    expect(config.scenario!.edition).toBe(SCENARIO_EDITION);
+    expect(config.scenario!.edition).toBe(scenarioEdition("colonies1776"));
     expect(scenarioReplayable(config)).toBe(true);
     // An old saved choice of scenario still starts, on the scenario's map.
     const old = applyScenarioRules({

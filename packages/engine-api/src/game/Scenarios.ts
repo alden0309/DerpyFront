@@ -22,14 +22,32 @@ import { GameMapType } from "./GameTypes";
 export const SCENARIO_EDITION = 2;
 
 /**
+ * A scenario whose play changed after that has an edition of its own (bump
+ * it here, not SCENARIO_EDITION, when only one scenario changes): its older
+ * games are refused, the other scenarios' still replay. 3 for Thirteen
+ * Colonies 1776: the Royal Navy's blockade and Overtime from minute 40.
+ */
+const SCENARIO_EDITION_OF: Readonly<Record<string, number>> = {
+  colonies1776: 3,
+};
+
+/** The edition scenario `id`'s games are played under now. */
+export function scenarioEdition(id: string): number {
+  return Object.prototype.hasOwnProperty.call(SCENARIO_EDITION_OF, id)
+    ? SCENARIO_EDITION_OF[id]
+    : SCENARIO_EDITION;
+}
+
+/**
  * Whether a game played with this config can be replayed on this build: an
- * ordinary game always; a scenario game if it was played under this edition.
+ * ordinary game always; a scenario game if it was played under its
+ * scenario's edition now (scenarioEdition).
  */
 export function scenarioReplayable(config: {
   scenario?: { id: string; edition?: number };
 }): boolean {
   if (config.scenario === undefined) return true;
-  return (config.scenario.edition ?? 1) === SCENARIO_EDITION;
+  return (config.scenario.edition ?? 1) === scenarioEdition(config.scenario.id);
 }
 
 /** Scenario, side and nation keys: lower case, digits and _. */

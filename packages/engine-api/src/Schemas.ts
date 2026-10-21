@@ -303,8 +303,8 @@ export const ScenarioConfigSchema = z
         z.lazy(() => ID),
       )
       .optional(),
-    // The scenarios' edition it is played under (SCENARIO_EDITION; set at
-    // the start by applyScenarioRules). None: round 1's.
+    // The edition of its scenario it is played under (scenarioEdition; set
+    // at the start by applyScenarioRules). None: round 1's.
     edition: zb.uint({ min: 1, max: 1_000_000 }).optional(),
   })
   .superRefine((c, ctx) => {

@@ -1,4 +1,10 @@
 import { PlayerType, UnitType } from "@openfront/engine-api/game/GameTypes";
+import {
+  SCENARIO_EDITION,
+  scenarioEdition,
+  scenarioReplayable,
+} from "@openfront/engine-api/game/Scenarios";
+import { GameConfig } from "@openfront/engine-api/Schemas";
 import { applyScenarioRules } from "@openfront/engine-lib/scenario/ScenarioConfig";
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { Game, Player } from "@openfront/engine/game/Game";
@@ -284,41 +290,75 @@ describe("a nation's gold income (goldIncome; idea F, the blockade)", () => {
     }
   }, 120_000);
 
-  it("is 1 for a player in an ordinary game, and set by no scenario yet", () => {
+  it("is 1 for a player in an ordinary game", () => {
     const ordinary = { mg: { scenario: () => null } };
     expect(PlayerImpl.prototype.scenarioGoldIncome.call(ordinary)).toBe(1);
-    for (const id of ["colonies1776", "continental1776", "europe1939"]) {
-      for (const n of scenarioData(id)!.nations) {
-        expect(n.goldIncome, `${id} ${n.key}`).toBeUndefined();
-      }
-    }
   });
 });
 
 describe("a scenario's own Overtime (overtimeFrom; idea G)", () => {
   it("turns Overtime on from its minute, whatever the host picked", () => {
-    const data = scenarioData("colonies1776")!;
-    expect(data.overtimeFrom).toBeUndefined();
     const plain = applyScenarioRules({
-      scenario: { id: "colonies1776" },
+      scenario: { id: "continental1776" },
       overtime: { enabled: false },
     });
     expect(plain.overtime).toEqual({ enabled: false });
-    data.overtimeFrom = 40;
-    try {
-      const config = applyScenarioRules({
-        scenario: { id: "colonies1776" },
-        overtime: { enabled: false },
-      });
-      expect(config.overtime).toEqual({ enabled: true, startMinutes: 40 });
-    } finally {
-      delete data.overtimeFrom;
+    const config = applyScenarioRules({
+      scenario: { id: "colonies1776" },
+      overtime: { enabled: false },
+    });
+    expect(config.overtime).toEqual({ enabled: true, startMinutes: 40 });
+  });
+});
+
+describe("Thirteen Colonies 1776 as the owner picked it (idea E3)", () => {
+  it("has the blockade on every colony and Overtime from minute 40, and nothing else", () => {
+    const data = scenarioData("colonies1776")!;
+    expect(data.overtimeFrom).toBe(40);
+    expect(data.rule).toBeUndefined();
+    for (const n of data.nations) {
+      expect(n.goldIncome, n.key).toBe(n.side === "Patriots" ? 0.6 : undefined);
+    }
+    expect(data.nations.filter((n) => n.goldIncome === 0.6).length).toBe(13);
+    // Britain as in round 2.
+    const britain = data.nations.find((n) => n.key === "great_britain")!;
+    expect(britain.troopCapBonus).toBe(6_000_000);
+    expect(britain.troopGrowth).toBe(2);
+    expect(data.sides.find((s) => s.id === "British")!.winPercent).toBe(55);
+  });
+
+  it("leaves every other scenario as it was", () => {
+    for (const id of ["continental1776", "europe1939"]) {
+      const data = scenarioData(id)!;
+      expect(data.overtimeFrom, id).toBeUndefined();
+      for (const n of data.nations) {
+        expect(n.goldIncome, `${id} ${n.key}`).toBeUndefined();
+      }
     }
   });
 
-  it("is set by no scenario yet", () => {
-    for (const id of ["colonies1776", "continental1776", "europe1939"]) {
-      expect(scenarioData(id)!.overtimeFrom, id).toBeUndefined();
-    }
+  it("plays a colony's income at 60%, Britain's as usual", async () => {
+    const g = await scenarioGame("colonies1776");
+    const config = g.game.config();
+    expect(config.goldAdditionRate(g.nation("virginia"))).toBe(60n);
+    expect(config.goldAdditionRate(g.nation("great_britain"))).toBe(100n);
+  }, 120_000);
+
+  it("refuses its old games' replays, but not the other scenarios'", () => {
+    expect(scenarioEdition("colonies1776")).toBe(3);
+    expect(scenarioEdition("europe1939")).toBe(SCENARIO_EDITION);
+    expect(
+      scenarioReplayable({ scenario: { id: "colonies1776", edition: 2 } }),
+    ).toBe(false);
+    expect(
+      scenarioReplayable({ scenario: { id: "colonies1776", edition: 3 } }),
+    ).toBe(true);
+    expect(
+      scenarioReplayable({ scenario: { id: "europe1939", edition: 2 } }),
+    ).toBe(true);
+    const config: Partial<GameConfig> = applyScenarioRules({
+      scenario: { id: "colonies1776" },
+    });
+    expect(config.scenario!.edition).toBe(3);
   });
 });
