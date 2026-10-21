@@ -1,4 +1,5 @@
 import { PlayerType, UnitType } from "@openfront/engine-api/game/GameTypes";
+import { applyScenarioRules } from "@openfront/engine-lib/scenario/ScenarioConfig";
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { Game, Player } from "@openfront/engine/game/Game";
 import { PlayerImpl } from "@openfront/engine/game/PlayerImpl";
@@ -290,6 +291,34 @@ describe("a nation's gold income (goldIncome; idea F, the blockade)", () => {
       for (const n of scenarioData(id)!.nations) {
         expect(n.goldIncome, `${id} ${n.key}`).toBeUndefined();
       }
+    }
+  });
+});
+
+describe("a scenario's own Overtime (overtimeFrom; idea G)", () => {
+  it("turns Overtime on from its minute, whatever the host picked", () => {
+    const data = scenarioData("colonies1776")!;
+    expect(data.overtimeFrom).toBeUndefined();
+    const plain = applyScenarioRules({
+      scenario: { id: "colonies1776" },
+      overtime: { enabled: false },
+    });
+    expect(plain.overtime).toEqual({ enabled: false });
+    data.overtimeFrom = 40;
+    try {
+      const config = applyScenarioRules({
+        scenario: { id: "colonies1776" },
+        overtime: { enabled: false },
+      });
+      expect(config.overtime).toEqual({ enabled: true, startMinutes: 40 });
+    } finally {
+      delete data.overtimeFrom;
+    }
+  });
+
+  it("is set by no scenario yet", () => {
+    for (const id of ["colonies1776", "continental1776", "europe1939"]) {
+      expect(scenarioData(id)!.overtimeFrom, id).toBeUndefined();
     }
   });
 });

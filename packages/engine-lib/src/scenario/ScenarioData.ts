@@ -63,6 +63,13 @@ export interface ScenarioData {
    * something the data can't say. None of the first three need one.
    */
   rule?: string;
+  /**
+   * Overtime from this minute on, whatever the host picked (both sides' bars
+   * sink as Overtime's do): a war of endurance, where one side has to hold
+   * out and the other break through first. A balance idea under test
+   * (Thirteen Colonies 1776); no scenario sets it yet.
+   */
+  overtimeFrom?: number;
 }
 
 export interface ScenarioSide {
