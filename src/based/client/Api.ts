@@ -162,6 +162,41 @@ export async function notesFor(
   return (await api<{ notes: WriterNote[] }>(`/based/notes?${q}`)).notes;
 }
 
+/** r26: one of his notes, as the notes sheet lists it. */
+export interface MyNote {
+  id: number;
+  chapter: number;
+  scene: string;
+  sceneLabel: string;
+  note: string;
+  createdAt: string;
+  sentAt: string | null;
+  /** The note as plain text to paste to the writer. */
+  entry: string;
+}
+
+/** r26: all his notes, oldest first. */
+export async function myNotes(): Promise<MyNote[]> {
+  return (await api<{ notes: MyNote[] }>("/based/notes/all")).notes;
+}
+
+/** r26: these were copied out to the writer. */
+export async function markNotesSent(ids: number[]): Promise<number> {
+  return (
+    await api<{ marked: number }>("/based/notes/sent", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    })
+  ).marked;
+}
+
+/** r26: the ones he's sent, gone. */
+export async function clearSentNotes(): Promise<number> {
+  return (
+    await api<{ cleared: number }>("/based/notes/sent", { method: "DELETE" })
+  ).cleared;
+}
+
 const blobs = new Map<string, Promise<string>>();
 
 /** A picture, sound or model as a local object URL, fetched with the session. */

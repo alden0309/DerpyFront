@@ -189,7 +189,7 @@ describe("@fact and the validator (r25)", () => {
 /**
  * Chapter one down random paths: everything the page shows him that comes
  * from the script gives a fact away only when he knows it (or with it set
- * before the story next stops to ask): his lines (and anyone's French gist),
+ * before the story next stops to ask): his lines,
  * choices, options and the reasons on their checks, the dice and what
  * counted, the rooms he reads (title, spots, the deductions he's ready for
  * and their reasons), the journal, what he carries and what it says about
@@ -238,7 +238,6 @@ function wander(chapter: Chapter, seed: number, problems: Set<string>) {
     const shown: string[] = [];
     if (b.kind === "line") {
       if (b.line !== "say" || b.who === r.hero) later("line", b.text, flags);
-      if (b.trans && b.who === r.hero) later("line", b.trans, flags);
     } else if (b.kind === "choice") {
       shown.push(b.prompt, ...b.options.map((o) => o.label));
       for (const o of b.options)

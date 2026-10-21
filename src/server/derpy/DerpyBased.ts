@@ -34,6 +34,7 @@ import {
   validatePlaces,
 } from "../../based/engine/Validate";
 import { hasBasedAccess } from "./BasedAccess";
+import { noteEntry } from "./BasedNotes";
 import { Account, accountForToken } from "./DerpyAuth";
 import { db } from "./DerpyDb";
 
@@ -391,6 +392,33 @@ const PicksSchema = z.object({
     )
     .max(300),
 });
+
+// r26: notes copied out to the writer are marked sent (an added column,
+// put in once per process: additive, and safe on a live table).
+const SentSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1).max(5000),
+});
+let notesSentColumn: Promise<void> | null = null;
+function notesSent(): Promise<void> {
+  notesSentColumn ??= (async () => {
+    const client = await (await db()).connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock($1)", [7_317_026]);
+      await client.query(
+        "ALTER TABLE derpy_based_notes ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ",
+      );
+      await client.query("COMMIT");
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => {});
+      notesSentColumn = null;
+      throw e;
+    } finally {
+      client.release();
+    }
+  })();
+  return notesSentColumn;
+}
 
 const NoteSchema = z.object({
   chapter: z.number().int().min(1).max(99),
@@ -807,6 +835,89 @@ export function basedRouter({ handle }: BasedRouterDeps): express.Router {
           createdAt: n.created_at,
         })),
       });
+    }),
+  );
+
+  // r26: every note of his, oldest first, each as the plain text he can
+  // paste to the writer (scene, the line on screen, the choices that led
+  // there, the note, the date), and whether it's been sent.
+  router.get(
+    "/notes/all",
+    player(async (req, res) => {
+      await notesSent();
+      const r = await (
+        await db()
+      ).query(
+        `SELECT id, chapter, scene, line, path, note, created_at, sent_at
+         FROM derpy_based_notes WHERE account_id = $1
+         ORDER BY created_at, id LIMIT 2000`,
+        [req.based!.id],
+      );
+      const chapters = new Map<number, Chapter | undefined>();
+      const chapterOf = (n: number) => {
+        if (!chapters.has(n)) chapters.set(n, loadChapter(n)?.chapter);
+        return chapters.get(n);
+      };
+      res.json({
+        notes: r.rows.map((n) => {
+          const c = chapterOf(Number(n.chapter));
+          const row = {
+            chapter: Number(n.chapter),
+            scene: String(n.scene),
+            line: String(n.line ?? ""),
+            path: Array.isArray(n.path) ? (n.path as string[]) : [],
+            note: String(n.note),
+            createdAt: new Date(n.created_at),
+          };
+          return {
+            id: Number(n.id),
+            chapter: row.chapter,
+            scene: row.scene,
+            sceneLabel: c?.scenes[row.scene]?.label ?? row.scene,
+            note: row.note,
+            createdAt: row.createdAt.toISOString(),
+            sentAt: n.sent_at ? new Date(n.sent_at).toISOString() : null,
+            entry: noteEntry(row, c),
+          };
+        }),
+      });
+    }),
+  );
+
+  // Copied out: marked sent (only his own).
+  router.post(
+    "/notes/sent",
+    json,
+    player(async (req, res) => {
+      const parsed = SentSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: "invalid_ids" });
+        return;
+      }
+      await notesSent();
+      const r = await (
+        await db()
+      ).query(
+        `UPDATE derpy_based_notes SET sent_at = now()
+         WHERE account_id = $1 AND id = ANY($2::bigint[]) AND sent_at IS NULL`,
+        [req.based!.id, parsed.data.ids],
+      );
+      res.json({ marked: r.rowCount ?? 0 });
+    }),
+  );
+
+  // "Clear the ones I've sent": gone for good.
+  router.delete(
+    "/notes/sent",
+    player(async (req, res) => {
+      await notesSent();
+      const r = await (
+        await db()
+      ).query(
+        "DELETE FROM derpy_based_notes WHERE account_id = $1 AND sent_at IS NOT NULL",
+        [req.based!.id],
+      );
+      res.json({ cleared: r.rowCount ?? 0 });
     }),
   );
 

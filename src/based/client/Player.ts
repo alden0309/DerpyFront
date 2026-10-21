@@ -66,6 +66,7 @@ import {
 import { dossierBody, DossierTab, DossierView } from "./Dossier";
 import { helpBody } from "./Help";
 import { inventoryBody, SLOT_NAMES } from "./Inventory";
+import { NotesDesk } from "./Notes";
 import { CPS, levelsOf, Prefs, savePrefs, TextSpeed } from "./Prefs";
 import { Soundscape } from "./Sound";
 import {
@@ -141,6 +142,7 @@ type Overlay =
   | null
   | "menu"
   | "note"
+  | "notes"
   | "settings"
   | "log"
   | "credits"
@@ -188,6 +190,8 @@ export class BasedPlayer extends LitElement {
   @state() private noteText = "";
   @state() private noteState: "idle" | "saving" | "saved" | "failed" = "idle";
   @state() private notes: WriterNote[] = [];
+  /** r26: all his notes, to copy out to the writer. */
+  private readonly desk = new NotesDesk(() => this.requestUpdate());
   @state() private size = { w: window.innerWidth, h: window.innerHeight };
   @state() private hover: string | null = null;
   @state() private card: { title: string; sub?: string } | null = null;
@@ -1642,6 +1646,13 @@ export class BasedPlayer extends LitElement {
         .then((n) => (this.notes = n))
         .catch(() => {});
     }
+    if (o === "notes") void this.desk.load();
+  }
+
+  /** r26: the sheet of all his notes (from the menu or the note sheet). */
+  private openNotes(): void {
+    this.overlay = "notes";
+    void this.desk.load();
   }
 
   private closeOverlay(): void {
@@ -2555,7 +2566,18 @@ export class BasedPlayer extends LitElement {
                     </div>`,
                 )}
               </div>`
-            : nothing}`,
+            : nothing}
+          <div class="mb-sheet-row mb-notes-actions">
+            <button class="mb-btn" @click=${() => this.openNotes()}>
+              All your notes, to send the writer
+            </button>
+          </div>`,
+      );
+    }
+    if (o === "notes") {
+      return sheet(
+        html`${this.desk.render()}
+          <div class="mb-sheet-row">${back}</div>`,
       );
     }
     if (o === "sheet")
@@ -2672,6 +2694,7 @@ export class BasedPlayer extends LitElement {
           ${line("The story so far", "", () => (this.overlay = "log"))}
           ${line("How to play", "H", () => (this.overlay = "help"))}
           ${line("Note for the writer", "N", () => (this.overlay = "note"))}
+          ${line("Your notes for the writer", "", () => this.openNotes())}
           ${line("Settings", "", () => (this.overlay = "settings"))}
           ${line("Credits", "", () => (this.overlay = "credits"))}
           ${line(
