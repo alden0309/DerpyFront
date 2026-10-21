@@ -240,10 +240,17 @@ export const COLONIES_1776_LOYALISTS: string[] = [
   "georgia",
 ];
 
+/**
+ * The minute from which Loyalists rise (0: from the start). A capital that
+ * fell earlier and is still Britain's then counts.
+ */
+export const COLONIES_1776_LOYALISTS_FROM = { minute: 0 };
+
 /** Loyalist colonies whose capital has fallen this second join Britain. */
 function turnColonies1776Loyalists(game: Game): void {
   const scenario = game.scenario();
   if (scenario === null) return;
+  if (game.ticks() < COLONIES_1776_LOYALISTS_FROM.minute * 600) return;
   const side = scenarioPlayer(game, "great_britain")?.team() ?? null;
   if (side === null) return;
   for (const p of game.players()) {

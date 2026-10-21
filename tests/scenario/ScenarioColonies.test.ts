@@ -3,6 +3,7 @@ import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { Game, Player } from "@openfront/engine/game/Game";
 import { PlayerImpl } from "@openfront/engine/game/PlayerImpl";
 import {
+  COLONIES_1776_LOYALISTS_FROM,
   COLONIES_1776_PLACES,
   COLONIES_1776_WAVES,
   SCENARIO_RULES,
@@ -216,6 +217,22 @@ describe("Thirteen Colonies 1776: Loyalist colonies (idea C)", () => {
     expect(georgia.team()).toBe("Patriots");
     expect(massachusetts.team()).toBe("Patriots");
     expect(news).toEqual([]);
+  }, 120_000);
+
+  it("rise only from their minute, if one is set", async () => {
+    const g = await scenarioGame("colonies1776");
+    const georgia = g.nation("georgia");
+    takeCapital(g.game, georgia, g.nation("great_britain"));
+    COLONIES_1776_LOYALISTS_FROM.minute = 15;
+    try {
+      const rule = SCENARIO_RULES.colonies1776_loyalists;
+      rule.tick!(at(g.game, 15 * 600 - 10, []));
+      expect(georgia.team()).toBe("Patriots");
+      rule.tick!(at(g.game, 15 * 600, []));
+      expect(georgia.team()).toBe("British");
+    } finally {
+      COLONIES_1776_LOYALISTS_FROM.minute = 0;
+    }
   }, 120_000);
 
   it("both ideas together: the colonies1776 rule", async () => {
