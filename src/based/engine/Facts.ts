@@ -8,6 +8,13 @@
 // set earlier on every way into it. Other people's lines are theirs: they
 // can know what he doesn't.
 //
+// r26: and everything else the page shows him that comes from the script:
+// the journal (`task`), what he's given (an item's name and what it says
+// about itself), what changes his skills (`boost`), a title card, the
+// thoughts in the column (`@on think "..."`), the scenes' titles (the one
+// on screen while it plays, and the label over a thing he can look at,
+// which shows whatever he knows), and what he carries on with (`@carry`).
+//
 // The check follows each scene's ops, and the jumps between scenes, keeping
 // what's certain on every way in (conditions as clauses: `a or b` is
 // "a or b", which a fact of either flag accepts). Linear in the chapter's
@@ -322,6 +329,22 @@ export function checkFacts(chapter: Chapter): FactProblem[] {
             );
           }
         }
+      } else if (op.op === "task") {
+        if (op.text) check(op.text, k, op.src, "the journal");
+      } else if (op.op === "item") {
+        const it = chapter.items[op.key];
+        if (it && op.delta > 0) {
+          check(it.name, k, op.src, "the item");
+          check(it.about, k, op.src, "the item");
+        }
+      } else if (op.op === "boost") {
+        check(op.why, k, op.src, "the reason");
+      } else if (op.op === "news" && op.text) {
+        // The television's ticker: on the screen, so on the page.
+        check(op.text, k, op.src, "the news", learnedAt(scene, i));
+      } else if (op.op === "card") {
+        check(op.title, k, op.src, "the card");
+        if (op.sub) check(op.sub, k, op.src, "the card");
       } else if (op.op === "investigate") {
         check(op.title, k, op.src, "the look");
         for (const s of op.spots) check(s.label, k, op.src, "the spot");
@@ -342,6 +365,58 @@ export function checkFacts(chapter: Chapter): FactProblem[] {
         }
       }
     });
+  }
+
+  // r26: what isn't in a scene's flow: its title, a thought's label, the
+  // label over a thing (the first scene that looks at it names it, whatever
+  // he knows), what he carries on with.
+  const once = (
+    scene: string,
+    text: string,
+    k: Known,
+    line: number,
+    what: string,
+  ) => {
+    for (const f of factsIn(chapter, text)) {
+      if (satisfied(f, k)) continue;
+      const tag = `${scene}:${line}:${f.src}:${what}:${text}`;
+      if (seen.has(tag)) continue;
+      seen.add(tag);
+      out.push({
+        scene,
+        line,
+        message: `${what} "${text.length > 70 ? `${text.slice(0, 67)}...` : text}" gives away what he learns with ${f.flags.join(" or ")} ("${f.words[0]}"), but nothing makes sure he knows it`,
+      });
+    }
+  };
+  const named = new Set<string>();
+  for (const id of order) {
+    const sc = chapter.scenes[id];
+    const t = sc.trigger;
+    const kt = withClauses(new Set(), clausesOf(t?.cond));
+    once(id, sc.label, kt, sc.src, "the scene's title");
+    if (t?.on === "think" && t.label) {
+      once(id, t.label, kt, sc.src, "the thought");
+    }
+    if (t?.on === "look" && t.target && !named.has(t.target)) {
+      named.add(t.target);
+      once(id, sc.label, new Set(), sc.src, "the label over it");
+    }
+  }
+  // What he starts with is in his pockets before anything happens.
+  for (const it of Object.values(chapter.items)) {
+    if (it.start === undefined) continue;
+    once("@item", it.name, new Set(), 0, "what he starts with");
+    once("@item", it.about, new Set(), 0, "what he starts with");
+  }
+  for (const c of chapter.carry) {
+    once(
+      "@carry",
+      c.text,
+      withClauses(new Set(), clausesOf(c.cond)),
+      0,
+      "what he carries on with",
+    );
   }
   return out;
 }
