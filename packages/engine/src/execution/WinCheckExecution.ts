@@ -7,7 +7,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { z } from "zod";
 import { Execution, Game } from "../game/Game";
-import { scenarioWinner } from "../scenario/ScenarioRules"; // SCEN (r25)
+import { scenarioRule, scenarioWinner } from "../scenario/ScenarioRules"; // SCEN (r25)
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
 import type { ExecRecord, SnapshotReader } from "../snapshot/SnapshotContext";
 
@@ -221,6 +221,8 @@ export class WinCheckExecution implements Execution {
         maxTimerValue !== null &&
         elapsed >= maxTimerValue * 60) ||
       elapsed >= WinCheckExecution.HARD_TIME_LIMIT_SECONDS;
+    // The scenario's special rule, every second, before the check.
+    scenarioRule(this.mg)?.tick?.(this.mg);
     const winner = scenarioWinner(this.mg, elapsed, timeUp);
     if (winner === null) return;
     this.mg.setWinner(winner, this.mg.stats().stats());

@@ -61,6 +61,7 @@ import {
   within,
 } from "@openfront/engine-lib/Util";
 import { z } from "zod";
+import { scenarioRule } from "../scenario/ScenarioRules"; // SCEN (r25)
 import {
   newPlayerInfo,
   playerInfoData,
@@ -1410,8 +1411,17 @@ export class PlayerImpl implements Player {
   scenarioTroopCap(): number {
     const scenario = this.mg.scenario();
     if (scenario === null) return 0;
-    const bonus = scenario.nationOf(this)?.troopCapBonus ?? 0;
+    const bonus =
+      (scenario.nationOf(this)?.troopCapBonus ?? 0) +
+      (scenarioRule(this.mg)?.troopCapBonus?.(this.mg, this) ?? 0);
     return (bonus * 10) / (scenario.scale > 1 ? 2 : 1);
+  }
+
+  // SCEN (r25): its scenario nation's goldIncome (1: as usual).
+  scenarioGoldIncome(): number {
+    const scenario = this.mg.scenario();
+    if (scenario === null) return 1;
+    return scenario.nationOf(this)?.goldIncome ?? 1;
   }
 
   // SCEN (r25): its scenario nation's troopGrowth (1: as usual).

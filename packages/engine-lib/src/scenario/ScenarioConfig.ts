@@ -1,5 +1,5 @@
 import { GameMapType, GameMode } from "@openfront/engine-api/game/GameTypes";
-import { SCENARIO_EDITION } from "@openfront/engine-api/game/Scenarios";
+import { scenarioEdition } from "@openfront/engine-api/game/Scenarios";
 import { GameConfig } from "@openfront/engine-api/Schemas";
 import { isPlayable, ScenarioData, scenarioData } from "./ScenarioData";
 
@@ -17,7 +17,10 @@ export function applyScenarioRules<C extends Partial<GameConfig>>(
   if (data === null || config.scenario === undefined) return config;
   // Played under this edition of the scenarios (replays of others are
   // refused: scenarioReplayable).
-  config.scenario = { ...config.scenario, edition: SCENARIO_EDITION };
+  config.scenario = {
+    ...config.scenario,
+    edition: scenarioEdition(config.scenario.id),
+  };
   config.gameMap = data.map as GameMapType;
   config.gameMode = GameMode.Team;
   config.playerTeams = data.sides.length;
@@ -26,6 +29,9 @@ export function applyScenarioRules<C extends Partial<GameConfig>>(
   config.nations = "default";
   const seats = scenarioSeatCount(data);
   config.maxPlayers = Math.min(config.maxPlayers ?? seats, seats);
+  if (data.overtimeFrom !== undefined) {
+    config.overtime = { enabled: true, startMinutes: data.overtimeFrom };
+  }
   return config;
 }
 

@@ -19,6 +19,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { GameStartInfo } from "@openfront/engine-api/Schemas";
+import { applyScenarioRules } from "@openfront/engine-lib/scenario/ScenarioConfig";
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { createGameRunner } from "@openfront/engine/GameRunner";
 import { loadMapFiles } from "@openfront/shared/GameMapLoader";
@@ -37,6 +38,11 @@ const difficulty = arg("difficulty", "Medium") as Difficulty;
 const minutes = parseInt(arg("minutes", "120"), 10);
 const size = arg("size", "Normal") as GameMapSize;
 const verbose = args.includes("--verbose");
+// Overtime from this minute on (the bars sink 2 points a minute), or off.
+const overtime = parseInt(
+  arg("overtime", process.env.SCEN_OVERTIME ?? "0"),
+  10,
+);
 const ROOT = process.env.SCEN_ROOT ?? process.cwd();
 
 async function main() {
@@ -68,6 +74,12 @@ async function main() {
     },
     players: [],
   };
+  // The scenario's fixed settings, as the solo screen and the server apply
+  // them (its own Overtime among them); --overtime overrides.
+  applyScenarioRules(gameStart.config);
+  if (overtime > 0) {
+    gameStart.config.overtime = { enabled: true, startMinutes: overtime };
+  }
   const files = await loadMapFiles(
     new NodeGameMapLoader(path.join(ROOT, "resources/maps")),
     data.map,
@@ -83,6 +95,15 @@ async function main() {
       if (e.message === "events_display.scenario_joined_side") {
         joins.push(
           `${Math.round(runner.game.ticks() / 600)}m ${e.params?.name} -> ${e.params?.side} (by ${e.params?.by})`,
+        );
+      }
+      // A special rule's news (a colony changing sides, a landing).
+      if (
+        e.message === "events_display.scenario_loyalists" ||
+        e.message.startsWith("events_display.scenario_landing_")
+      ) {
+        joins.push(
+          `${Math.round(runner.game.ticks() / 600)}m ${e.message.replace("events_display.scenario_", "")} ${e.params?.name}`,
         );
       }
     }

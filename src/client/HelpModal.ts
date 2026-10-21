@@ -250,8 +250,12 @@ export class HelpModal extends BaseModal {
               ${translateText("help_modal.scenarios_desc")}
             </p>
             <!-- SCEN (r25): fronts that hold -->
-            <p class="mb-6 text-white/70 text-sm">
+            <p class="mb-2 text-white/70 text-sm">
               ${translateText("help_modal.scenarios_fronts")}
+            </p>
+            <!-- SCEN (r25): Thirteen Colonies 1776's blockade and Overtime -->
+            <p class="mb-6 text-white/70 text-sm">
+              ${translateText("help_modal.scenarios_colonies")}
             </p>
           </section>
           <!-- Hotkeys Section -->

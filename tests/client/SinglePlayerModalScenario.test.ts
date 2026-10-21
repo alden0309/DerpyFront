@@ -30,6 +30,16 @@ vi.mock("../../src/client/TerrainMapFileLoader", () => ({
   },
 }));
 
+// The map picker's cards watch their own visibility; jsdom has no observer.
+vi.stubGlobal(
+  "IntersectionObserver",
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  },
+);
+
 import "../../src/client/SinglePlayerModal";
 
 function createModal(): any {
@@ -67,6 +77,37 @@ describe("SinglePlayerModal with a scenario", () => {
     expect(info.config.bots).toBe(0);
     expect(info.config.randomSpawn).toBe(false);
     expect(info.config.disabledUnits).toEqual([UnitType.Warship]);
+  });
+
+  it("shows a scenario's own Overtime on and locked, and plays it whatever the player set", async () => {
+    const overtimeCard = (modal: any) =>
+      [...modal.querySelectorAll("toggle-input-card")].find(
+        (c: any) => c.labelKey === "game_settings.overtime",
+      ) as any;
+    const modal = createModal();
+    document.body.appendChild(modal);
+    try {
+      modal.onOpen({ scenario: "colonies1776", nation: "virginia" });
+      await modal.updateComplete;
+      const card = overtimeCard(modal);
+      expect(card.locked).toBe(true);
+      expect(card.checked).toBe(true);
+      expect(card.inputValue).toBe(40);
+      expect(typeof card.note).toBe("string");
+      expect(modal.overtime).toBe(false);
+      const events = await start(modal);
+      expect(events[0].gameStartInfo.config.overtime).toEqual({
+        enabled: true,
+        startMinutes: 40,
+      });
+      // A scenario without its own Overtime leaves the option the player's.
+      modal.onOpen({ scenario: "europe1939", nation: "france" });
+      await modal.updateComplete;
+      expect(overtimeCard(modal).locked).toBe(false);
+      expect(overtimeCard(modal).note).toBeUndefined();
+    } finally {
+      modal.remove();
+    }
   });
 
   it("an unknown nation falls back to the first playable one; no scenario, no change", async () => {

@@ -1,5 +1,11 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
-import { MessageType, Team } from "@openfront/engine-api/game/GameTypes";
+import {
+  MessageType,
+  PlayerType,
+  Team,
+  UnitType,
+} from "@openfront/engine-api/game/GameTypes";
+import { renderTroops } from "@openfront/engine-lib/Format";
 import { ScenarioSide } from "@openfront/engine-lib/scenario/ScenarioData";
 import { Game, Player } from "../game/Game";
 import { scenarioStartLabels } from "./ScenarioLabels";
@@ -47,6 +53,22 @@ export interface ScenarioRule {
    * while.
    */
   attackFactor?(game: Game, attacker: Player, defender: Player): number;
+  /**
+   * Every second (each side win check, every 10 ticks), just before the
+   * check: for what happens at a time (reinforcements landing) or when
+   * something changes hands. Like the other hooks it works from the game's
+   * state and its tick count alone and keeps nothing of its own, so a game
+   * restored from a snapshot plays on the same.
+   */
+  tick?(game: Game): void;
+  /**
+   * Troops (counted as the data counts them, like troopCapBonus) that
+   * `player`'s troop cap is raised by now, on top of its data's
+   * troopCapBonus: an army that grows as the war goes on. Like the rest,
+   * from the game's state and tick count alone. Engine only for now: a
+   * client's troop bar shows the data's cap (a balance idea under test).
+   */
+  troopCapBonus?(game: Game, player: Player): number;
 }
 
 /**
@@ -75,8 +97,207 @@ export const EUROPE_1939_HOLD_TICKS: Record<string, number> = {
   united_kingdom: 10 * 600,
 };
 
+/**
+ * Thirteen Colonies 1776, a balance idea put to the owner (no scenario's data
+ * names this rule yet, so nothing plays it): Britain's reinforcements from
+ * overseas, Howe's regiments and the Hessians, land in waves. A wave lands
+ * at the first of its places Britain's side still holds (a tile of it
+ * within LANDING_REACH full-size tiles), else at Quebec, and joins Britain's
+ * troops; everyone hears. Troops are counted as the data counts them
+ * (troopCapBonus): a tenth of the engine's. A wave can take Britain over its
+ * troop cap for a while; the excess drains back as any troops over the cap
+ * do. Tuned with the balance runs (exported so they can try other waves).
+ */
+export const COLONIES_1776_PLACES: Record<string, readonly [number, number]> = {
+  staten_island: [927, 923],
+  new_york: [934, 909],
+  charleston: [483, 1920],
+  quebec: [1039, 141],
+};
+export interface Colonies1776Wave {
+  minute: number;
+  troops: number;
+  /**
+   * How much the wave raises Britain's troop cap for good, from its minute
+   * on, wherever it lands (0 or absent: it only brings troops).
+   */
+  cap?: number;
+  /** Where it lands: the first of these Britain's side holds, else Quebec. */
+  at: readonly string[];
+}
+export const COLONIES_1776_WAVES: Colonies1776Wave[] = [
+  { minute: 10, troops: 1_000_000, at: ["staten_island", "new_york"] },
+  { minute: 20, troops: 1_000_000, at: ["staten_island", "new_york"] },
+  {
+    minute: 30,
+    troops: 1_000_000,
+    at: ["charleston", "staten_island", "new_york"],
+  },
+  {
+    minute: 40,
+    troops: 1_000_000,
+    at: ["charleston", "staten_island", "new_york"],
+  },
+];
+const LANDING_REACH = 8;
+/** The news line for a landing at each place. */
+const LANDING_NEWS: Record<string, string> = {
+  staten_island: "events_display.scenario_landing_staten_island",
+  new_york: "events_display.scenario_landing_new_york",
+  charleston: "events_display.scenario_landing_charleston",
+  quebec: "events_display.scenario_landing_quebec",
+};
+
+/** The player playing scenario nation `key`, if any. */
+function scenarioPlayer(game: Game, key: string): Player | null {
+  const scenario = game.scenario();
+  if (scenario === null) return null;
+  for (const p of game.players()) {
+    if (scenario.nationOf(p)?.key === key) return p;
+  }
+  return null;
+}
+
+/** Whether `side` holds a tile within LANDING_REACH of full-size pixel `at`. */
+function sideHoldsNear(
+  game: Game,
+  side: Team,
+  at: readonly [number, number],
+): boolean {
+  const scenario = game.scenario();
+  if (scenario === null) return false;
+  const [cx, cy] = scenario.px(at);
+  const r = Math.ceil(LANDING_REACH / scenario.scale);
+  for (let y = cy - r; y <= cy + r; y++) {
+    for (let x = cx - r; x <= cx + r; x++) {
+      if (!game.isValidCoord(x, y)) continue;
+      const owner = game.owner(game.ref(x, y));
+      if (owner.isPlayer() && owner.team() === side) return true;
+    }
+  }
+  return false;
+}
+
+/** How much the waves landed so far have raised Britain's troop cap. */
+function colonies1776WaveCap(game: Game, player: Player): number {
+  if (game.scenario()?.nationOf(player)?.key !== "great_britain") return 0;
+  const t = game.ticks();
+  let cap = 0;
+  for (const wave of COLONIES_1776_WAVES) {
+    if (t >= wave.minute * 600) cap += wave.cap ?? 0;
+  }
+  return cap;
+}
+
+/** The wave due this second, if any, lands. */
+function landColonies1776Waves(game: Game): void {
+  const t = game.ticks();
+  for (const wave of COLONIES_1776_WAVES) {
+    const due = wave.minute * 600;
+    // The hook runs every 10 ticks: exactly one run falls in the window.
+    if (t < due || t >= due + 10) continue;
+    const britain = scenarioPlayer(game, "great_britain");
+    if (britain === null || !britain.isAlive()) return;
+    const side = britain.team();
+    if (side === null) return;
+    const place = [...wave.at, "quebec"].find((k) => {
+      const at = COLONIES_1776_PLACES[k];
+      return (
+        at !== undefined &&
+        LANDING_NEWS[k] !== undefined &&
+        sideHoldsNear(game, side, at)
+      );
+    });
+    if (place === undefined) continue;
+    const scale = game.scenario()?.scale ?? 1;
+    const troops = (wave.troops * 10) / (scale > 1 ? 2 : 1);
+    britain.addTroops(troops);
+    game.displayMessage(
+      LANDING_NEWS[place],
+      MessageType.NAVAL_INVASION_INBOUND,
+      null,
+      undefined,
+      { name: britain.displayName(), troops: renderTroops(troops) },
+      undefined,
+      britain.id(),
+    );
+  }
+}
+
+/**
+ * Thirteen Colonies 1776, balance idea C (no data names it yet): Loyalist
+ * colonies. A computer-run colony among these whose capital falls to
+ * Britain's side (its capital gone, and the spot it started on held by
+ * Britain's side) joins Britain's side for good, and everyone hears. A
+ * player's colony never changes sides. New York and the south, where the
+ * Loyalists were strongest.
+ */
+export const COLONIES_1776_LOYALISTS: string[] = [
+  "new_york",
+  "new_jersey",
+  "north_carolina",
+  "south_carolina",
+  "georgia",
+];
+
+/**
+ * The minute from which Loyalists rise (0: from the start). A capital that
+ * fell earlier and is still Britain's then counts.
+ */
+export const COLONIES_1776_LOYALISTS_FROM = { minute: 0 };
+
+/** Loyalist colonies whose capital has fallen this second join Britain. */
+function turnColonies1776Loyalists(game: Game): void {
+  const scenario = game.scenario();
+  if (scenario === null) return;
+  if (game.ticks() < COLONIES_1776_LOYALISTS_FROM.minute * 600) return;
+  const side = scenarioPlayer(game, "great_britain")?.team() ?? null;
+  if (side === null) return;
+  for (const p of game.players()) {
+    const key = scenario.nationOf(p)?.key;
+    if (key === undefined || !COLONIES_1776_LOYALISTS.includes(key)) continue;
+    if (p.type() !== PlayerType.Nation || !p.isAlive()) continue;
+    if (p.team() === null || p.team() === side) continue;
+    if (p.units(UnitType.Capital).length > 0) continue;
+    const spawn = p.spawnTile();
+    if (spawn === undefined) continue;
+    const holder = game.owner(spawn);
+    if (!holder.isPlayer() || holder.team() !== side) continue;
+    p.setTeam(side);
+    game.displayMessage(
+      "events_display.scenario_loyalists",
+      MessageType.ALLIANCE_ACCEPTED,
+      null,
+      undefined,
+      { name: p.displayName(), side },
+      undefined,
+      p.id(),
+    );
+  }
+}
+
 /** The special rules, by name. Add one here and name it in the data. */
 export const SCENARIO_RULES: Record<string, ScenarioRule> = {
+  // Thirteen Colonies 1776's balance ideas, one by one and together (no
+  // data names them until the owner picks).
+  colonies1776_waves: {
+    tick: (game) => {
+      landColonies1776Waves(game);
+    },
+    troopCapBonus: colonies1776WaveCap,
+  },
+  colonies1776_loyalists: {
+    tick: (game) => {
+      turnColonies1776Loyalists(game);
+    },
+  },
+  colonies1776: {
+    tick: (game) => {
+      landColonies1776Waves(game);
+      turnColonies1776Loyalists(game);
+    },
+    troopCapBonus: colonies1776WaveCap,
+  },
   europe1939: {
     holdsFire: (game, nation) => {
       const key = game.scenario()?.nationOf(nation)?.key;

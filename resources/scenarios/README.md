@@ -63,6 +63,7 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   "capitalFullTiles": 40000, // optional, see Capitals
   "fronts": { "supplyMax": 2.5 }, // optional, see Fronts
   "rule": "korea", // optional special rule (ScenarioRules.ts)
+  "overtimeFrom": 40, // optional: Overtime from minute 40, whatever the host picked
   "sides": [
     { "id": "Axis", "name": "Axis", "color": "#7d7d7d", "winPercent": 40 },
   ],
@@ -77,6 +78,7 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
       "gold": 2000000, // starting gold
       "troopCapBonus": 700000, // optional: troops added to its cap
       "troopGrowth": 1.5, // optional: troops grow back 1.5 times as fast
+      "goldIncome": 0.6, // optional: earns 60% of the usual gold
       "capital": [1572, 760], // map pixel of its capital
       "structures": [
         // optional, built and finished at the start
@@ -121,6 +123,14 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   faster in all than one big nation with the same troops, and a lone great
   power facing many needs this (1776: Britain against thirteen colonies).
   Tune it with the balance runs, with `troopCapBonus`.
+- **goldIncome** (optional, default 1) multiplies a nation's gold income:
+  trade ships, trains and the steady income. A blockade's 0.6: Thirteen
+  Colonies 1776's colonies, whose trade among thirteen friendly colonies
+  otherwise pays for cities enough to outgrow Britain's army.
+- **overtimeFrom** (optional) turns Overtime on from that minute, whatever
+  the host picked: both sides' bars sink 2 points a minute from then on, so
+  a side that is holding out wins if the other can't break through first
+  (Thirteen Colonies 1776: from minute 40).
 - **Structures:** `City`, `Port`, `Factory`, `Defense Post`, `Missile Silo`,
   `SAM Launcher`, with an optional `level`. Each stands at the nearest place
   its owner may build one (on its own land, a port on the coast, 15 tiles
@@ -176,10 +186,14 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
 (`SCENARIO_EDITION` in `packages/engine-api/src/game/Scenarios.ts`, set by
 `applyScenarioRules`), and a replay of a game from another edition is
 refused like one from another build (its war would not play the same).
-Bump it when you change how an existing scenario plays (its data, its
-rule, the front rules' defaults). Adding a new scenario needs no bump.
-Edition 2 (round 2) moved the 1776 scenarios to American Revolution -
-Detailed and added the fronts, the 1939 forts and the purges.
+Bump it when you change how the scenarios play (the front rules' defaults,
+the engine's scenario rules). When only one scenario's play changes (its
+data or its rule), give that scenario an edition of its own instead
+(`SCENARIO_EDITION_OF` there): its older games are refused, the others'
+still replay. Adding a new scenario needs no bump. Edition 2 (round 2)
+moved the 1776 scenarios to American Revolution - Detailed and added the
+fronts, the 1939 forts and the purges; Thirteen Colonies 1776's own
+edition 3 added the blockade and Overtime from minute 40.
 
 1. Write its recipe and build it with the border tools (projection fit for a
    new map, borders, capitals, structures), or write the JSON by hand.
