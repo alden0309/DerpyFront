@@ -17,9 +17,9 @@
       "id": "Central",
       "name": "Central Powers",
       "color": "#6e6e6e",
-      "winPercent": 35
+      "winPercent": 38
     },
-    { "id": "Entente", "name": "Entente", "color": "#3f7fd6", "winPercent": 66 }
+    { "id": "Entente", "name": "Entente", "color": "#3f7fd6", "winPercent": 70 }
   ],
   "nations": [
     {
