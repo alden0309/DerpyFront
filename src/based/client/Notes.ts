@@ -113,14 +113,17 @@ export class NotesDesk {
     this.changed();
   }
 
-  render(): TemplateResult {
+  /** In a sheet in the game, or as a page of its own (the title's). */
+  render(page = false): TemplateResult {
     const fresh = this.fresh.length;
     const sent = this.sent.length;
     const all = this.notes.length;
     const busy = this.state === "busy" || this.state === "loading";
     const list = [...this.notes].reverse();
     return html`<div class="mb-notes-desk">
-      <h2>Your notes for the writer</h2>
+      ${page
+        ? html`<h1 class="mb-h1">Your notes for the writer</h1>`
+        : html`<h2>Your notes for the writer</h2>`}
       <p class="mb-sheet-sub">
         ${this.state === "loading"
           ? "Fetching your notes…"

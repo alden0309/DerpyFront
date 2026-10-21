@@ -2225,11 +2225,6 @@ kbd {
   line-height: 20px;
   background: #e7ebe5;
 }
-.mb-notes-page {
-  margin: 0 auto;
-  box-shadow: none;
-  max-height: none;
-}
 
 /* Credits. */
 .mb-credits {

@@ -392,7 +392,7 @@ export class BasedApp extends LitElement {
             <button class="mb-back" @click=${() => (this.screen = "title")}>
               ← Mr. Based
             </button>
-            <div class="mb-sheet mb-notes-page">${this.desk.render()}</div>
+            ${this.desk.render(true)}
           </main>`;
       case "setup":
         return html`<derp-bar page="home"></derp-bar>
