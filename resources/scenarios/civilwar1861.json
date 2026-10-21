@@ -28,8 +28,9 @@
       "flag": "Massachusetts",
       "side": "Union",
       "color": "#5d86d2",
-      "troopsPercent": 55,
+      "troopsPercent": 61,
       "gold": 1090000,
+      "troopCapBonus": 80000,
       "capital": [2427, 440],
       "structures": [
         { "type": "City", "at": [2421, 472] },
@@ -55,8 +56,9 @@
       "flag": "us",
       "side": "Union",
       "color": "#1f3f8f",
-      "troopsPercent": 65,
+      "troopsPercent": 67,
       "gold": 1700000,
+      "troopCapBonus": 300000,
       "capital": [2229, 683],
       "structures": [
         { "type": "City", "at": [2331, 558], "level": 3 },
@@ -99,8 +101,9 @@
       "flag": "Illinois",
       "side": "Union",
       "color": "#6e94da",
-      "troopsPercent": 60,
+      "troopsPercent": 73,
       "gold": 1700000,
+      "troopCapBonus": 1320000,
       "capital": [1768, 584],
       "structures": [
         { "type": "City", "at": [1913, 722], "level": 2 },
@@ -133,8 +136,9 @@
       "flag": "Missouri",
       "side": "Union",
       "color": "#2c4f9e",
-      "troopsPercent": 50,
+      "troopsPercent": 66,
       "gold": 660000,
+      "troopCapBonus": 1220000,
       "capital": [1673, 771],
       "structures": [
         { "type": "City", "at": [1487, 751] },
@@ -159,8 +163,9 @@
       "flag": "California",
       "side": "Union",
       "color": "#5f8ea8",
-      "troopsPercent": 45,
+      "troopsPercent": 66,
       "gold": 930000,
+      "troopCapBonus": 1550000,
       "capital": [297, 669],
       "structures": [
         { "type": "City", "at": [348, 635] },
@@ -189,7 +194,7 @@
       "color": "#8a8a8a",
       "troopsPercent": 100,
       "gold": 700000,
-      "troopCapBonus": 3125000,
+      "troopCapBonus": 1490000,
       "capital": [2227, 761],
       "structures": [
         { "type": "City", "at": [2232, 778] },
@@ -216,7 +221,7 @@
       "color": "#b0b0b0",
       "troopsPercent": 100,
       "gold": 670000,
-      "troopCapBonus": 1925000,
+      "troopCapBonus": 1010000,
       "capital": [2164, 1041],
       "structures": [
         { "type": "City", "at": [1955, 1018] },
@@ -243,7 +248,7 @@
       "color": "#5f5f5f",
       "troopsPercent": 100,
       "gold": 700000,
-      "troopCapBonus": 2100000,
+      "troopCapBonus": 1085000,
       "capital": [1833, 897],
       "structures": [
         { "type": "City", "at": [1693, 964] },
@@ -268,7 +273,7 @@
       "color": "#9a9a9a",
       "troopsPercent": 100,
       "gold": 700000,
-      "troopCapBonus": 1575000,
+      "troopCapBonus": 890000,
       "capital": [1530, 1118],
       "structures": [
         { "type": "City", "at": [1710, 1252], "level": 2 },
