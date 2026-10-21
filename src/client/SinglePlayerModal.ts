@@ -50,7 +50,10 @@ import {
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 // SCEN (r25)
 import { applyScenarioRules } from "@openfront/engine-lib/scenario/ScenarioConfig";
-import { renderScenarioPanel } from "./scenario/ScenarioPanel";
+import {
+  renderScenarioPanel,
+  scenarioOvertimeFrom,
+} from "./scenario/ScenarioPanel";
 import { ScenarioPick, scenarioPickFromArgs } from "./scenario/ScenarioPick";
 
 /**
@@ -421,6 +424,8 @@ export class SinglePlayerModal extends BaseModal {
   }
 
   protected renderBody() {
+    // SCEN (r25): a scenario that sets its own Overtime locks the option.
+    const lockedOvertime = scenarioOvertimeFrom(this.scenario);
     const inputCards = [
       html`<toggle-input-card
         .labelKey=${"game_settings.max_timer"}
@@ -487,11 +492,17 @@ export class SinglePlayerModal extends BaseModal {
       ></toggle-input-card>`,
       html`<toggle-input-card
         .labelKey=${"game_settings.overtime"}
-        .checked=${this.overtime}
+        .checked=${lockedOvertime !== undefined || this.overtime}
+        .locked=${lockedOvertime !== undefined}
+        .note=${lockedOvertime === undefined
+          ? undefined
+          : translateText("game_settings.overtime_scenario", {
+              minutes: lockedOvertime,
+            })}
         .inputMin=${1}
         .inputMax=${120}
         .inputStep=${1}
-        .inputValue=${this.overtimeStartMinutes}
+        .inputValue=${lockedOvertime ?? this.overtimeStartMinutes}
         .inputAriaLabel=${translateText("game_settings.overtime")}
         .inputPlaceholder=${translateText("game_settings.mins_placeholder")}
         .defaultInputValue=${30}

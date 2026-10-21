@@ -20,6 +20,12 @@ export class ToggleInputCard extends LitElement {
   @property({ attribute: false }) zeroLabel?: string;
   @property({ attribute: false }) defaultInputValue?: number | string;
   @property({ attribute: false }) minValidOnEnable?: number;
+  /**
+   * SCEN (r25): fixed by the scenario: shown as it is, not changeable, with
+   * `note` under it saying why.
+   */
+  @property({ type: Boolean, attribute: false }) locked = false;
+  @property({ attribute: false }) note?: string;
   @property({ attribute: false }) onToggle?: (
     checked: boolean,
     value: number | string | undefined,
@@ -88,6 +94,7 @@ export class ToggleInputCard extends LitElement {
   }
 
   private handleCardClick = () => {
+    if (this.locked) return;
     this.emitToggle();
   };
 
@@ -97,6 +104,7 @@ export class ToggleInputCard extends LitElement {
         <button
           type="button"
           aria-pressed=${this.checked}
+          ?disabled=${this.locked}
           @click=${this.handleCardClick}
           class="w-full h-full p-3 flex flex-col items-center justify-between gap-2 focus:outline-none"
         >
@@ -156,12 +164,22 @@ export class ToggleInputCard extends LitElement {
             class=${INPUT_CLASS}
             aria-label=${this.inputAriaLabel ?? nothing}
             placeholder=${this.inputPlaceholder ?? nothing}
+            ?disabled=${this.locked}
             @input=${this.onInput}
             @change=${this.onChange}
             @keydown=${this.onKeyDown}
           />
+          ${this.note !== undefined
+            ? html`<div
+                class="pointer-events-none absolute left-0 right-0 top-full mt-0.5 text-center text-[10px] leading-none text-white/70"
+                data-toggle-note
+              >
+                ${this.note}
+              </div>`
+            : nothing}
           ${this.checked &&
           this.zeroLabel !== undefined &&
+          this.note === undefined &&
           this.toOptionalNumber(this.inputValue) === 0
             ? html`<div
                 class="pointer-events-none absolute left-0 right-0 top-full mt-0.5 text-center text-[10px] leading-none text-white/70"

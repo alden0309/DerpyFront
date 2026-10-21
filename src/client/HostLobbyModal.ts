@@ -67,7 +67,10 @@ import {
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { SendScenarioSeatIntentEvent } from "./LobbyEvents";
 import { boardSeats } from "./scenario/ScenarioNationBoard";
-import { renderScenarioPanel } from "./scenario/ScenarioPanel";
+import {
+  renderScenarioPanel,
+  scenarioOvertimeFrom,
+} from "./scenario/ScenarioPanel";
 import { ScenarioPick, scenarioPickFromArgs } from "./scenario/ScenarioPick";
 
 @customElement("host-lobby-modal")
@@ -471,6 +474,8 @@ export class HostLobbyModal extends BaseModal {
   }
 
   protected renderBody() {
+    // SCEN (r25): a scenario that sets its own Overtime locks the option.
+    const lockedOvertime = scenarioOvertimeFrom(this.scenario);
     const secondsRemaining =
       this.lobbyStartAt !== null
         ? getSecondsUntilServerTimestamp(
@@ -570,11 +575,17 @@ export class HostLobbyModal extends BaseModal {
       ></toggle-input-card>`,
       html`<toggle-input-card
         .labelKey=${"game_settings.overtime"}
-        .checked=${this.overtime}
+        .checked=${lockedOvertime !== undefined || this.overtime}
+        .locked=${lockedOvertime !== undefined}
+        .note=${lockedOvertime === undefined
+          ? undefined
+          : translateText("game_settings.overtime_scenario", {
+              minutes: lockedOvertime,
+            })}
         .inputMin=${1}
         .inputMax=${120}
         .inputStep=${1}
-        .inputValue=${this.overtimeStartMinutes}
+        .inputValue=${lockedOvertime ?? this.overtimeStartMinutes}
         .inputAriaLabel=${translateText("game_settings.overtime")}
         .inputPlaceholder=${translateText("game_settings.mins_placeholder")}
         .defaultInputValue=${30}

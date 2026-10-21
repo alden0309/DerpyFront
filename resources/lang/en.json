@@ -1410,6 +1410,7 @@
     "nations": "Nations: ",
     "options": "Options",
     "overtime": "Overtime after (minutes)",
+    "overtime_scenario": "On from minute {minutes} in this scenario",
     "random_spawn": "Random spawn",
     "start": "Start Game",
     "starting": "Starting…",
