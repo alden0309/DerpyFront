@@ -1,0 +1,240 @@
+{
+  "id": "AmericanRevolutionDetailed",
+  "name": "American Revolution - Detailed",
+  "translation_key": "map.americanrevolutiondetailed",
+  "categories": ["new", "north_america"],
+  "multiplayer_frequency": 0,
+  "min_lake_size": 20,
+  "nations": [
+    {
+      "coordinates": [1136, 590],
+      "name": "New Hampshire",
+      "flag": "New_Hampshire"
+    },
+    {
+      "coordinates": [1142, 673],
+      "name": "Massachusetts Bay",
+      "flag": "Massachusetts (Naval)"
+    },
+    {
+      "coordinates": [1131, 743],
+      "name": "Rhode Island",
+      "flag": "Rhode_Island"
+    },
+    {
+      "coordinates": [1024, 772],
+      "name": "Connecticut",
+      "flag": "Connecticut"
+    },
+    {
+      "coordinates": [903, 764],
+      "name": "New York",
+      "flag": "New_York"
+    },
+    {
+      "coordinates": [889, 956],
+      "name": "New Jersey",
+      "flag": "New_Jersey"
+    },
+    {
+      "coordinates": [798, 1012],
+      "name": "Pennsylvania",
+      "flag": "Pennsylvania"
+    },
+    {
+      "coordinates": [819, 1115],
+      "name": "Delaware",
+      "flag": "Delaware"
+    },
+    {
+      "coordinates": [722, 1143],
+      "name": "Maryland",
+      "flag": "Maryland"
+    },
+    {
+      "coordinates": [649, 1320],
+      "name": "Virginia",
+      "flag": "Virginia"
+    },
+    {
+      "coordinates": [722, 1607],
+      "name": "North Carolina",
+      "flag": "North_Carolina"
+    },
+    {
+      "coordinates": [462, 1905],
+      "name": "South Carolina",
+      "flag": "Moultrie Flag"
+    },
+    {
+      "coordinates": [364, 2019],
+      "name": "Georgia",
+      "flag": "Georgia (1775)"
+    },
+    {
+      "coordinates": [827, 662],
+      "name": "Kanien'kehá:ka (Mohawk)",
+      "flag": "Kanienkehaka"
+    },
+    {
+      "coordinates": [746, 651],
+      "name": "Onyota'a:ka (Oneida)",
+      "flag": "Onyotaaka"
+    },
+    {
+      "coordinates": [704, 671],
+      "name": "Onöñda'gega' (Onondaga)",
+      "flag": "Haudenosaunee"
+    },
+    {
+      "coordinates": [665, 690],
+      "name": "Gayogohó:no' (Cayuga)",
+      "flag": "Gayogohono"
+    },
+    {
+      "coordinates": [565, 712],
+      "name": "Onödowá'ga: (Seneca)",
+      "flag": "Onodowaga"
+    },
+    {
+      "coordinates": [770, 765],
+      "name": "Skarù:re' (Tuscarora)",
+      "flag": "Skarure"
+    },
+    {
+      "coordinates": [1290, 317],
+      "name": "Penawahpskewi (Penobscot)",
+      "flag": "Penawahpskewi"
+    },
+    {
+      "coordinates": [1418, 287],
+      "name": "Peskotomuhkati",
+      "flag": "Peskotomuhkati"
+    },
+    {
+      "coordinates": [1284, 99],
+      "name": "Wolastoqiyik (Maliseet)",
+      "flag": "Wolastoqiyik"
+    },
+    {
+      "coordinates": [936, 406],
+      "name": "Alnôbak (Abenaki)",
+      "flag": "Alnobak"
+    },
+    {
+      "coordinates": [966, 719],
+      "name": "Muhheconneok (Mohican)",
+      "flag": "Muhheconneok"
+    },
+    {
+      "coordinates": [953, 781],
+      "name": "Schaghticoke",
+      "flag": "Schaghticoke"
+    },
+    {
+      "coordinates": [1125, 792],
+      "name": "Narragansett",
+      "flag": "Narragansett"
+    },
+    {
+      "coordinates": [1086, 790],
+      "name": "Mohegan",
+      "flag": "Mohegan"
+    },
+    {
+      "coordinates": [1226, 744],
+      "name": "Wôpanâak (Wampanoag)",
+      "flag": "Wopanaak"
+    },
+    {
+      "coordinates": [1102, 702],
+      "name": "Nipmuc",
+      "flag": "Nipmuc"
+    },
+    {
+      "coordinates": [1068, 865],
+      "name": "Shinnecock",
+      "flag": "Shinnecock"
+    },
+    {
+      "coordinates": [851, 1177],
+      "name": "Nanticoke",
+      "flag": "Nanticoke"
+    },
+    {
+      "coordinates": [705, 1311],
+      "name": "Pamunkey",
+      "flag": "Pamunkey"
+    },
+    {
+      "coordinates": [707, 1425],
+      "name": "Cheroenhaka (Nottoway)",
+      "flag": "Cheroenhaka"
+    },
+    {
+      "coordinates": [219, 1036],
+      "name": "Lenape",
+      "flag": "Lenape"
+    },
+    {
+      "coordinates": [115, 1146],
+      "name": "Shaawanwaki (Shawnee)",
+      "flag": "Shawnee"
+    },
+    {
+      "coordinates": [117, 1044],
+      "name": "Mingo",
+      "flag": "Mingo"
+    },
+    {
+      "coordinates": [97, 931],
+      "name": "Wendat (Wyandot)",
+      "flag": "Wendat"
+    },
+    {
+      "coordinates": [63, 635],
+      "name": "Ojibwe (Chippewa)",
+      "flag": "Anishinaabe"
+    },
+    {
+      "coordinates": [44, 1617],
+      "name": "Tsalagi (Overhill Towns)",
+      "flag": "Cherokee Nation"
+    },
+    {
+      "coordinates": [170, 1701],
+      "name": "Tsalagi (Lower Towns)",
+      "flag": "Cherokee Nation"
+    },
+    {
+      "coordinates": [374, 1672],
+      "name": "Iswa (Catawba)",
+      "flag": "Iswa"
+    },
+    {
+      "coordinates": [77, 1982],
+      "name": "Mvskoke (Creek)",
+      "flag": "Mvskoke"
+    },
+    {
+      "coordinates": [270, 2329],
+      "name": "Yat'siminoli (Seminole)",
+      "flag": "Seminole"
+    },
+    {
+      "coordinates": [85, 2217],
+      "name": "Mikasuki (Miccosukee)",
+      "flag": "Miccosukee"
+    },
+    {
+      "coordinates": [1034, 137],
+      "name": "Province of Quebec",
+      "flag": "union_flag_1707"
+    },
+    {
+      "coordinates": [1409, 200],
+      "name": "Nova Scotia",
+      "flag": "novascotia"
+    }
+  ]
+}

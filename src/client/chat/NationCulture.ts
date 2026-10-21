@@ -793,6 +793,7 @@ const MAP_VOICES = new Map<string, string>([
 const COLONIAL_MAPS = new Set<string>([
   GameMapType.ThirteenColonies,
   GameMapType.ThirteenColoniesDetailed,
+  GameMapType.AmericanRevolutionDetailed, // SCEN (r25)
 ]);
 
 const COLONY_FLAGS = new Set(
@@ -828,6 +829,9 @@ const NAME_VOICES: [RegExp, string][] = [
   ],
   [/\b(kuwait|oman|muscat|trucial|qatar|bahrain)\b/i, "gulf"],
   [/pirate/i, "pirate"],
+  // SCEN (r25): American Revolution - Detailed's Province of Quebec flies
+  // the Union Flag but speaks French.
+  [/\bprovince of quebec\b/i, "quebecois"],
 ];
 
 /**

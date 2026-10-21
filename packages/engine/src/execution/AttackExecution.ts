@@ -24,6 +24,7 @@ import {
 import { z } from "zod";
 import { AttackLogicInput } from "../configuration/EngineConfig";
 import { Attack, Execution, Game, Player } from "../game/Game";
+import { scenarioAttackFactor } from "../scenario/ScenarioFronts"; // SCEN (r25)
 import { onScenarioHostility } from "../scenario/ScenarioRules"; // SCEN (r25)
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
 import type {
@@ -335,8 +336,19 @@ export class AttackExecution implements Execution {
         .attackLogic(
           this.attackLogicInput(troopCount, tileToConquer, borderSize),
         );
-      tickBudget -= tickFraction;
-      troopCount -= attackerTroopLoss;
+      // SCEN (r25): fronts that hold (homeland, supply lines); 1 in
+      // ordinary games.
+      const front =
+        targetPlayer && this.mg.scenario() !== null
+          ? scenarioAttackFactor(
+              this.mg,
+              this._owner,
+              targetPlayer,
+              tileToConquer,
+            )
+          : 1;
+      tickBudget -= tickFraction * front;
+      troopCount -= attackerTroopLoss * front;
       this.attack.setTroops(troopCount);
       if (targetPlayer) {
         targetPlayer.removeTroops(defenderTroopLoss);

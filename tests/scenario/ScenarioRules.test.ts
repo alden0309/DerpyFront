@@ -6,8 +6,13 @@ import { resolveScenarioSeats } from "@openfront/engine-lib/scenario/ScenarioSea
 import { BreakAllianceExecution } from "@openfront/engine/execution/alliance/BreakAllianceExecution";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import { Game, Player } from "@openfront/engine/game/Game";
+import { PlayerImpl } from "@openfront/engine/game/PlayerImpl";
+import { scenarioAttackFactor } from "@openfront/engine/scenario/ScenarioFronts";
 import {
   enemySideFor,
+  EUROPE_1939_HOLD_TICKS,
+  EUROPE_1939_PURGE_FACTOR,
+  EUROPE_1939_PURGE_TICKS,
   holdTargetTiles,
   SCENARIO_RULES,
   scenarioHoldsFire,
@@ -171,8 +176,8 @@ describe("a scenario's special rule", () => {
   }, 120_000);
 });
 
-describe("Europe 1939's rule: the pact and the Phoney War", () => {
-  it("holds the Soviet Union back fifteen minutes, France and Britain three, unless attacked", async () => {
+describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
+  it("holds the Soviet Union back while the purges last, France and Britain ten minutes, unless attacked", async () => {
     const g = await scenarioGame("europe1939");
     const at = (ticks: number) => {
       const view = Object.create(g.game) as Game;
@@ -183,14 +188,17 @@ describe("Europe 1939's rule: the pact and the Phoney War", () => {
     const france = g.nation("france");
     const germany = g.nation("germany");
     const spain = g.nation("spain");
+    expect(EUROPE_1939_HOLD_TICKS.soviet_union).toBe(EUROPE_1939_PURGE_TICKS);
+    expect(EUROPE_1939_HOLD_TICKS.france).toBe(10 * 600);
     expect(scenarioHoldsFire(at(100), ussr)).toBe(true);
     expect(scenarioHoldsFire(at(100), france)).toBe(true);
     expect(scenarioHoldsFire(at(100), germany)).toBe(false);
     // Neutrals start no war at all.
     expect(scenarioHoldsFire(at(100_000), spain)).toBe(true);
-    expect(scenarioHoldsFire(at(3 * 600), france)).toBe(false);
-    expect(scenarioHoldsFire(at(3 * 600), ussr)).toBe(true);
-    expect(scenarioHoldsFire(at(15 * 600), ussr)).toBe(false);
+    expect(scenarioHoldsFire(at(10 * 600 - 1), france)).toBe(true);
+    expect(scenarioHoldsFire(at(10 * 600), france)).toBe(false);
+    expect(scenarioHoldsFire(at(EUROPE_1939_PURGE_TICKS - 1), ussr)).toBe(true);
+    expect(scenarioHoldsFire(at(EUROPE_1939_PURGE_TICKS), ussr)).toBe(false);
     // Attacked, it fights back at once.
     const finland = g.nation("finland");
     g.game.addExecution(
@@ -200,6 +208,91 @@ describe("Europe 1939's rule: the pact and the Phoney War", () => {
     expect(ussr.incomingAttacks().length).toBeGreaterThan(0);
     expect(scenarioHoldsFire(at(100), ussr)).toBe(false);
   }, 120_000);
+
+  it("gives the Soviet Union the biggest army, weak in attack while the purges last", async () => {
+    const g = await scenarioGame("europe1939");
+    const { game } = g;
+    const ussr = g.nation("soviet_union");
+    const germany = g.nation("germany");
+    const finland = g.nation("finland");
+    // The biggest army on the board, with deep reserves (room to grow).
+    for (const p of game.players()) {
+      if (p !== ussr)
+        expect(ussr.troops(), p.name()).toBeGreaterThan(p.troops());
+    }
+    // ...and the biggest cap, by a fifth over Germany's: room to grow.
+    for (const p of game.players()) {
+      if (p === ussr) continue;
+      expect(game.config().maxTroops(ussr), p.name()).toBeGreaterThan(
+        game.config().maxTroops(p) * 1.2,
+      );
+    }
+    expect(ussr.troops()).toBeLessThan(game.config().maxTroops(ussr) * 0.85);
+    // Its attacks cost double for the first minutes; nobody else's do.
+    const rule = SCENARIO_RULES.europe1939;
+    const at = (ticks: number) => {
+      const view = Object.create(game) as Game;
+      view.ticks = () => ticks;
+      return view;
+    };
+    expect(rule.attackFactor!(at(100), ussr, finland)).toBe(
+      EUROPE_1939_PURGE_FACTOR,
+    );
+    expect(EUROPE_1939_PURGE_FACTOR).toBeGreaterThan(1);
+    expect(
+      rule.attackFactor!(at(EUROPE_1939_PURGE_TICKS - 1), ussr, finland),
+    ).toBe(EUROPE_1939_PURGE_FACTOR);
+    expect(rule.attackFactor!(at(EUROPE_1939_PURGE_TICKS), ussr, finland)).toBe(
+      1,
+    );
+    expect(rule.attackFactor!(at(100), germany, ussr)).toBe(1);
+    expect(rule.attackFactor!(at(100), finland, ussr)).toBe(1);
+    // ...and it shows in the cost of a tile (ScenarioFronts).
+    const karelia = [...finland.tiles()].find((t) =>
+      game.neighbors(t).some((n) => game.owner(n) === ussr),
+    )!;
+    const early = scenarioAttackFactor(at(100), ussr, finland, karelia);
+    const late = scenarioAttackFactor(
+      at(EUROPE_1939_PURGE_TICKS),
+      ussr,
+      finland,
+      karelia,
+    );
+    expect(early / late).toBeCloseTo(EUROPE_1939_PURGE_FACTOR, 6);
+  }, 120_000);
+});
+
+describe("deep reserves (troopGrowth)", () => {
+  it("multiplies a scenario nation's troop growth, and nobody else's", async () => {
+    const g = await scenarioGame("continental1776");
+    const config = g.game.config();
+    const britain = g.nation("great_britain");
+    const colonies = g.nation("united_colonies");
+    const n = scenarioData("continental1776")!.nations.find(
+      (x) => x.key === "great_britain",
+    )!;
+    const before = n.troopGrowth;
+    try {
+      for (const p of [britain, colonies]) {
+        p.setTroops(Math.floor(config.maxTroops(p) / 4));
+      }
+      n.troopGrowth = undefined;
+      const plain = config.troopIncreaseRate(britain);
+      const others = config.troopIncreaseRate(colonies);
+      n.troopGrowth = 2;
+      expect(britain.scenarioTroopGrowth?.()).toBe(2);
+      expect(config.troopIncreaseRate(britain)).toBeCloseTo(plain * 2, 6);
+      expect(config.troopIncreaseRate(colonies)).toBe(others);
+      expect(colonies.scenarioTroopGrowth?.()).toBe(1);
+    } finally {
+      n.troopGrowth = before;
+    }
+  }, 120_000);
+
+  it("is 1 for a player in an ordinary game", () => {
+    const ordinary = { mg: { scenario: () => null } };
+    expect(PlayerImpl.prototype.scenarioTroopGrowth.call(ordinary)).toBe(1);
+  });
 });
 
 describe("a scenario game, computer against computer", () => {
@@ -249,13 +342,16 @@ describe("Scenario victory", () => {
 });
 
 describe("Scenario victory by land", () => {
-  it("each side has its own bar: Britain wins at 35% of the land", async () => {
+  it("each side has its own bar: Britain wins at its own share of the land", async () => {
     const g = await scenarioGame("continental1776");
     const britain = g.nation("great_britain");
     const colonies = g.nation("united_colonies");
     const land = g.game.numLandTiles();
-    // Give Britain the colonies' land until it holds just over 35%.
-    const want = Math.floor((land * 35) / 100) + 1 - britain.numTilesOwned();
+    const data = scenarioData("continental1776")!;
+    const bar = data.sides.find((s) => s.id === "British")!.winPercent!;
+    expect(bar).toBeLessThan(data.winPercent);
+    // Give Britain the colonies' land until it holds just over its bar.
+    const want = Math.floor((land * bar) / 100) + 1 - britain.numTilesOwned();
     let moved = 0;
     for (const t of [...colonies.tiles()]) {
       if (moved >= want) break;
@@ -273,11 +369,15 @@ describe("Scenario victory by land", () => {
     const g = await scenarioGame("continental1776", {
       config: { maxTimerValue: 1 },
     });
+    // Nobody fights: the sides stay as they start. The colonies hold some
+    // 42% of the land (bar 66), Britain 30% (bar 55).
     g.updates.length = 0;
-    g.step(620);
+    for (let i = 0; i < 620; i++) {
+      for (const p of g.game.players()) p.setTroops(0);
+      g.step(1);
+    }
     const wins = g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
     expect(wins).toHaveLength(1);
-    // The colonies hold some 58% of the land (bar 75); Britain 3% (bar 35).
     expect(wins[0].winner?.[1]).toBe("Patriots");
   }, 120_000);
 });
@@ -292,6 +392,12 @@ describe("winning by holding another nation's land (winByHolding)", () => {
       (s) => s.id === "Patriots",
     )!;
     patriots.winByHolding = { nations: ["great_britain"], ignoreUnder: 2000 };
+    // Only the holding rule may end it here, not the land bars.
+    const data = scenarioData("continental1776")!;
+    const bars = data.sides.map((s) => s.winPercent);
+    const barAll = data.winPercent;
+    data.winPercent = 99;
+    for (const s of data.sides) s.winPercent = 99;
     try {
       const g = await scenarioGame("continental1776");
       const britain = g.nation("great_britain");
@@ -327,6 +433,8 @@ describe("winning by holding another nation's land (winByHolding)", () => {
       expect(britain.numTilesOwned()).toBeGreaterThan(0);
     } finally {
       delete patriots.winByHolding;
+      data.winPercent = barAll;
+      data.sides.forEach((s, i) => (s.winPercent = bars[i]));
     }
   }, 120_000);
 });

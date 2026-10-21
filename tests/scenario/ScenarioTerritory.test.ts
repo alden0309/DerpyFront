@@ -71,32 +71,50 @@ const SPOTS: Record<string, [string, number, number, string][]> = {
     ["Kiev", 2245, 846, "soviet_union"],
   ],
   colonies1776: [
-    ["Boston", 924, 533, "massachusetts"],
-    ["Portland, Maine", 955, 401, "massachusetts"],
-    ["Philadelphia", 670, 808, "pennsylvania"],
-    ["Albany", 732, 538, "new_york"],
-    ["Long Island", 812, 700, "new_york"],
-    ["Burlington, Vermont", 741, 360, "new_york"],
-    ["Charleston", 384, 1531, "south_carolina"],
-    ["Savannah", 296, 1606, "georgia"],
-    ["Williamsburg", 589, 1077, "virginia"],
-    ["Baltimore", 573, 885, "maryland"],
-    ["New Bern", 589, 1285, "north_carolina"],
-    ["Hartford", 821, 610, "connecticut"],
-    ["Providence", 909, 589, "rhode_island"],
-    ["Portsmouth NH", 932, 463, "new_hampshire"],
-    ["New Castle", 645, 840, "delaware"],
-    ["Burlington NJ", 690, 794, "new_jersey"],
-    ["St. Augustine", 294, 1817, "great_britain"],
-    ["Staten Island", 734, 738, "great_britain"],
-    ["Detroit", 83, 638, "great_britain"],
-    ["Onondaga", 561, 534, "haudenosaunee"],
-    ["Chota", 37, 1288, "cherokee"],
-    ["Catawba", 290, 1333, "catawba"],
-    ["Stockbridge", 768, 569, "mohican"],
-    ["Cuscowilla", 214, 1851, "seminole"],
-    ["Coshocton", 181, 829, "lenape"],
-    ["Old Town", 1035, 243, "wabanaki"],
+    ["Boston", 1159, 670, "massachusetts"],
+    ["Portland, Maine", 1199, 503, "massachusetts"],
+    ["Philadelphia", 841, 1015, "pennsylvania"],
+    ["Albany", 919, 676, "new_york"],
+    ["Long Island", 1019, 878, "new_york"],
+    ["Burlington, Vermont", 930, 452, "new_york"],
+    ["Ticonderoga", 927, 530, "new_york"],
+    ["Charleston", 483, 1921, "south_carolina"],
+    ["Savannah", 372, 2015, "georgia"],
+    ["Williamsburg", 740, 1352, "virginia"],
+    ["Baltimore", 719, 1111, "maryland"],
+    ["New Bern", 740, 1613, "north_carolina"],
+    ["Hartford", 1030, 766, "connecticut"],
+    ["Providence", 1140, 739, "rhode_island"],
+    ["Portsmouth NH", 1169, 581, "new_hampshire"],
+    ["New Castle", 810, 1054, "delaware"],
+    ["Burlington NJ", 866, 997, "new_jersey"],
+    ["Fort Pitt", 394, 1007, "pennsylvania"],
+    ["St. Augustine", 369, 2279, "great_britain"],
+    ["Staten Island", 922, 927, "great_britain"],
+    ["Detroit", 105, 801, "great_britain"],
+    ["Fort Niagara", 447, 663, "great_britain"],
+    ["Quebec", 1039, 141, "great_britain"],
+    ["Montreal", 880, 335, "great_britain"],
+    ["Trois-Rivieres", 948, 220, "great_britain"],
+    ["Kingston (Cataraqui)", 656, 522, "great_britain"],
+    ["Saint John valley (Nova Scotia)", 1409, 201, "great_britain"],
+    ["Onondaga", 704, 671, "haudenosaunee"],
+    ["Chota", 44, 1617, "cherokee"],
+    ["Catawba", 365, 1673, "catawba"],
+    ["Stockbridge", 963, 714, "mohican"],
+    ["Cuscowilla", 270, 2329, "seminole"],
+    ["Coshocton", 227, 1041, "lenape"],
+    ["Old Town", 1303, 325, "wabanaki"],
+  ],
+  continental1776: [
+    ["Boston", 1159, 670, "united_colonies"],
+    ["Philadelphia", 841, 1015, "united_colonies"],
+    ["Charleston", 483, 1921, "united_colonies"],
+    ["Quebec", 1039, 141, "great_britain"],
+    ["Montreal", 880, 335, "great_britain"],
+    ["Staten Island", 922, 927, "great_britain"],
+    ["St. Augustine", 369, 2279, "great_britain"],
+    ["Onondaga", 704, 671, "haudenosaunee"],
   ],
 };
 
@@ -121,10 +139,14 @@ const SCATTERED: Record<string, string[]> = {
     "portugal",
   ],
   colonies1776: [
-    "great_britain", // Florida, Detroit, Niagara, Staten Island
+    "great_britain", // Canada, Florida, Detroit, Niagara, Staten Island
     "massachusetts", // the District of Maine, past New Hampshire's coast
     "maryland", // the Eastern Shore, across the Chesapeake
     "virginia", // its Eastern Shore too
+  ],
+  continental1776: [
+    "great_britain", // as above
+    "united_colonies", // Maine and the Eastern Shores
   ],
 };
 
@@ -267,6 +289,24 @@ describe("Scenario rasteriser", () => {
     expect(berlin.isPlayer() && g.game.scenario()!.nationOf(berlin)?.key).toBe(
       "germany",
     );
+  }, 120_000);
+
+  it("fills American Revolution - Detailed's compact map too, Quebec British", async () => {
+    const g = await scenarioGame("colonies1776", { size: GameMapSize.Compact });
+    let unowned = 0;
+    g.game.forEachTile((t) => {
+      if (g.game.isLand(t) && !g.game.isImpassable(t) && !g.game.hasOwner(t)) {
+        unowned++;
+      }
+    });
+    expect(unowned).toBe(0);
+    const owner = (x: number, y: number) => {
+      const o = g.game.owner(nearestLand(g.game, x >> 1, y >> 1));
+      return o.isPlayer() ? g.game.scenario()!.nationOf(o)?.key : null;
+    };
+    expect(owner(1039, 141)).toBe("great_britain"); // Quebec
+    expect(owner(880, 335)).toBe("great_britain"); // Montreal
+    expect(owner(1159, 670)).toBe("massachusetts"); // Boston
   }, 120_000);
 });
 

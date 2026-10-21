@@ -1,4 +1,5 @@
 import { GameMapType, GameMode } from "@openfront/engine-api/game/GameTypes";
+import { SCENARIO_EDITION } from "@openfront/engine-api/game/Scenarios";
 import { GameConfig } from "@openfront/engine-api/Schemas";
 import { isPlayable, ScenarioData, scenarioData } from "./ScenarioData";
 
@@ -13,7 +14,10 @@ export function applyScenarioRules<C extends Partial<GameConfig>>(
   config: C,
 ): C {
   const data = scenarioData(config.scenario?.id);
-  if (data === null) return config;
+  if (data === null || config.scenario === undefined) return config;
+  // Played under this edition of the scenarios (replays of others are
+  // refused: scenarioReplayable).
+  config.scenario = { ...config.scenario, edition: SCENARIO_EDITION };
   config.gameMap = data.map as GameMapType;
   config.gameMode = GameMode.Team;
   config.playerTeams = data.sides.length;

@@ -10,6 +10,28 @@ import { GameMapType } from "./GameTypes";
  * The format is in resources/scenarios/README.md.
  */
 
+/**
+ * The scenarios' edition. A game records the edition it was played under
+ * (applyScenarioRules sets it at the start), and a replay of a game from
+ * another edition is refused as one from another build: its war would not
+ * play the same. Bump it when a change to a scenario's data or rules changes
+ * how its games play. 1 (or none recorded): round 1's scenarios; 2: the 1776
+ * scenarios on American Revolution - Detailed, fronts that hold, the 1939
+ * forts and the Red Army's purges.
+ */
+export const SCENARIO_EDITION = 2;
+
+/**
+ * Whether a game played with this config can be replayed on this build: an
+ * ordinary game always; a scenario game if it was played under this edition.
+ */
+export function scenarioReplayable(config: {
+  scenario?: { id: string; edition?: number };
+}): boolean {
+  if (config.scenario === undefined) return true;
+  return (config.scenario.edition ?? 1) === SCENARIO_EDITION;
+}
+
 /** Scenario, side and nation keys: lower case, digits and _. */
 export const SCENARIO_KEY_RE = /^[a-z0-9_]{1,32}$/;
 

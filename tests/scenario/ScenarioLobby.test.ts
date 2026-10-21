@@ -6,6 +6,10 @@ import {
   GameMode,
   GameType,
 } from "@openfront/engine-api/game/GameTypes";
+import {
+  SCENARIO_EDITION,
+  scenarioReplayable,
+} from "@openfront/engine-api/game/Scenarios";
 import { GameConfig } from "@openfront/engine-api/Schemas";
 import {
   applyScenarioRules,
@@ -58,8 +62,13 @@ describe("a scenario's fixed settings", () => {
       bots: 50,
       scenario: { id: "colonies1776", seats: { virginia: "PLAYERAA" } },
     });
-    expect(target.scenario).toEqual({ id: "colonies1776", seats: {} });
-    expect(target.gameMap).toBe(GameMapType.ThirteenColonies);
+    // Played under this edition of the scenarios, on the scenario's map.
+    expect(target.scenario).toEqual({
+      id: "colonies1776",
+      seats: {},
+      edition: SCENARIO_EDITION,
+    });
+    expect(target.gameMap).toBe(GameMapType.AmericanRevolutionDetailed);
     expect(target.bots).toBe(0);
     // The same scenario again keeps the seats taken meanwhile.
     target.scenario!.seats = { virginia: "PLAYERAA" };
@@ -70,7 +79,40 @@ describe("a scenario's fixed settings", () => {
     expect(target.scenario!.seats).toEqual({ virginia: "PLAYERAA" });
     // Another scenario starts over.
     applyGameConfigPatch(target, { scenario: { id: "continental1776" } });
-    expect(target.scenario).toEqual({ id: "continental1776", seats: {} });
+    expect(target.scenario).toEqual({
+      id: "continental1776",
+      seats: {},
+      edition: SCENARIO_EDITION,
+    });
+  });
+});
+
+describe("old scenario games", () => {
+  it("replay only under the edition they were played in", () => {
+    // Round 1's games recorded no edition: their 1776 was on the plain map,
+    // without the fronts, so their replays are refused like another build's.
+    expect(scenarioReplayable({})).toBe(true);
+    expect(scenarioReplayable({ scenario: { id: "colonies1776" } })).toBe(
+      false,
+    );
+    expect(
+      scenarioReplayable({
+        scenario: { id: "europe1939", edition: SCENARIO_EDITION - 1 },
+      }),
+    ).toBe(false);
+    const config: GameConfig = applyScenarioRules({
+      ...testGameConfig(),
+      scenario: { id: "colonies1776", seats: {} },
+    });
+    expect(config.scenario!.edition).toBe(SCENARIO_EDITION);
+    expect(scenarioReplayable(config)).toBe(true);
+    // An old saved choice of scenario still starts, on the scenario's map.
+    const old = applyScenarioRules({
+      ...testGameConfig(),
+      gameMap: GameMapType.ThirteenColonies,
+      scenario: { id: "continental1776" },
+    });
+    expect(old.gameMap).toBe(GameMapType.AmericanRevolutionDetailed);
   });
 });
 

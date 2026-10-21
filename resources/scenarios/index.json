@@ -38,7 +38,7 @@
       "capitalFullTiles": 60000
     },
     "colonies1776": {
-      "map": "Thirteen Colonies",
+      "map": "American Revolution - Detailed",
       "sides": ["Patriots", "British"],
       "nations": [
         "great_britain",
@@ -71,7 +71,7 @@
       "capitalFullTiles": 40000
     },
     "continental1776": {
-      "map": "Thirteen Colonies",
+      "map": "American Revolution - Detailed",
       "sides": ["Patriots", "British"],
       "nations": [
         "great_britain",

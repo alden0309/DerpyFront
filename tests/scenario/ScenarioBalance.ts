@@ -24,6 +24,7 @@ import { createGameRunner } from "@openfront/engine/GameRunner";
 import { loadMapFiles } from "@openfront/shared/GameMapLoader";
 import path from "path";
 import { NodeGameMapLoader } from "../perf/fullgame/NodeGameMapLoader";
+import { ContestedSample, contestedStats, leaderOf } from "./ContestedMetric";
 
 const args = process.argv.slice(2);
 function arg(name: string, def: string): string {
@@ -93,10 +94,34 @@ async function main() {
   for (const s of data.sides) shares[s.id] = [];
   shares["neutral"] = [];
   const maxTicks = minutes * 600;
+  // Every 30 s: each side's progress towards its bar (ContestedMetric.ts).
+  const samples: ContestedSample[] = [];
+  const start: Record<string, number> = {};
+  const bar = (side: string) =>
+    data.sides.find((s) => s.id === side)?.winPercent ?? data.winPercent;
+  const sideLand = () => {
+    const by: Record<string, number> = {};
+    for (const s of data.sides) by[s.id] = 0;
+    for (const p of game.players()) {
+      const t = p.team();
+      if (t !== null && t in by) by[t] += p.numTilesOwned();
+    }
+    return by;
+  };
   let tick = 0;
   for (; tick < maxTicks && winner === null; tick++) {
     runner.addTurn({ turnNumber: tick, intents: [] });
     runner.executeNextTick();
+    if (tick === 2 || (tick > 2 && tick % 300 === 0)) {
+      const by = sideLand();
+      const progress: Record<string, number> = {};
+      for (const s of data.sides) {
+        const pct = (100 * by[s.id]) / land;
+        if (tick === 2) start[s.id] = pct;
+        progress[s.id] = (pct - start[s.id]) / (bar(s.id) - start[s.id]);
+      }
+      samples.push({ minute: tick / 600, progress });
+    }
     if (verbose && tick % 600 === 20) {
       const rows = game
         .players()
@@ -137,6 +162,34 @@ async function main() {
       size,
       winner,
       minutes: Math.round((tick / 600) * 10) / 10,
+      ...(() => {
+        const side =
+          Array.isArray(winner) && winner[0] === "team"
+            ? (winner[1] as string)
+            : null;
+        const c = contestedStats(samples, side, tick / 600);
+        return {
+          decidedMinute:
+            c.decidedMinute === null
+              ? null
+              : Math.round(c.decidedMinute * 10) / 10,
+          decidedFraction:
+            c.decidedFraction === null
+              ? null
+              : Math.round(c.decidedFraction * 100) / 100,
+          leadChanges: c.leadChanges,
+        };
+      })(),
+      // The leader at each 30 s sample, by its side's place in the data
+      // (0, 1, ...; "." for a tie): how the lead went (ContestedMetric.ts).
+      leaders: samples
+        .map((smp) => {
+          const l = leaderOf(smp.progress);
+          return l === null
+            ? "."
+            : String(data.sides.findIndex((x) => x.id === l));
+        })
+        .join(""),
       wallSeconds: Math.round((Date.now() - t0) / 1000),
       shares,
       joins,

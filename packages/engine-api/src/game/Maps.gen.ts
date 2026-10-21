@@ -8,6 +8,7 @@ export enum GameMapType {
   Africa = "Africa", // map-generator/assets/maps/africa/info.json
   Alps = "Alps", // map-generator/assets/maps/alps/info.json
   AmazonRiver = "Amazon River", // map-generator/assets/maps/amazonriver/info.json
+  AmericanRevolutionDetailed = "American Revolution - Detailed", // map-generator/assets/maps/americanrevolutiondetailed/info.json
   Antarctica = "Antarctica", // map-generator/assets/maps/antarctica/info.json
   ApopkaDetailed = "Apopka - Detailed", // map-generator/assets/maps/apopkadetailed/info.json
   ArchipelagoSea = "ArchipelagoSea", // map-generator/assets/maps/archipelagosea/info.json
@@ -319,6 +320,17 @@ export const maps: readonly MapInfo[] = [
     specialFrequency: -1,
     defaultNationCount: 21,
     themes: ["south_america"],
+  },
+  {
+    id: "AmericanRevolutionDetailed",
+    type: GameMapType.AmericanRevolutionDetailed,
+    translationKey: "map.americanrevolutiondetailed",
+    categories: ["new", "north_america"],
+    multiplayerFrequency: 0,
+    ffaFrequency: -1,
+    teamFrequency: -1,
+    specialFrequency: -1,
+    defaultNationCount: 46,
   },
   {
     id: "Antarctica",

@@ -1414,6 +1414,13 @@ export class PlayerImpl implements Player {
     return (bonus * 10) / (scenario.scale > 1 ? 2 : 1);
   }
 
+  // SCEN (r25): its scenario nation's troopGrowth (1: as usual).
+  scenarioTroopGrowth(): number {
+    const scenario = this.mg.scenario();
+    if (scenario === null) return 1;
+    return scenario.nationOf(this)?.troopGrowth ?? 1;
+  }
+
   // SCEN (r25): a scenario nation's starting gold (not income).
   setScenarioGold(gold: Gold): void {
     this._gold = gold;

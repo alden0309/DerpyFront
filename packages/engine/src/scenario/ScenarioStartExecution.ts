@@ -4,7 +4,6 @@ import {
   SCENARIO_STRUCTURE_UNITS,
   ScenarioNation,
 } from "@openfront/engine-lib/scenario/ScenarioData";
-import { scenarioTerritory } from "@openfront/engine-lib/scenario/ScenarioTerritory";
 import { z } from "zod";
 import { CapitalExecution } from "../execution/CapitalExecution";
 import { CityExecution } from "../execution/CityExecution";
@@ -19,6 +18,7 @@ import { Execution, Game, Player, Unit } from "../game/Game";
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
 import type { ExecRecord, SnapshotReader } from "../snapshot/SnapshotContext";
 import { ScenarioRuntime } from "./Scenario";
+import { scenarioStartLabels } from "./ScenarioLabels";
 import { scenarioRule } from "./ScenarioRules";
 
 /**
@@ -87,7 +87,7 @@ export function startScenario(game: Game, scenario: ScenarioRuntime): void {
     if (n !== null) byIndex[data.nations.indexOf(n)] = p;
   }
 
-  const labels = scenarioTerritory(data, game.map(), scenario.scale);
+  const labels = scenarioStartLabels(game, scenario);
   for (let t = 0; t < labels.length; t++) {
     const label = labels[t];
     if (label === 0) continue;

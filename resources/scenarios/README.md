@@ -36,6 +36,15 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   that start very unequal get unequal bars (1939: the Allies hold 60% at the
   start, the Axis 19%). At the lobby timer, or the 170-minute limit, the side
   nearest its bar (its land over its bar) wins.
+- **Fronts hold** (every scenario, `packages/engine/src/scenario/ScenarioFronts.ts`):
+  - _Homeland:_ attacking a nation on its own starting land costs more, and
+    more again the more of its starting size it has lost (a last stand).
+  - _Supply lines:_ an attack costs more the farther it is from the
+    attacker's own starting land (over land or sea, so landings count).
+  - The factors multiply, with a special rule's `attackFactor`, into one
+    that multiplies both the attacker's troop loss per tile and the time a
+    tile takes. Defaults below; a scenario may override them with `fronts`.
+    Ordinary games never use them.
 - Players pick a nation (solo, or a seat in a private lobby). They play it
   under its name and flag, with their own name added: "France (Alden)".
   Nations nobody picked are computer-run, at the game's difficulty.
@@ -52,6 +61,7 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   "year": 1939,
   "winPercent": 60, // % of the land a side must hold to win
   "capitalFullTiles": 40000, // optional, see Capitals
+  "fronts": { "supplyMax": 2.5 }, // optional, see Fronts
   "rule": "korea", // optional special rule (ScenarioRules.ts)
   "sides": [
     { "id": "Axis", "name": "Axis", "color": "#7d7d7d", "winPercent": 40 },
@@ -66,6 +76,7 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
       "troopsPercent": 95, // starting troops, % of its troop cap
       "gold": 2000000, // starting gold
       "troopCapBonus": 700000, // optional: troops added to its cap
+      "troopGrowth": 1.5, // optional: troops grow back 1.5 times as fast
       "capital": [1572, 760], // map pixel of its capital
       "structures": [
         // optional, built and finished at the start
@@ -104,15 +115,52 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   overseas in 1776 (880K against the one United Colonies, 6.5M against the
   thirteen, who attack it from every side). Half as much in a Compact game.
   Tune it with the balance runs.
+- **troopGrowth** (optional, default 1) multiplies how fast a nation's
+  troops grow back: deep reserves. Troop growth is concave (it grows with
+  troops to the power 0.73), so a coalition of many small nations regrows
+  faster in all than one big nation with the same troops, and a lone great
+  power facing many needs this (1776: Britain against thirteen colonies).
+  Tune it with the balance runs, with `troopCapBonus`.
 - **Structures:** `City`, `Port`, `Factory`, `Defense Post`, `Missile Silo`,
   `SAM Launcher`, with an optional `level`. Each stands at the nearest place
   its owner may build one (on its own land, a port on the coast, 15 tiles
   from the others); one that finds no place is skipped. The capital is a
   Capital, the fork's one-per-nation building.
+- **Forts, bases and industry at the start** are structures too, and keep to
+  the period (no silos or SAMs before the missile age):
+  - a _fortified line_ is a row of `Defense Post`s, one every 16 tiles or
+    more (a post guards the land 30 tiles round it), `level` 2 for the
+    great forts (a stacked post defends half as hard again): Europe 1939's
+    Westwall, Maginot Line, Mannerheim and Stalin Lines; 1776's Quebec,
+    Ticonderoga, Niagara, Fort Pitt;
+  - a _naval base_ is a `Port` (`level` 2 for the main ones) with
+    `warships` off it;
+  - an _industrial centre_ is a `Factory`.
+- **Warships** start at their nation's nearest port on the same water and
+  sail to their station (the pixel given), so a fleet needs a port on its
+  water: a lake fleet a port on the lake (1776: Britain's on Lake Champlain
+  sails from Saint-Jean, above the Richelieu's rapids).
 - **Capitals** give a troop bonus (200K) whatever the nation's size, which
   would make every small state a fortress. With `capitalFullTiles`, a capital
   gives its full bonus only to a nation holding at least that many (full-size)
   tiles, and a share of it below that.
+- **Fronts** (optional; any field left out takes its default):
+
+  | Field             | Default | What it does                                                                |
+  | ----------------- | ------- | --------------------------------------------------------------------------- |
+  | `homeland`        | 0.5     | extra cost of attacking a nation on its own starting land (+50%)            |
+  | `lastStand`       | 2.0     | further cost there: + this x the share of its starting size it has lost     |
+  | `supplyFreeRange` | 40      | full-size tiles an attacker may push beyond its starting land without cost  |
+  | `supplyPer100`    | 0.5     | extra cost per 100 full-size tiles beyond that (+50%)                       |
+  | `supplyMax`       | 2.5     | the most the supply cost reaches (attacks at two and a half times the cost) |
+
+  So a defender that has lost half its size, on its own soil, against an
+  attacker 300 tiles from home, makes each tile cost 2.5 x 2.3 = 5.75 times
+  the usual troops and time. (Round 1's first values, 0.3, 1.0, 40, 0.3 and
+  2.0, let an early push snowball; these were tuned on the balance runs so
+  a war turns more than once. A scenario that sets all five, as SCEN2's do,
+  is unaffected by the defaults.)
+
 - **Regions** are polygons in pixel corners: each ring is a string
   `"x0,y0,dx1,dy1,dx2,dy2,..."`, deltas after the first point. A tile is
   in a polygon when its centre is; a nation's rings fill even-odd (a ring
@@ -122,7 +170,16 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   only land matters, and the tools draw them through the sea to keep them
   small. Keep a file to a few tens of KB.
 
-## Adding a scenario
+## Adding or changing a scenario
+
+**The edition.** A game records the scenarios' edition it was played under
+(`SCENARIO_EDITION` in `packages/engine-api/src/game/Scenarios.ts`, set by
+`applyScenarioRules`), and a replay of a game from another edition is
+refused like one from another build (its war would not play the same).
+Bump it when you change how an existing scenario plays (its data, its
+rule, the front rules' defaults). Adding a new scenario needs no bump.
+Edition 2 (round 2) moved the 1776 scenarios to American Revolution -
+Detailed and added the fronts, the 1939 forts and the purges.
 
 1. Write its recipe and build it with the border tools (projection fit for a
    new map, borders, capitals, structures), or write the JSON by hand.
@@ -141,10 +198,20 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
 A special rule (something data can't say, like a nation joining a side on a
 condition) is a `ScenarioRule` in `SCENARIO_RULES`
 (`packages/engine/src/scenario/ScenarioRules.ts`), named by the data's
-`rule`. Its hooks: `start(game)` once the board is laid out, and
-`sideToJoin(game, neutral, against)` to choose (or refuse, with null) the
-side a neutral joins. Add a hook there if a scenario needs another; it runs
-on every client, so keep it deterministic.
+`rule`. Its hooks:
+
+- `start(game)`: once the board is laid out;
+- `sideToJoin(game, neutral, against)`: choose (or refuse, with null) the
+  side a neutral joins;
+- `holdsFire(game, nation)`: a computer-run nation on a side starts no
+  attacks for now (Europe 1939's pact and Phoney War);
+- `attackFactor(game, attacker, defender)`: a further factor on the cost of
+  an attacker's attacks (Europe 1939: the Soviet Union's purged officer
+  corps, for the first minutes).
+
+Add a hook there if a scenario needs another; it runs on every client, so
+keep it deterministic (the game's ticks and state, integer or plain
+arithmetic, DetMath for anything else; no clocks, no Math.random).
 
 The `title` is the English name the server uses (the game's record, the live
 games list); the menu shows `scenarios.<id>.title`.
@@ -154,6 +221,9 @@ games list); the menu shows `scenarios.<id>.title`.
 - Europe 1939: borders from aourednik/historical-basemaps `world_1938`
   (GPL-3.0), corrected to 1 September 1939; modern lines from Natural Earth
   (public domain) where they haven't moved.
-- 1776: colony lines from the US Census cartographic boundary files (public
-  domain) and hand-drawn treaty lines; the map's own native nations.
+- 1776 (map American Revolution - Detailed): colony lines from the US
+  Census cartographic boundary files (public domain) and hand-drawn treaty
+  lines; the map's own native nations. Britain's Quebec and Nova Scotia are
+  exactly the land that is dark (impassable) on Thirteen Colonies -
+  Detailed, today's Canada.
 - Map projections: fitted from each map's land mask against Natural Earth.

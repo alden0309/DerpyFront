@@ -109,7 +109,7 @@ Licensed under ODbL
 © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)  
 Licensed under ODbL
 
-### Thirteen Colonies Maps
+### Thirteen Colonies and American Revolution Maps
 
 Coastline, lakes and rivers from [Natural Earth](https://www.naturalearthdata.com/) and the U.S. Census Bureau [cartographic boundary files](https://www.census.gov/geographies/mapping-files/time-series/geo/cartographic-boundary.html)  
 Public Domain  

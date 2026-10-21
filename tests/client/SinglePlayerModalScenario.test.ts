@@ -6,6 +6,7 @@ import {
   GameMode,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
+import { SCENARIO_EDITION } from "@openfront/engine-api/game/Scenarios";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/client/Cosmetics", () => ({
@@ -58,6 +59,7 @@ describe("SinglePlayerModal with a scenario", () => {
     expect(info.config.scenario).toEqual({
       id: "europe1939",
       seats: { france: me },
+      edition: SCENARIO_EDITION,
     });
     expect(info.config.gameMap).toBe(GameMapType.Europe);
     expect(info.config.gameMode).toBe(GameMode.Team);
