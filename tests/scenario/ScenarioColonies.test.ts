@@ -3,6 +3,7 @@ import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { Game, Player } from "@openfront/engine/game/Game";
 import {
   COLONIES_1776_PLACES,
+  COLONIES_1776_WAVES,
   SCENARIO_RULES,
   scenarioRule,
 } from "@openfront/engine/scenario/ScenarioRules";
@@ -131,6 +132,49 @@ function takeCapital(game: Game, p: Player, to: Player): void {
   }
   for (const u of p.units(UnitType.Capital)) u.delete(false);
 }
+
+describe("Thirteen Colonies 1776: waves that raise Britain's cap (idea B2)", () => {
+  it("raise Britain's troop cap from their minute on, and nobody else's", async () => {
+    const saved = COLONIES_1776_WAVES.map((w) => ({ ...w }));
+    COLONIES_1776_WAVES.forEach((w) => (w.cap = 500_000));
+    try {
+      const g = await scenarioGame("colonies1776");
+      const britain = g.nation("great_britain");
+      const georgia = g.nation("georgia");
+      const cap = SCENARIO_RULES.colonies1776_waves.troopCapBonus!;
+      expect(cap(at(g.game, 10 * 600 - 1, []), britain)).toBe(0);
+      expect(cap(at(g.game, 10 * 600, []), britain)).toBe(500_000);
+      expect(cap(at(g.game, 40 * 600, []), britain)).toBe(2_000_000);
+      expect(cap(at(g.game, 40 * 600, []), georgia)).toBe(0);
+    } finally {
+      COLONIES_1776_WAVES.splice(0, COLONIES_1776_WAVES.length, ...saved);
+    }
+  }, 120_000);
+
+  it("count in the engine's troop cap when the data names the rule", async () => {
+    const saved = COLONIES_1776_WAVES.map((w) => ({ ...w }));
+    COLONIES_1776_WAVES.splice(0, COLONIES_1776_WAVES.length, {
+      minute: 0,
+      troops: 0,
+      cap: 1_000_000,
+      at: [],
+    });
+    try {
+      const plain = (await scenarioGame("colonies1776")).nation(
+        "great_britain",
+      );
+      const base = plain.scenarioTroopCap!();
+      await withRule("colonies1776", "colonies1776_waves", async () => {
+        const g = await scenarioGame("colonies1776");
+        const britain = g.nation("great_britain");
+        expect(britain.scenarioTroopCap!()).toBe(base + 10_000_000);
+        expect(g.nation("georgia").scenarioTroopCap!()).toBe(0);
+      });
+    } finally {
+      COLONIES_1776_WAVES.splice(0, COLONIES_1776_WAVES.length, ...saved);
+    }
+  }, 120_000);
+});
 
 describe("Thirteen Colonies 1776: Loyalist colonies (idea C)", () => {
   it("a Loyalist colony whose capital falls to Britain joins Britain for good", async () => {

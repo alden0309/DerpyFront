@@ -61,6 +61,14 @@ export interface ScenarioRule {
    * restored from a snapshot plays on the same.
    */
   tick?(game: Game): void;
+  /**
+   * Troops (counted as the data counts them, like troopCapBonus) that
+   * `player`'s troop cap is raised by now, on top of its data's
+   * troopCapBonus: an army that grows as the war goes on. Like the rest,
+   * from the game's state and tick count alone. Engine only for now: a
+   * client's troop bar shows the data's cap (a balance idea under test).
+   */
+  troopCapBonus?(game: Game, player: Player): number;
 }
 
 /**
@@ -109,6 +117,11 @@ export const COLONIES_1776_PLACES: Record<string, readonly [number, number]> = {
 export interface Colonies1776Wave {
   minute: number;
   troops: number;
+  /**
+   * How much the wave raises Britain's troop cap for good, from its minute
+   * on, wherever it lands (0 or absent: it only brings troops).
+   */
+  cap?: number;
   /** Where it lands: the first of these Britain's side holds, else Quebec. */
   at: readonly string[];
 }
@@ -163,6 +176,17 @@ function sideHoldsNear(
     }
   }
   return false;
+}
+
+/** How much the waves landed so far have raised Britain's troop cap. */
+function colonies1776WaveCap(game: Game, player: Player): number {
+  if (game.scenario()?.nationOf(player)?.key !== "great_britain") return 0;
+  const t = game.ticks();
+  let cap = 0;
+  for (const wave of COLONIES_1776_WAVES) {
+    if (t >= wave.minute * 600) cap += wave.cap ?? 0;
+  }
+  return cap;
 }
 
 /** The wave due this second, if any, lands. */
@@ -253,6 +277,7 @@ export const SCENARIO_RULES: Record<string, ScenarioRule> = {
     tick: (game) => {
       landColonies1776Waves(game);
     },
+    troopCapBonus: colonies1776WaveCap,
   },
   colonies1776_loyalists: {
     tick: (game) => {
@@ -264,6 +289,7 @@ export const SCENARIO_RULES: Record<string, ScenarioRule> = {
       landColonies1776Waves(game);
       turnColonies1776Loyalists(game);
     },
+    troopCapBonus: colonies1776WaveCap,
   },
   europe1939: {
     holdsFire: (game, nation) => {
