@@ -18,7 +18,7 @@
       "id": "Confederacy",
       "name": "Confederacy",
       "color": "#8c8c8c",
-      "winPercent": 45
+      "winPercent": 43
     }
   ],
   "nations": [
@@ -508,7 +508,7 @@
       "color": "#7a7a7a",
       "troopsPercent": 100,
       "gold": 450000,
-      "troopCapBonus": 2250000,
+      "troopCapBonus": 2600000,
       "capital": [2227, 761],
       "structures": [
         { "type": "City", "at": [2232, 778] },
@@ -532,7 +532,7 @@
       "color": "#9a9a9a",
       "troopsPercent": 100,
       "gold": 250000,
-      "troopCapBonus": 450000,
+      "troopCapBonus": 525000,
       "capital": [2194, 867],
       "structures": [
         { "type": "Port", "at": [2240, 946] },
@@ -550,7 +550,7 @@
       "color": "#6b6b6b",
       "troopsPercent": 100,
       "gold": 250000,
-      "troopCapBonus": 450000,
+      "troopCapBonus": 525000,
       "capital": [2105, 983],
       "structures": [
         { "type": "Port", "at": [2164, 1041] },
@@ -568,7 +568,7 @@
       "color": "#8a8a8a",
       "troopsPercent": 100,
       "gold": 300000,
-      "troopCapBonus": 750000,
+      "troopCapBonus": 875000,
       "capital": [2012, 1048],
       "structures": [
         { "type": "City", "at": [1955, 1018] },
@@ -588,7 +588,7 @@
       "color": "#a8a8a8",
       "troopsPercent": 100,
       "gold": 120000,
-      "troopCapBonus": 450000,
+      "troopCapBonus": 525000,
       "capital": [1983, 1199],
       "structures": [
         { "type": "Port", "at": [1844, 1215] },
@@ -607,7 +607,7 @@
       "color": "#737373",
       "troopsPercent": 100,
       "gold": 250000,
-      "troopCapBonus": 450000,
+      "troopCapBonus": 525000,
       "capital": [1876, 1103],
       "structures": [
         { "type": "Port", "at": [1803, 1204] },
@@ -625,7 +625,7 @@
       "color": "#959595",
       "troopsPercent": 100,
       "gold": 200000,
-      "troopCapBonus": 450000,
+      "troopCapBonus": 525000,
       "capital": [1697, 1122],
       "structures": [
         { "type": "City", "at": [1664, 1122] },
@@ -643,7 +643,7 @@
       "color": "#666666",
       "troopsPercent": 100,
       "gold": 300000,
-      "troopCapBonus": 450000,
+      "troopCapBonus": 525000,
       "capital": [1656, 1227],
       "structures": [
         { "type": "City", "at": [1710, 1252], "level": 2 },
@@ -662,7 +662,7 @@
       "color": "#848484",
       "troopsPercent": 100,
       "gold": 250000,
-      "troopCapBonus": 450000,
+      "troopCapBonus": 525000,
       "capital": [1344, 1242],
       "structures": [
         { "type": "City", "at": [1307, 1288] },
@@ -680,7 +680,7 @@
       "color": "#9f9f9f",
       "troopsPercent": 100,
       "gold": 150000,
-      "troopCapBonus": 450000,
+      "troopCapBonus": 525000,
       "capital": [1592, 992],
       "structures": [{ "type": "Defense Post", "at": [1498, 959] }],
       "regions": [
@@ -695,7 +695,7 @@
       "color": "#7f7f7f",
       "troopsPercent": 100,
       "gold": 250000,
-      "troopCapBonus": 900000,
+      "troopCapBonus": 1050000,
       "capital": [1833, 897],
       "structures": [
         { "type": "City", "at": [1693, 964] },
