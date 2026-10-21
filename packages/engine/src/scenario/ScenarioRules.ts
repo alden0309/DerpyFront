@@ -122,6 +122,13 @@ export const COLONIES_1776_WAVES: Colonies1776Wave[] = [
   },
 ];
 const LANDING_REACH = 8;
+/** The news line for a landing at each place. */
+const LANDING_NEWS: Record<string, string> = {
+  staten_island: "events_display.scenario_landing_staten_island",
+  new_york: "events_display.scenario_landing_new_york",
+  charleston: "events_display.scenario_landing_charleston",
+  quebec: "events_display.scenario_landing_quebec",
+};
 
 /** The player playing scenario nation `key`, if any. */
 function scenarioPlayer(game: Game, key: string): Player | null {
@@ -166,14 +173,18 @@ function landColonies1776Waves(game: Game): void {
     if (side === null) return;
     const place = [...wave.at, "quebec"].find((k) => {
       const at = COLONIES_1776_PLACES[k];
-      return at !== undefined && sideHoldsNear(game, side, at);
+      return (
+        at !== undefined &&
+        LANDING_NEWS[k] !== undefined &&
+        sideHoldsNear(game, side, at)
+      );
     });
     if (place === undefined) continue;
     const scale = game.scenario()?.scale ?? 1;
     const troops = (wave.troops * 10) / (scale > 1 ? 2 : 1);
     britain.addTroops(troops);
     game.displayMessage(
-      `events_display.scenario_landing_${place}`,
+      LANDING_NEWS[place],
       MessageType.NAVAL_INVASION_INBOUND,
       null,
       undefined,
