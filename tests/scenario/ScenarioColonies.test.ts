@@ -1,5 +1,6 @@
+import { PlayerType, UnitType } from "@openfront/engine-api/game/GameTypes";
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
-import { Game } from "@openfront/engine/game/Game";
+import { Game, Player } from "@openfront/engine/game/Game";
 import {
   COLONIES_1776_PLACES,
   SCENARIO_RULES,
@@ -69,7 +70,7 @@ describe("Thirteen Colonies 1776: reinforcement waves (idea B)", () => {
   it("land at Staten Island at minute 10, once, as troops for Britain", async () => {
     const g = await scenarioGame("colonies1776");
     const britain = g.nation("great_britain");
-    const rule = SCENARIO_RULES.colonies1776;
+    const rule = SCENARIO_RULES.colonies1776_waves;
     const news: string[] = [];
     const before = britain.troops();
     rule.tick!(at(g.game, 10 * 600 - 10, news));
@@ -99,7 +100,7 @@ describe("Thirteen Colonies 1776: reinforcement waves (idea B)", () => {
       }
     }
     const news: string[] = [];
-    SCENARIO_RULES.colonies1776.tick!(at(game, 20 * 600, news));
+    SCENARIO_RULES.colonies1776_waves.tick!(at(game, 20 * 600, news));
     expect(news).toEqual(["events_display.scenario_landing_quebec"]);
   }, 120_000);
 
@@ -108,5 +109,81 @@ describe("Thirteen Colonies 1776: reinforcement waves (idea B)", () => {
       const g = await scenarioGame(id);
       expect(scenarioRule(g.game), id).toBeNull();
     }
+  }, 120_000);
+});
+
+/** `p` loses its capital and the spot it started on to `to`. */
+function takeCapital(game: Game, p: Player, to: Player): void {
+  const spots = [
+    p.spawnTile()!,
+    ...p.units(UnitType.Capital).map((u) => u.tile()),
+  ];
+  for (const spot of spots) {
+    const cx = game.x(spot);
+    const cy = game.y(spot);
+    for (let y = cy - 3; y <= cy + 3; y++) {
+      for (let x = cx - 3; x <= cx + 3; x++) {
+        if (!game.isValidCoord(x, y)) continue;
+        const t = game.ref(x, y);
+        if (game.owner(t) === p) to.conquer(t);
+      }
+    }
+  }
+  for (const u of p.units(UnitType.Capital)) u.delete(false);
+}
+
+describe("Thirteen Colonies 1776: Loyalist colonies (idea C)", () => {
+  it("a Loyalist colony whose capital falls to Britain joins Britain for good", async () => {
+    const g = await scenarioGame("colonies1776");
+    const { game } = g;
+    const britain = g.nation("great_britain");
+    const georgia = g.nation("georgia");
+    const rule = SCENARIO_RULES.colonies1776_loyalists;
+    const news: string[] = [];
+    // Its capital standing, nothing happens.
+    rule.tick!(at(game, 600, news));
+    expect(georgia.team()).toBe("Patriots");
+    takeCapital(game, georgia, britain);
+    rule.tick!(at(game, 610, news));
+    expect(georgia.team()).toBe("British");
+    expect(georgia.isFriendly(britain)).toBe(true);
+    expect(news).toEqual(["events_display.scenario_loyalists"]);
+    // For good: the Patriots taking the spot back changes nothing.
+    g.nation("south_carolina").conquer(georgia.spawnTile()!);
+    rule.tick!(at(game, 620, news));
+    expect(georgia.team()).toBe("British");
+    expect(news.length).toBe(1);
+  }, 120_000);
+
+  it("leaves the other colonies, and a player's colony, on their side", async () => {
+    const g = await scenarioGame("colonies1776", {
+      players: [{ clientID: "PLAYERAA", username: "Alden", nation: "georgia" }],
+    });
+    const { game } = g;
+    const britain = g.nation("great_britain");
+    const georgia = g.nation("georgia");
+    const massachusetts = g.nation("massachusetts");
+    expect(georgia.type()).toBe(PlayerType.Human);
+    takeCapital(game, georgia, britain);
+    takeCapital(game, massachusetts, britain);
+    const news: string[] = [];
+    SCENARIO_RULES.colonies1776_loyalists.tick!(at(game, 600, news));
+    expect(georgia.team()).toBe("Patriots");
+    expect(massachusetts.team()).toBe("Patriots");
+    expect(news).toEqual([]);
+  }, 120_000);
+
+  it("both ideas together: the colonies1776 rule", async () => {
+    const g = await scenarioGame("colonies1776");
+    const britain = g.nation("great_britain");
+    const georgia = g.nation("georgia");
+    takeCapital(g.game, georgia, britain);
+    const news: string[] = [];
+    SCENARIO_RULES.colonies1776.tick!(at(g.game, 10 * 600, news));
+    expect(georgia.team()).toBe("British");
+    expect(news).toEqual([
+      "events_display.scenario_landing_staten_island",
+      "events_display.scenario_loyalists",
+    ]);
   }, 120_000);
 });

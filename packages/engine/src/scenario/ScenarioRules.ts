@@ -1,5 +1,10 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
-import { MessageType, Team } from "@openfront/engine-api/game/GameTypes";
+import {
+  MessageType,
+  PlayerType,
+  Team,
+  UnitType,
+} from "@openfront/engine-api/game/GameTypes";
 import { renderTroops } from "@openfront/engine-lib/Format";
 import { ScenarioSide } from "@openfront/engine-lib/scenario/ScenarioData";
 import { Game, Player } from "../game/Game";
@@ -195,11 +200,69 @@ function landColonies1776Waves(game: Game): void {
   }
 }
 
+/**
+ * Thirteen Colonies 1776, balance idea C (no data names it yet): Loyalist
+ * colonies. A computer-run colony among these whose capital falls to
+ * Britain's side (its capital gone, and the spot it started on held by
+ * Britain's side) joins Britain's side for good, and everyone hears. A
+ * player's colony never changes sides. New York and the south, where the
+ * Loyalists were strongest.
+ */
+export const COLONIES_1776_LOYALISTS: string[] = [
+  "new_york",
+  "new_jersey",
+  "north_carolina",
+  "south_carolina",
+  "georgia",
+];
+
+/** Loyalist colonies whose capital has fallen this second join Britain. */
+function turnColonies1776Loyalists(game: Game): void {
+  const scenario = game.scenario();
+  if (scenario === null) return;
+  const side = scenarioPlayer(game, "great_britain")?.team() ?? null;
+  if (side === null) return;
+  for (const p of game.players()) {
+    const key = scenario.nationOf(p)?.key;
+    if (key === undefined || !COLONIES_1776_LOYALISTS.includes(key)) continue;
+    if (p.type() !== PlayerType.Nation || !p.isAlive()) continue;
+    if (p.team() === null || p.team() === side) continue;
+    if (p.units(UnitType.Capital).length > 0) continue;
+    const spawn = p.spawnTile();
+    if (spawn === undefined) continue;
+    const holder = game.owner(spawn);
+    if (!holder.isPlayer() || holder.team() !== side) continue;
+    p.setTeam(side);
+    game.displayMessage(
+      "events_display.scenario_loyalists",
+      MessageType.ALLIANCE_ACCEPTED,
+      null,
+      undefined,
+      { name: p.displayName(), side },
+      undefined,
+      p.id(),
+    );
+  }
+}
+
 /** The special rules, by name. Add one here and name it in the data. */
 export const SCENARIO_RULES: Record<string, ScenarioRule> = {
+  // Thirteen Colonies 1776's balance ideas, one by one and together (no
+  // data names them until the owner picks).
+  colonies1776_waves: {
+    tick: (game) => {
+      landColonies1776Waves(game);
+    },
+  },
+  colonies1776_loyalists: {
+    tick: (game) => {
+      turnColonies1776Loyalists(game);
+    },
+  },
   colonies1776: {
     tick: (game) => {
       landColonies1776Waves(game);
+      turnColonies1776Loyalists(game);
     },
   },
   europe1939: {

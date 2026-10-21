@@ -1264,6 +1264,7 @@
     "scenario_landing_new_york": "Hessian and British regiments land at New York: {troops} troops for {name}.",
     "scenario_landing_quebec": "Hessian and British regiments land at Quebec: {troops} troops for {name}.",
     "scenario_landing_staten_island": "Hessian and British regiments land at Staten Island: {troops} troops for {name}.",
+    "scenario_loyalists": "{name}'s capital has fallen and its Loyalists take over: {name} joins the {side}.",
     "sent_emoji": "Sent {name}: {emoji}",
     "sent_emoji_all": "Sent everyone: {emoji}",
     "sent_gold_to_player": "Sent {gold} gold to {name}",
