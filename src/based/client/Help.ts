@@ -109,9 +109,8 @@ export function helpBody(
         language works the same way.
       </li>
       <li>
-        Things and moments can add to a language later: a phrasebook in his
-        hand, say. Your skills shows each language under Languages, and where
-        its points come from.
+        Your skills shows each language under Languages, and where its points
+        come from.
       </li>
     </ul>
 
@@ -135,10 +134,6 @@ export function helpBody(
         Things are found by looking, given or sold, or taken. Some choices need
         something he hasn't got yet; they show, shut, and say what. Some things
         have a use.
-      </li>
-      <li>
-        A weapon in his hand changes how people read him. Some won't talk to him
-        while he's holding it.
       </li>
     </ul>
 

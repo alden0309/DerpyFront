@@ -21,7 +21,7 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { leanSpot } from "../../engine/Lean";
+import { customerSpot, leanSpot, serveSpot } from "../../engine/Lean";
 import { MoveWatch } from "../../engine/Moves";
 import { navFor, NavGrid, P } from "../../engine/Nav";
 import { Area, Hotspot, Mark, PlaceDef } from "../../engine/Place";
@@ -1287,6 +1287,44 @@ export class World {
     this.moves.start(id, this.time, p.walkLeft);
   }
 
+  /**
+   * r26 (the owner): "Bartender should walk over in front of you when you
+   * talk to him." Someone leaning behind a counter, when Mr. Based starts
+   * talking to them, comes along it to the spot across from him (or the
+   * stool he's on his way to) and leans there, facing him; the line waits
+   * for them like any move (storyBusy). Nothing if the story already has
+   * them on the move, or they aren't leaning at a counter. They stay there
+   * until the story sends them somewhere.
+   */
+  serve(id: string): void {
+    const p = this.people.get(id);
+    const hero = this.people.get(this.hero);
+    if (!p || !hero || !this.place || !p.root.visible) return;
+    if (p.pose !== "lean" || this.storyWalking(id)) return;
+    const to = this.walkTargets.get(this.hero) ?? hero.root.position;
+    const s = serveSpot(
+      this.place.def,
+      [p.root.position.x, p.root.position.z],
+      [to.x, to.z],
+      p.leanFit(),
+    );
+    if (!s) return;
+    const target = new THREE.Vector3(s.x, 0, s.z);
+    const lean = () => {
+      p.setPose("lean", s.top, s.face);
+      p.onRefit = () => p.place(target, s.face, "lean", s.top);
+    };
+    if (p.root.position.distanceTo(target) < 0.2) {
+      p.face(s.face);
+      return;
+    }
+    const pts = this.route(p, s.x, s.z) ?? [];
+    pts.push(target);
+    this.walkTargets.set(id, target.clone());
+    p.walk(pts, lean, s.face);
+    this.watchMove(id, p);
+  }
+
   /** r26: whether a move the story asked for is still under way. */
   storyBusy(): boolean {
     if (this.moves.size === 0) return false;
@@ -1785,6 +1823,28 @@ export class World {
       p.face(Math.atan2(at.x - p.root.position.x, at.z - p.root.position.z));
       then();
     };
+    // r26: someone serving behind a counter: he goes up to his side of it
+    // (never round behind the bar), across from the nearest point of it,
+    // unless he's at it already; they come over to him (serve).
+    const across = customerSpot(
+      this.place.def,
+      [at.x, at.z],
+      [p.root.position.x, p.root.position.z],
+      (x, z) => this.place!.nav.walkable(x, z),
+    );
+    if (across) {
+      const there = Math.hypot(
+        across.x - p.root.position.x,
+        across.z - p.root.position.z,
+      );
+      const faceBar = () => {
+        p.face(across.face);
+        then();
+      };
+      if (there < 0.9) faceBar();
+      else if (!this.walkHero(across.x, across.z, false, faceBar)) faceBar();
+      return true;
+    }
     const d = Math.hypot(at.x - p.root.position.x, at.z - p.root.position.z);
     if (d < 1.7) {
       face();

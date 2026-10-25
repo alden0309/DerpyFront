@@ -111,8 +111,9 @@ export function buildOf(a: Archetype): Build {
 
 /**
  * The build with its language points in order (r22 BPLAY):
- * - points already spent are kept, less any language the chapter no longer
- *   has (German went in r22) and anything out of range;
+ * - points already spent are kept, less anything out of range; points in
+ *   a language the chapter no longer has (German went in r22, English
+ *   (British) in r26) go to the others (see below);
  * - BWORLD's saves, which listed the languages he was given, become points:
  *   one in each he had, then the rest of his pool round them again (a
  *   language that's gone gives its points to the others, or to the
@@ -126,19 +127,50 @@ export function withLanguages(ch: Chapter, b: Build): Build {
   const { langs, ...rest } = b;
   if (ch.languages.length === 0) return rest;
   const codes = ch.languages.map((l) => l.code);
+  const pool = languagePool(ch, b);
   if (b.langPts) {
     const pts: Record<string, number> = {};
-    for (const c of codes) {
-      const n = b.langPts[c];
-      if (Number.isInteger(n) && n > 0) pts[c] = Math.min(LANG_MAX, n);
+    let gone = 0;
+    for (const [c, n] of Object.entries(b.langPts)) {
+      if (!Number.isInteger(n) || n <= 0) continue;
+      if (codes.includes(c)) pts[c] = Math.min(LANG_MAX, n);
+      else gone += n;
     }
+    // r26: points in a language the chapter no longer has (English
+    // (British) went) go to the others, within his pool.
+    topUp(
+      pts,
+      codes,
+      Math.min(gone, pool - langSpent({ langPts: pts } as Build)),
+    );
     return { ...rest, langPts: pts };
   }
-  const pool = languagePool(ch, b);
   const known = (langs ?? []).filter((c) => codes.includes(c));
   const pts = spread(known.length > 0 ? known : codes, pool);
   for (const c of Object.keys(pts)) if (pts[c] === 0) delete pts[c];
+  // r26: what the languages he had couldn't take goes to the others.
+  topUp(pts, codes, pool - langSpent({ langPts: pts } as Build));
   return { ...rest, langPts: pts };
+}
+
+/**
+ * r26: `left` more points over `codes`, a point at a time to the one he has
+ * least of (in the order written), up to LANG_MAX each.
+ */
+function topUp(
+  pts: Record<string, number>,
+  codes: string[],
+  left: number,
+): void {
+  while (left > 0) {
+    const open = codes.filter((c) => (pts[c] ?? 0) < LANG_MAX);
+    if (open.length === 0) return;
+    const least = open.reduce((a, c) =>
+      (pts[c] ?? 0) < (pts[a] ?? 0) ? c : a,
+    );
+    pts[least] = (pts[least] ?? 0) + 1;
+    left--;
+  }
 }
 
 /** A skill's value under a build before any boosts. */

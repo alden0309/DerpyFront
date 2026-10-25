@@ -144,7 +144,7 @@ describe("the opening, reshaped (r25)", () => {
     const r = street();
     expect(r.stage.place).toBe("street");
     expect(r.stage.actors.WATCHER?.at).toBe("watcher_spot");
-    expect(r.has("matchbook") || r.has("brass_lighter")).toBe(false);
+    expect(r.has("matchbook")).toBe(false);
     const first = talkTo(r, "WATCHER");
     expect(first).toMatch(/unlit cigarette/);
     expect(first).toMatch(/nod/);
@@ -197,8 +197,7 @@ describe("the opening, reshaped (r25)", () => {
       path.join(ROOT, "src/based/story/chapter-01.story"),
       "utf8",
     );
-    const trigger =
-      "@on talk WATCHER once if has_light and (has.matchbook or has.brass_lighter)";
+    const trigger = "@on talk WATCHER once if has_light and has.matchbook";
     expect(src).toContain(trigger);
     const loose = parseChapter(
       src.replace(trigger, "@on talk WATCHER once"),
@@ -809,6 +808,49 @@ describe("saves made before this round (r25)", () => {
     r.talk("WATCHER");
     readOn(r);
     expect(r.flag("met_watcher")).toBe(1);
+  });
+
+  test("r26: a save with the baton, the lighter, the key to twelve and English (British)", () => {
+    const s = oldFree();
+    s.inv = {
+      ...s.inv,
+      baton: 1,
+      brass_lighter: 1,
+      room_key: 1,
+      phrasebook: 1,
+    };
+    s.worn = {
+      ...s.worn,
+      hand: "baton",
+      glasses: "reading_glasses",
+      hat: "flat_cap",
+    };
+    s.flags = { ...s.flags, took_baton: 1, took_lost: 1, knows_jean: 1 };
+    s.build = { ...s.build!, langPts: { fr: 2, en_gb: 2 } };
+    for (const gone of ["lost_take", "van_door", "use_baton", FREE]) {
+      const r = new StoryRun(
+        chapter,
+        JSON.parse(JSON.stringify({ ...s, scene: gone })),
+      );
+      // Free where he was; what's gone, gone quietly.
+      expect(r.beat, gone).toEqual({ kind: "free" });
+      for (const k of ["baton", "brass_lighter", "room_key", "phrasebook"]) {
+        expect(r.has(k), `${gone}: ${k}`).toBe(false);
+        expect(r.items[k], `${gone}: ${k}`).toBeUndefined();
+      }
+      expect(Object.values(r.gear)).not.toContain("baton");
+      expect(Object.values(r.gear)).not.toContain("reading_glasses");
+      expect(r.armed).toBe(false);
+      // His English (British) went to his Russian.
+      expect(r.languages()).toEqual({ fr: 2, ru: 2 });
+      // And it plays on to the end.
+      const p = playRandomly(chapter, PLACES, {
+        seed: 9,
+        from: r.snapshot(),
+        max: 5000,
+      });
+      expect(p.ended, gone).toBe(true);
+    }
   });
 
   test("a save in a scene that's gone (the walk to the river) loads free there", () => {

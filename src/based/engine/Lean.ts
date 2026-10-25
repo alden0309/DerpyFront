@@ -139,3 +139,90 @@ export function leanSpot(
   }
   return best?.s ?? null;
 }
+
+/**
+ * r26 (the owner): "Bartender should walk over in front of you when you
+ * talk to him." Where someone leaning behind a counter (at `from`) comes to
+ * serve a man at `to` (where Mr. Based is, or the stool he's on his way
+ * to): the spot on their side of the counter straight across from him (or
+ * as near as its ends allow, so a man at a table gets the end nearest him),
+ * leaning on it, facing him. Null if `from` isn't behind a counter.
+ */
+export function serveSpot(
+  def: PlaceDef,
+  from: [number, number],
+  to: [number, number],
+  shape: LeanShape,
+): LeanSpot | null {
+  for (const c of counters(def)) {
+    const cs = Math.cos(c.rot);
+    const sn = Math.sin(c.rot);
+    const local = (p: [number, number]): [number, number] => {
+      const dx = p[0] - c.x;
+      const dz = p[1] - c.z;
+      return [dx * cs - dz * sn, dx * sn + dz * cs];
+    };
+    const [fx, fz] = local(from);
+    // Behind this counter: on its back side, along it.
+    if (fz > c.back || fz < c.back - LEAN_REACH) continue;
+    if (Math.abs(fx) > c.len / 2 + 0.2) continue;
+    const [tx] = local(to);
+    const sx = Math.max(-c.len / 2 + END, Math.min(c.len / 2 - END, tx));
+    const sz = c.back - (shape.front + LEAN_CLEAR);
+    const world = (px: number, pz: number): [number, number] => [
+      c.x + px * cs + pz * sn,
+      c.z - px * sn + pz * cs,
+    ];
+    const [wx, wz] = world(sx, sz);
+    return {
+      x: wx,
+      z: wz,
+      face: c.rot,
+      top: c.top,
+      edge: [world(sx - 0.3, c.back), world(sx + 0.3, c.back)],
+    };
+  }
+  return null;
+}
+
+/**
+ * r26: where Mr. Based goes up to someone serving behind a counter (at
+ * `from`): his side of it, across from the nearest point of it to him (`to`,
+ * where he is), at the first spot he can stand (`walkable`) from just in
+ * front of the top outwards. Null if `from` isn't behind a counter or
+ * there's nowhere to stand.
+ */
+export function customerSpot(
+  def: PlaceDef,
+  from: [number, number],
+  to: [number, number],
+  walkable: (x: number, z: number) => boolean,
+): { x: number; z: number; face: number } | null {
+  for (const c of counters(def)) {
+    const cs = Math.cos(c.rot);
+    const sn = Math.sin(c.rot);
+    const local = (p: [number, number]): [number, number] => {
+      const dx = p[0] - c.x;
+      const dz = p[1] - c.z;
+      return [dx * cs - dz * sn, dx * sn + dz * cs];
+    };
+    const [fx, fz] = local(from);
+    if (fz > c.back || fz < c.back - LEAN_REACH) continue;
+    if (Math.abs(fx) > c.len / 2 + 0.2) continue;
+    const [tx] = local(to);
+    const sx = Math.max(-c.len / 2 + END, Math.min(c.len / 2 - END, tx));
+    const world = (px: number, pz: number): [number, number] => [
+      c.x + px * cs + pz * sn,
+      c.z - px * sn + pz * cs,
+    ];
+    // Out from the counter's front, then a little to either side.
+    for (let dz = 0.3; dz <= 1.6; dz += 0.1) {
+      for (const dx of [0, 0.2, -0.2, 0.4, -0.4]) {
+        const [wx, wz] = world(sx + dx, c.front + dz);
+        if (walkable(wx, wz)) return { x: wx, z: wz, face: c.rot + Math.PI };
+      }
+    }
+    return null;
+  }
+  return null;
+}

@@ -13,9 +13,11 @@ import { describe, expect, test } from "vitest";
 import { BeatHold, HOLD_POLL } from "../../src/based/client/Hold";
 import {
   counters,
+  customerSpot,
   LEAN_CLEAR,
   LEAN_FALLBACK,
   leanSpot,
+  serveSpot,
 } from "../../src/based/engine/Lean";
 import { moveLimit, MoveWatch } from "../../src/based/engine/Moves";
 import { navFor } from "../../src/based/engine/Nav";
@@ -126,6 +128,109 @@ describe("leaning on the counter (r26)", () => {
     // Facing away from the bar, or far from it.
     expect(leanSpot(def, -1, -3.78, Math.PI, LEAN_FALLBACK)).toBeNull();
     expect(leanSpot(def, -1, 2.5, Math.PI, LEAN_FALLBACK)).toBeNull();
+  });
+});
+
+describe("the barman comes over when Mr. Based talks to him (r26)", () => {
+  const def = PLACES.vauban;
+  const c = counters(def)[0];
+  const from = def.marks.behind_bar.at;
+  const nav = navFor(def);
+  const edgeZ = c.z + c.back;
+
+  test("in front of every stool at the bar, his arms on the counter, facing him", () => {
+    const stools = Object.entries(def.marks).filter(([k]) => /^stool_/.test(k));
+    expect(stools.length).toBeGreaterThanOrEqual(11);
+    for (const [k, m] of stools) {
+      const s = serveSpot(def, from, m.at, LEAN_FALLBACK);
+      expect(s, k).not.toBeNull();
+      // Straight across from the stool (or as near as the counter's end
+      // lets his arms stay on it), on his side of the counter.
+      const across = Math.max(
+        c.x - c.len / 2 + 0.35,
+        Math.min(c.x + c.len / 2 - 0.35, m.at[0]),
+      );
+      expect(s!.x, k).toBeCloseTo(across, 5);
+      expect(Math.abs(s!.x - m.at[0]), k).toBeLessThan(0.3);
+      expect(s!.z, k).toBeLessThan(edgeZ);
+      // Leaning: body clear of the edge, elbows at it, facing the stool.
+      expect(s!.z + LEAN_FALLBACK.front, k).toBeCloseTo(edgeZ - LEAN_CLEAR, 3);
+      expect(Math.abs(s!.z + LEAN_FALLBACK.elbow - edgeZ), k).toBeLessThan(
+        0.05,
+      );
+      expect(Math.cos(s!.face)).toBeCloseTo(1, 3);
+      expect(s!.top).toBe(c.top);
+      // Within reach of the stool across the counter.
+      expect(m.at[1] - s!.z, k).toBeLessThan(1.4);
+      // And his way there is clear, all of it behind the bar.
+      expect(nav.walkable(s!.x, s!.z), k).toBe(true);
+      const path = nav.path(from, [s!.x, s!.z]);
+      expect(path, k).not.toBeNull();
+      for (const pt of path!) expect(pt[1], k).toBeLessThan(edgeZ);
+    }
+  });
+
+  test("from wherever he is now (after the man in grey, down the bar)", () => {
+    const far = def.marks.behind_bar_far.at;
+    const m = def.marks.stool_8.at;
+    const s = serveSpot(def, far, m, LEAN_FALLBACK)!;
+    expect(Math.abs(s.x - m[0])).toBeLessThan(0.01);
+    expect(nav.path(far, [s.x, s.z])).not.toBeNull();
+  });
+
+  test("Mr. Based at a table: the end of the bar nearest him", () => {
+    for (const k of ["couple_m", "reader_chair", "corner_seat", "booth"]) {
+      const m = def.marks[k];
+      if (!m) continue;
+      const s = serveSpot(def, from, m.at, LEAN_FALLBACK)!;
+      expect(s, k).not.toBeNull();
+      const ends = [c.x - c.len / 2 + 0.35, c.x + c.len / 2 - 0.35];
+      const nearest = Math.max(ends[0], Math.min(ends[1], m.at[0]));
+      expect(s.x, k).toBeCloseTo(nearest, 5);
+      expect(nav.walkable(s.x, s.z), k).toBe(true);
+    }
+  });
+
+  test("going up to him, Mr. Based keeps to his own side of the bar", () => {
+    const frontZ = c.z + c.front;
+    for (const at of [
+      [4.8, 2.3], // in from the street
+      [-3.6, 2.0], // the reader's armchair
+      [10.6, 0.4], // the lobby
+    ] as [number, number][]) {
+      const s = customerSpot(def, from, at, (x, z) => nav.walkable(x, z))!;
+      expect(s, `${at}`).not.toBeNull();
+      expect(s.z, `${at}`).toBeGreaterThan(frontZ);
+      expect(s.z - frontZ, `${at}`).toBeLessThan(1.2);
+      expect(nav.walkable(s.x, s.z)).toBe(true);
+      expect(Math.cos(s.face)).toBeCloseTo(-1, 3);
+      // His way there never goes round behind the bar.
+      const p = nav.path(at, [s.x, s.z]);
+      expect(p, `${at}`).not.toBeNull();
+      for (const pt of p!) expect(pt[1], `${at}`).toBeGreaterThan(edgeZ);
+    }
+  });
+
+  test("not from in front of the bar, or from the lobby", () => {
+    expect(serveSpot(def, [-1, -1.9], [-1, -1.9], LEAN_FALLBACK)).toBeNull();
+    expect(serveSpot(def, [10, 0], [-1, -1.9], LEAN_FALLBACK)).toBeNull();
+  });
+
+  test("every conversation with him is a talk to the barman (so he comes)", () => {
+    const talks = chapter.order.filter(
+      (id) =>
+        chapter.scenes[id].trigger?.on === "talk" &&
+        chapter.scenes[id].trigger?.target === "BARMAN",
+    );
+    expect(talks).toEqual(
+      expect.arrayContaining(["order", "anselme_after", "anselme_idle"]),
+    );
+    const player = fs.readFileSync(
+      path.join(ROOT, "src/based/client/Player.ts"),
+      "utf8",
+    );
+    expect(player).toMatch(/this\.serving = this\.bodyOf\(who\)/);
+    expect(player).toMatch(/this\.world\?\.serve\(this\.serving\)/);
   });
 });
 
@@ -254,7 +359,8 @@ describe("the story waits for the moves it asks for (r26)", () => {
       path.join(ROOT, "src/based/client/world/World.ts"),
       "utf8",
     );
-    // Both of moveActor's walks (to a mark, out of a door) are watched.
-    expect(world.match(/this\.watchMove\(id, p0?\)/g)?.length).toBe(2);
+    // Both of moveActor's walks (to a mark, out of a door) are watched, and
+    // the barman's coming over to serve him.
+    expect(world.match(/this\.watchMove\(id, p0?\)/g)?.length).toBe(3);
   });
 });

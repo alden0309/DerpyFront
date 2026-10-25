@@ -527,6 +527,17 @@ export class StoryRun {
       s.money ??= kit.money;
     }
     s.money ??= chapter.money;
+    // r26: what the chapter no longer has (the lost-property box's things,
+    // the baton) goes quietly, from his pockets and from what he wears or
+    // holds; his languages keep only the chapter's (English (British) went:
+    // its points go to the others, Skills.ts withLanguages).
+    for (const k of Object.keys(s.inv)) {
+      if (!chapter.items[k]) delete s.inv[k];
+    }
+    for (const [slot, k] of Object.entries(s.worn)) {
+      if (k && !chapter.items[k]) delete s.worn[slot as GearSlot];
+    }
+    if (s.build) s.build = withLanguages(chapter, s.build);
     s.visited ??= {};
     s.met ??= {};
     s.memories ??= [];

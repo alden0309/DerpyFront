@@ -147,10 +147,9 @@ describe("his cover (r26): one American story, the same to everyone", () => {
       /\b(Americans?|Américain)\b/.test(l.text),
     );
     expect(nationality.length).toBeGreaterThan(0);
-    // English (British) is a language he can buy, not his own.
-    expect(chapter.languages.find((l) => l.code === "en_gb")?.name).toBe(
-      "English (British)",
-    );
+    // r26: English (British) isn't a language he can buy: he's American,
+    // and English is his own.
+    expect(chapter.languages.map((l) => l.code)).not.toContain("en_gb");
     const readme = fs.readFileSync(
       path.join(ROOT, "src/based/README.md"),
       "utf8",

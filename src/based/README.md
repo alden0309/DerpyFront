@@ -90,9 +90,12 @@ r22 BPLAY: he carries things. His clothes (hat, glasses, neck, jacket,
 shirt, gloves, trousers, shoes) and whatever's in his hand change his
 skills while they're on him; his pockets have no limit; he has euros.
 Things are found by looking (a bowl of matches, an umbrella nobody
-claimed, a lost-property box), given or sold by people, or taken. Some
-options need something (a light needs a match or a lighter) and show,
-shut, until he has it; a weapon in his hand changes how people read him.
+claimed, a newspaper left on the bar), given or sold by people, or taken.
+Some options need something (a light needs a match) and show, shut, until
+he has it. (r26: the lost-property box and what it held, and the baton
+from the police van, are gone at the owner's word; a save that had any of
+them loads without them. The engine still lets a weapon in his hand change
+how people read him; chapter one has none.)
 The inventory (I, or the bag) shows his figure with the slots around it,
 his pockets and what each thing does; click to pick, double-click or drag
 to put on and take off, Use for things with a use. The story so far (the
@@ -107,7 +110,7 @@ far). The same key closes the panel it opened.
 ## Part one, as the owner reshaped it (r25)
 
 - **The street.** The man under the awning with an unlit cigarette. With
-  matches or a lighter in his pocket (`has_light`, set wherever he gets
+  matches in his pocket (`has_light`, set wherever he gets
   one), going up to him is Mr. Based offering a light; he wants to be
   alone, and that's the end of it. With nothing to light it, a nod the man
   doesn't return; the offer comes once he has a light. He stays under the
@@ -296,11 +299,12 @@ far off he notices things; Languages is the pool for his languages (below).
 
 ```
 @language fr "French"
-@language en_gb "English (British)"
 @language ru "Russian"
 ```
 
-American English is his own. The rest are bought at the start with **language
+American English is his own (r26: English (British) is gone, at the
+owner's word: he's American). French and Russian take up to six points
+between them, the most a Languages skill gives, so none is ever wasted. The rest are bought at the start with **language
 points**, a pool equal to his **Languages skill at the start** (its
 attribute, plus one if it's his signature; at least one). The player spends
 them on the setup screen, under Languages in Intelligence, **0 to 3 per
@@ -335,8 +339,9 @@ bonus=LANGUAGES.ru+1 "..."`. His sheet lists each language under Languages
   with its pips and where the points came from.
 - **Saves:** BWORLD's saves listed the languages he was given; they load as
   points (one in each language he had, then the rest of his pool round them
-  again, up to 3). German is gone from chapter one: its points go to the
-  others (or to French, if it was all he had).
+  again, up to 3, and what's left over to the others). German is gone from
+  chapter one, and r26 English (British): their points go to the languages
+  that are left, a point at a time to the one he has least of.
 
 ### Scenes
 
@@ -567,7 +572,7 @@ In the header:
 @money 180
 @item field_jacket "Field jacket" kind=clothes slot=jacket look=field_jacket icon=jacket bonus=ENDURANCE+1 start=worn "Black, zipped..."
 @item gloves "Thin black gloves" kind=clothes slot=gloves icon=gloves bonus=INTIMIDATION+1,DEXTERITY-1 start=1 "In the jacket's inside pocket..."
-@item baton "Telescopic baton" kind=weapon slot=hand icon=baton bonus=INTIMIDATION+2,EMPATHY-1 "Police issue..."
+@item umbrella "Black umbrella" kind=tool slot=hand icon=umbrella "A big black umbrella..."
 @item matchbook "Le Vauban matches" kind=small icon=matchbook "A book of matches..."
 ```
 
@@ -605,8 +610,8 @@ world shows, or the story's own weather).
 
 ```
 choose "He's holding out the cigarette."
-  * needs=matchbook|brass_lighter [Give him a light] "Here."     // any of them
-  * white INTIMIDATION medium if armed [Let him see the baton]
+  * needs=matchbook|cigarettes [Offer him one] "Smoke?"     // any of them
+  * white INTIMIDATION medium if armed [Let him see what's in your hand]
     bonus +1 if wears.gloves "Gloves: no prints"
   * silent [Leave him be]
 end
@@ -620,8 +625,7 @@ end
 - `@on use KEY [once] [in=place] [if condition]` starts a scene when he
   uses something he has.
 - People can read a weapon: put a scene with `@on talk WHO if armed`
-  before their others (the barman won't serve him; the porter turns his
-  back).
+  before their others. (Chapter one had them for the baton until r26.)
 - The player can change clothes at any moment, even with a check on
   screen; the check is worked out again (a hat that helps reopens a white
   check that failed).
@@ -751,8 +755,8 @@ look, not the size it is.
 ### Things to examine (r22 BPLAY)
 
 The street, the bar and the lobby hold some fifty things to look at (a
-matchbook bowl, the tip jar, a moped, a dog's water bowl, the lost-property
-box...). Each is a hotspot in the place's data, a piece of the kit to draw
+matchbook bowl, the tip jar, a moped, a dog's water bowl, the guest
+book...). Each is a hotspot in the place's data, a piece of the kit to draw
 it, and its text in the story:
 
 ```json

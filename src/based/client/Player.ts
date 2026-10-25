@@ -201,6 +201,8 @@ export class BasedPlayer extends LitElement {
   /** r26: the beat waits for someone the story moved (afterStep). */
   @state() private held = false;
   private firstStep = false;
+  /** r26: who he's just started talking to (afterStep has them come over). */
+  private serving: string | null = null;
   private readonly hold = new BeatHold<Beat>(
     () => this.world?.storyBusy() ?? false,
     (b) => {
@@ -454,6 +456,12 @@ export class BasedPlayer extends LitElement {
     for (const e of events) this.onEvent(e, first);
     const b = this.run.beat;
     this.beat = b;
+    // r26: he's started talking to someone behind a counter: they come over
+    // (after the scene's own moves, so to the stool he's going to).
+    if (this.serving) {
+      this.world?.serve(this.serving);
+      this.serving = null;
+    }
     // r26: someone the story moved is still on the way: the next line (or
     // choice) waits until they're there and settled (client/Hold.ts).
     window.clearTimeout(this.timerTimeout);
@@ -1388,7 +1396,10 @@ export class BasedPlayer extends LitElement {
     }
     const start = this.walkThen(() => {
       if (!this.run.free || this.busy) return;
+      // r26: whoever serves from behind a counter comes over to him.
+      this.serving = this.bodyOf(who);
       if (this.run.talk(who)) this.afterStep();
+      this.serving = null;
     });
     if (w.heroSeated) {
       start();
