@@ -2501,8 +2501,6 @@ label.mb-skill {
 }
 .mb-lang-name {
   font-weight: 600;
-  /* BFIX (r23): "English (British)" on one line, even on a narrow phone. */
-  white-space: nowrap;
 }
 .mb-lang-level {
   font-family: var(--mb-type);

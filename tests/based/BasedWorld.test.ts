@@ -460,11 +460,11 @@ describe("languages (r22 BPLAY: points under Languages)", () => {
   });
 
   test("BWORLD's saves, with languages given, become points", () => {
-    // He had French (and German, which is gone): all five on French, as
-    // far as three goes.
+    // He had French (and German, which is gone): French as far as three
+    // goes; r26: what's left over goes round the others, a point each.
     expect(withLanguages(c, { ...talker, langs: ["fr", "de"] })).toEqual({
       ...talker,
-      langPts: { fr: 3 },
+      langPts: { fr: 3, en_gb: 1, ru: 1 },
     });
     expect(
       withLanguages(c, { ...talker, langs: ["fr", "en_gb"] }).langPts,
@@ -473,10 +473,11 @@ describe("languages (r22 BPLAY: points under Languages)", () => {
     expect(withLanguages(c, { ...doer, langs: ["de"] }).langPts).toEqual({
       fr: 1,
     });
-    // Points already spent are kept, less a language that's gone.
+    // Points already spent are kept; r26: a gone language's go to the
+    // others, a point at a time to the one he has least of.
     expect(
       withLanguages(c, { ...talker, langPts: { fr: 2, de: 2, ru: 1 } }).langPts,
-    ).toEqual({ fr: 2, ru: 1 });
+    ).toEqual({ fr: 2, ru: 1, en_gb: 2 });
   });
 
   /** Plays to the barman's first lines with these points. */

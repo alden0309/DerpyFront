@@ -650,12 +650,10 @@ describe("languages in chapter one (r22 BPLAY)", () => {
   const text = fs.readFileSync(path.join(STORY, "chapter-01.story"), "utf8");
   const { chapter } = parseChapter(text);
 
-  test("English (British), French and Russian; German is gone", () => {
-    expect(chapter.languages.map((l) => l.code).sort()).toEqual([
-      "en_gb",
-      "fr",
-      "ru",
-    ]);
+  test("French and Russian; German is gone, and English (British) (r26)", () => {
+    // He's American: English is his own, not a language he buys.
+    expect(chapter.languages.map((l) => l.code).sort()).toEqual(["fr", "ru"]);
+    expect(text).not.toMatch(/en_gb|English \(British\)/);
     for (const id of chapter.order) {
       for (const o of chapter.scenes[id].ops) {
         if (o.op === "line") expect(o.lang, id).not.toBe("de");
@@ -669,12 +667,21 @@ describe("languages in chapter one (r22 BPLAY)", () => {
     expect(
       [analyst, handler, operator].map((b) => languagePool(chapter, b)),
     ).toEqual([4, 3, 2]);
-    // BWORLD's Analyst had French, English and German: German's points go
-    // to the other two.
+    // BWORLD's Analyst had French, English and German: both of those are
+    // gone now, so French takes what it can and Russian the rest.
     expect(
       withLanguages(chapter, { ...analyst, langs: ["fr", "en_gb", "de"] })
         .langPts,
-    ).toEqual({ fr: 2, en_gb: 2 });
+    ).toEqual({ fr: 3, ru: 1 });
+    // r26: a save with points in English (British): they go to the others,
+    // the one he has least of first.
+    expect(
+      withLanguages(chapter, { ...analyst, langPts: { fr: 2, en_gb: 2 } })
+        .langPts,
+    ).toEqual({ fr: 2, ru: 2 });
+    expect(
+      withLanguages(chapter, { ...handler, langPts: { en_gb: 3 } }).langPts,
+    ).toEqual({ fr: 2, ru: 1 });
     // His Operator had French alone.
     expect(
       withLanguages(chapter, { ...operator, langs: ["fr"] }).langPts,
@@ -686,7 +693,7 @@ describe("languages in chapter one (r22 BPLAY)", () => {
         build: { ...analyst, langs: ["fr", "en_gb", "de"] },
       }),
     );
-    expect(r.languages()).toEqual({ fr: 2, en_gb: 2, ru: 0 });
+    expect(r.languages()).toEqual({ fr: 3, ru: 1 });
   });
 
   test("the clerk's call is in Russian, with a check in Russian", () => {
@@ -701,9 +708,7 @@ describe("languages in chapter one (r22 BPLAY)", () => {
     expect(
       choice.options.find((o) => o.check?.skill === "LANGUAGES.ru"),
     ).toBeTruthy();
-    // The phrasebook from lost property adds a point of Russian in hand.
-    expect(chapter.items.phrasebook.bonus).toEqual([
-      { skill: "LANGUAGES.ru", delta: 1 },
-    ]);
+    // r26: the lost-property box (and its phrasebook) is gone.
+    expect(chapter.items.phrasebook).toBeUndefined();
   });
 });

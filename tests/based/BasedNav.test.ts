@@ -190,7 +190,7 @@ describe("the walking grid from the pieces (r23)", () => {
       "rope",
       "machine",
       "standjar",
-      "tray",
+      // (r26: the lost-property tray under the stairs is gone.)
       "coats",
     ]) {
       expect(what.has(w), w).toBe(true);

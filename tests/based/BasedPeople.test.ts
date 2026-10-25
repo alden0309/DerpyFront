@@ -813,7 +813,9 @@ describe("his clothes on and off (r23)", () => {
     const clothes = Object.values(chapter.items).filter(
       (i) => i.slot && i.slot !== "hand",
     );
-    expect(clothes.length).toBeGreaterThan(5);
+    // r26: his own clothes (the lost property's glasses, scarf and cap are
+    // gone).
+    expect(clothes.length).toBeGreaterThanOrEqual(5);
     // Every subset of what can be worn (one thing a slot), the way the
     // player works out his look: the first worn thing with a look, or none
     // (none leaves him as he is).
