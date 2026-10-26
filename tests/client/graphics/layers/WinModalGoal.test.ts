@@ -1,6 +1,7 @@
 // DFX (r26): the win screen's coin line shows a Scenario goal met: "Goal
-// met: +75" (the server's word, signed in; what it would pay, signed out),
-// or that it was collected before; nothing when none was met.
+// met: +200" (the server's word, signed in; what it would pay, signed out),
+// or that it was collected before; below Hard, that goals pay on Hard and
+// Impossible (and no coins); nothing when none was met.
 
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { EventBus } from "@openfront/shared/EventBus";
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 const WORDS: Record<string, string> = {
   "scenario_goal.coin_line": "Goal met: +{coins}",
   "scenario_goal.collected": "Goal met (collected before)",
+  "scenario_goal.met_below_hard": "Goal met (goals pay on Hard and Impossible)",
   "derpy.coins_earned": "Earned {coins}",
   "derpy.coins_would_earn": "Would earn {coins}",
 };
@@ -55,11 +57,12 @@ vi.mock("../../../../src/derpland/Watch", () => ({
   replaySaved: vi.fn(async () => false),
 }));
 
+import { derpyGameGoal } from "../../../../src/client/derpy/DerpyAccount";
 import "../../../../src/client/hud/layers/WinModal";
 import type { WinModal } from "../../../../src/client/hud/layers/WinModal";
 import type { GameView } from "../../../../src/client/view";
 
-function makeGame(goal: number | undefined): GameView {
+function makeGame(goal: number | undefined, difficulty = "Hard"): GameView {
   const winUpdate = {
     winner: ["team", "Axis", "OTHER001"],
     allPlayersStats: {
@@ -82,7 +85,7 @@ function makeGame(goal: number | undefined): GameView {
     inSpawnPhase: () => false,
     updatesSinceLastTick: () => ({ [GameUpdateType.Win]: [winUpdate] }),
     config: () => ({
-      gameConfig: () => ({ rankedType: undefined }),
+      gameConfig: () => ({ rankedType: undefined, difficulty }),
       isReplay: () => false,
     }),
     scenario: () => ({ data: { id: "europe1939" }, seats: new Map() }),
@@ -90,9 +93,12 @@ function makeGame(goal: number | undefined): GameView {
   } as unknown as GameView;
 }
 
-async function open(goal: number | undefined): Promise<WinModal> {
+async function open(
+  goal: number | undefined,
+  difficulty = "Hard",
+): Promise<WinModal> {
   const modal = document.createElement("win-modal") as WinModal;
-  modal.game = makeGame(goal);
+  modal.game = makeGame(goal, difficulty);
   modal.eventBus = new EventBus();
   modal.tick();
   document.body.appendChild(modal);
@@ -114,13 +120,13 @@ describe("a Scenario goal on the win screen's coin line", () => {
   it("signed out: what it would pay", async () => {
     modal = await open(9000);
     const chip = modal.querySelector("[data-goal-line]");
-    expect(chip?.textContent?.trim()).toBe("Goal met: +75");
+    expect(chip?.textContent?.trim()).toBe("Goal met: +200");
     const headline = modal.querySelector("section span")?.textContent ?? "";
     const plain = await open(undefined);
     const without = plain.querySelector("section span")?.textContent ?? "";
     plain.remove();
     const n = (s: string) => Number(/(\d+)/.exec(s)?.[1] ?? NaN);
-    expect(n(headline) - n(without)).toBe(75);
+    expect(n(headline) - n(without)).toBe(200);
   });
 
   it("signed in: the server's word, once it has saved the game", async () => {
@@ -128,14 +134,14 @@ describe("a Scenario goal on the win screen's coin line", () => {
     mocks.signedIn = true;
     mocks.goal = {
       recorded: true,
-      goal: { key: "europe1939:poland", coins: 75 },
+      goal: { key: "europe1939:poland", coins: 200 },
     };
     modal = await open(9000);
     expect(modal.querySelector("[data-goal-line]")).toBeNull();
     await vi.advanceTimersByTimeAsync(2100);
     await modal.updateComplete;
     expect(modal.querySelector("[data-goal-line]")?.textContent?.trim()).toBe(
-      "Goal met: +75",
+      "Goal met: +200",
     );
   });
 
@@ -152,6 +158,37 @@ describe("a Scenario goal on the win screen's coin line", () => {
     expect(modal.querySelector("[data-goal-line]")?.textContent?.trim()).toBe(
       "Goal met (collected before)",
     );
+  });
+
+  it("below Hard: met, but goals pay on Hard and Impossible", async () => {
+    for (const difficulty of ["Easy", "Medium"]) {
+      modal = await open(9000, difficulty);
+      expect(
+        modal.querySelector("[data-goal-line]")?.textContent?.trim(),
+        difficulty,
+      ).toBe("Goal met (goals pay on Hard and Impossible)");
+      const headline = modal.querySelector("section span")?.textContent ?? "";
+      const plain = await open(undefined, difficulty);
+      const without = plain.querySelector("section span")?.textContent ?? "";
+      plain.remove();
+      expect(headline).toBe(without);
+      modal.remove();
+    }
+    // Signed in, the server isn't asked.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    mocks.signedIn = true;
+    mocks.goal = {
+      recorded: true,
+      goal: { key: "europe1939:poland", coins: 200 },
+    };
+    vi.mocked(derpyGameGoal).mockClear();
+    modal = await open(9000, "Medium");
+    await vi.advanceTimersByTimeAsync(2100);
+    await modal.updateComplete;
+    expect(modal.querySelector("[data-goal-line]")?.textContent?.trim()).toBe(
+      "Goal met (goals pay on Hard and Impossible)",
+    );
+    expect(derpyGameGoal).not.toHaveBeenCalled();
   });
 
   it("no goal met: no line", async () => {

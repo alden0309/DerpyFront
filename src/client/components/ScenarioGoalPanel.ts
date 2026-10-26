@@ -1,6 +1,7 @@
 import { GameMapSize } from "@openfront/engine-api/game/GameTypes";
 import type { AllPlayersStats } from "@openfront/engine-api/Schemas";
 import {
+  goalPaysOn,
   goalTileXY,
   scenarioGoal,
   TICKS_PER_MINUTE,
@@ -19,7 +20,8 @@ export type GoalState = "open" | "met" | "missed";
  * timer ("Hold Warsaw past minute 20"), ticked when it's met. Followed here
  * by the engine's own rules (engine-lib's ScenarioGoals) on what this client
  * sees; when the game ends, the engine's word in the end-of-game stats
- * settles it. Hidden in other games and for spectators.
+ * settles it. Below Hard it says goals pay on Hard and Impossible only.
+ * Hidden in other games and for spectators.
  */
 @customElement("scenario-goal-panel")
 export class ScenarioGoalPanel extends LitElement {
@@ -103,8 +105,8 @@ export class ScenarioGoalPanel extends LitElement {
         else if (elapsed >= due) this.state = "missed";
         break;
       case "hold":
-        if (elapsed >= due || this.hasWinner)
-          this.state = holds && sideOk ? "met" : "missed";
+        // A war over before its minute: the end-of-game stats settle it.
+        if (elapsed >= due) this.state = holds && sideOk ? "met" : "missed";
         break;
       case "keep":
         if (this.hasWinner) this.state = holds && sideOk ? "met" : "missed";
@@ -123,6 +125,7 @@ export class ScenarioGoalPanel extends LitElement {
       open && mine.goal.kind !== "take"
         ? this.holds(mine.goal, mine.scenario, mine.nation)
         : null;
+    const pays = goalPaysOn(this.game.config().gameConfig().difficulty);
     const tone =
       this.state === "met"
         ? "text-green-400"
@@ -135,12 +138,19 @@ export class ScenarioGoalPanel extends LitElement {
       title=${translateText("scenario_goal.your_goal")}
     >
       <span class=${tone}>${goalIcon("size-4")}</span>
-      <span
-        class="min-w-0 flex-1 leading-snug ${this.state === "missed"
-          ? "text-white/45 line-through decoration-white/30"
-          : "text-white/90"}"
-        >${text}</span
-      >
+      <span class="flex min-w-0 flex-1 flex-col leading-snug">
+        <span
+          class=${this.state === "missed"
+            ? "text-white/45 line-through decoration-white/30"
+            : "text-white/90"}
+          >${text}</span
+        >
+        ${pays
+          ? nothing
+          : html`<span class="text-[10px] text-white/50" data-goal-no-pay
+              >${translateText("scenario_goal.pays_on_hard")}</span
+            >`}
+      </span>
       ${this.state === "met"
         ? html`<span
             class="flex size-5 shrink-0 items-center justify-center rounded-full bg-green-500/90 text-[11px] font-black text-white"

@@ -2,10 +2,11 @@
 // checkable: its place is land on both map sizes, a goal to take a place
 // isn't met at the start, one to hold your own place is held then, its side
 // exists, and its words are in en.json. The rules (hold, take, keep, a
-// side's hold, being on a side) and the engine's checks: a goal met is
-// written into the player's stats, once, and never changes the game.
+// side's hold, being on a side), that goals pay on Hard and Impossible only,
+// and the engine's checks: a goal met is written into the player's stats,
+// once, and never changes the game.
 
-import { GameMapSize } from "@openfront/engine-api/game/GameTypes";
+import { Difficulty, GameMapSize } from "@openfront/engine-api/game/GameTypes";
 import {
   allScenarioData,
   isPlayable,
@@ -16,6 +17,7 @@ import {
   GOAL_COINS,
   goalMetAt,
   goalMissed,
+  goalPaysOn,
   goalPlaceAt,
   goalPlaceOf,
   goalTextKey,
@@ -59,7 +61,7 @@ describe("the goals' data", () => {
         .sort(),
     );
     expect(count).toBe(158);
-    expect(GOAL_COINS).toBe(75);
+    expect(GOAL_COINS).toBe(200);
   });
 
   it("each goal's tile is the one its place stands for (run scripts/scenario-goal-tiles.ts if not)", () => {
@@ -118,6 +120,14 @@ describe("the goals' data", () => {
 });
 
 describe("the rules", () => {
+  it("a goal met pays on Hard and Impossible only", () => {
+    expect(goalPaysOn(Difficulty.Hard)).toBe(true);
+    expect(goalPaysOn(Difficulty.Impossible)).toBe(true);
+    expect(goalPaysOn(Difficulty.Medium)).toBe(false);
+    expect(goalPaysOn(Difficulty.Easy)).toBe(false);
+    expect(goalPaysOn(undefined)).toBe(false);
+  });
+
   const at = (elapsed: number, holds: boolean, team: string | null = "A") => ({
     elapsed,
     holds,
@@ -136,17 +146,32 @@ describe("the rules", () => {
   };
   const keep: ScenarioGoal = { kind: "keep", place: { capitalOf: "x" } };
 
-  it("hold: judged at its minute (or when the war ends first)", () => {
+  it("hold: judged at its minute (or when the war ends first, won)", () => {
     expect(goalMetAt(hold, at(20 * M - 10, true), false, 10)).toBe(false);
     expect(goalMetAt(hold, at(20 * M, true), false, 10)).toBe(true);
     expect(goalMetAt(hold, at(20 * M, false), false, 10)).toBe(false);
     expect(goalMetAt(hold, at(20 * M + 10, true), false, 10)).toBe(false);
     expect(goalMissed(hold, 20 * M + 10, false, 10)).toBe(true);
     expect(goalMissed(hold, 20 * M, false, 10)).toBe(false);
-    // The war ended at minute 12 with the place held: met.
-    expect(goalMetAt(hold, at(12 * M, true), true, 10)).toBe(true);
+    // The war ended at minute 12, won, with the place held: met.
+    expect(goalMetAt(hold, { ...at(12 * M, true), won: true }, true, 10)).toBe(
+      true,
+    );
+    // Lost at minute 12 with the place still held: not holding out.
+    expect(goalMetAt(hold, { ...at(12 * M, true), won: false }, true, 10)).toBe(
+      false,
+    );
+    expect(goalMetAt(hold, at(12 * M, true), true, 10)).toBe(false);
+    // Won, but the place lost: no.
+    expect(goalMetAt(hold, { ...at(12 * M, false), won: true }, true, 10)).toBe(
+      false,
+    );
+    // Ended at its minute: judged as at its minute, won or not.
+    expect(goalMetAt(hold, at(20 * M, true), true, 10)).toBe(true);
     // ...but not after its minute had gone by.
-    expect(goalMetAt(hold, at(30 * M, true), true, 10)).toBe(false);
+    expect(goalMetAt(hold, { ...at(30 * M, true), won: true }, true, 10)).toBe(
+      false,
+    );
   });
 
   it("take: any moment before its minute; one without a minute, any time", () => {
@@ -228,14 +253,25 @@ describe("the engine's checks", () => {
     expect(lost.goalStat()).toBeUndefined();
   }, 60_000);
 
-  it("the war ending early with the place held meets a hold goal; computer nations have none", async () => {
-    const { g, goalStat } = await korea("south_korea");
+  it("the war ending early, won with the place held, meets a hold goal; computer nations have none", async () => {
+    const { g, me, goalStat } = await korea("south_korea");
     g.step(10);
     expect(goalStat()).toBeUndefined();
-    g.game.setWinner(null, g.game.stats().stats());
+    g.game.setWinner(me.team(), g.game.stats().stats());
     expect(goalStat()).toBeDefined();
     const nk = g.nation("north_korea");
     expect(g.game.stats().getPlayerStats(nk)?.goal).toBeUndefined();
+  }, 60_000);
+
+  it("the war lost early, the place still held, doesn't meet a hold goal", async () => {
+    const { g, goalStat } = await korea("south_korea");
+    g.step(10);
+    g.game.setWinner(g.nation("north_korea").team(), g.game.stats().stats());
+    expect(goalStat()).toBeUndefined();
+    const draw = await korea("south_korea");
+    draw.g.step(10);
+    draw.g.game.setWinner(null, draw.g.game.stats().stats());
+    expect(draw.goalStat()).toBeUndefined();
   }, 60_000);
 
   it("never changes the game: the same war, ticked with and without goals", async () => {

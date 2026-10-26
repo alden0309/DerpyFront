@@ -38,8 +38,8 @@ export function goalIcon(cls = "size-4"): TemplateResult {
 
 /**
  * The goal's line where a nation is picked (the Scenarios screen, the solo
- * screen's panel, Random history's reveal): "Optional goal", its words and
- * the coins it pays.
+ * screen's panel, Random history's reveal): "Optional goal", its words, the
+ * coins it pays and on which difficulties.
  */
 export function renderGoalLine(
   scenarioId: string,
@@ -60,6 +60,9 @@ export function renderGoalLine(
         >${translateText("scenario_goal.optional")}</span
       >
       <span class="text-sm text-white/90">${text}</span>
+      <span class="text-[11px] text-white/50" data-goal-difficulty
+        >${translateText("scenario_goal.pays_on_hard")}</span
+      >
     </span>
     <span
       class="mt-0.5 inline-flex shrink-0 items-center gap-1 text-xs font-bold tabular-nums text-cyber-yellow"

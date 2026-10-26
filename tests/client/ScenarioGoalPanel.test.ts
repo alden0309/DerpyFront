@@ -22,7 +22,7 @@ import type { GameView } from "../../src/client/view";
 const ME = "HUMAN001";
 
 /** A Europe 1939 game as the panel sees it: who holds the goal's tile, and the time. */
-function game(nation: string) {
+function game(nation: string, difficulty = "Hard") {
   const s = {
     seconds: 60,
     owner: "me" as "me" | "them" | "ally",
@@ -41,7 +41,9 @@ function game(nation: string) {
     }),
     inSpawnPhase: () => s.spawn,
     elapsedGameSeconds: () => s.seconds,
-    config: () => ({ gameConfig: () => ({ gameMapSize: "Normal" }) }),
+    config: () => ({
+      gameConfig: () => ({ gameMapSize: "Normal", difficulty }),
+    }),
     isValidCoord: () => true,
     ref: (x: number, y: number) => y * 2904 + x,
     owner: (t: number) => {
@@ -133,6 +135,26 @@ describe("the goal's line under the timer", () => {
     other.finalStats = { [ME]: {} } as never;
     await other.updateComplete;
     expect(state(other)).toBe("missed");
+  });
+
+  it("below Hard it says goals pay on Hard and Impossible", async () => {
+    const hard = panel(game("poland").view);
+    await hard.updateComplete;
+    expect(hard.querySelector("[data-goal-no-pay]")).toBeNull();
+    for (const difficulty of ["Easy", "Medium"]) {
+      const { s, view } = game("poland", difficulty);
+      const el = panel(view);
+      await el.updateComplete;
+      expect(
+        el.querySelector("[data-goal-no-pay]")?.textContent?.trim(),
+        difficulty,
+      ).toBe("scenario_goal.pays_on_hard");
+      // The line still follows the goal.
+      s.seconds = 20 * 60;
+      el.refreshKey = 1;
+      await el.updateComplete;
+      expect(state(el)).toBe("met");
+    }
   });
 
   it("hidden outside a scenario and for spectators", async () => {

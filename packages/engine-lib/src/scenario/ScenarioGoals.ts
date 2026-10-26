@@ -1,3 +1,4 @@
+import { Difficulty } from "@openfront/engine-api/game/GameTypes";
 import tilesFile from "resources/scenarios/goal-tiles.json";
 import goalsFile from "resources/scenarios/goals.json";
 import { ScenarioData } from "./ScenarioData";
@@ -6,8 +7,9 @@ import { ScenarioData } from "./ScenarioData";
  * DFX (r26): Scenario goals. Each playable scenario nation has one optional
  * historical goal ("Hold Warsaw past minute 20", "Take Paris before minute
  * 25"), in resources/scenarios/goals.json (the format is in that folder's
- * README.md, "Goals"). Meeting it pays GOAL_COINS bonus Derp Coins, once
- * per goal per account; it never decides the war.
+ * README.md, "Goals"). Meeting it in a game on Hard or Impossible pays
+ * GOAL_COINS bonus Derp Coins, once per goal per account; it never decides
+ * the war.
  *
  * The engine checks a player's goal as the war goes and writes the tick it
  * was met into their stats (`goal`), which the saved game carries and the
@@ -17,7 +19,18 @@ import { ScenarioData } from "./ScenarioData";
  */
 
 /** Bonus Derp Coins for a goal met, once per goal per account. */
-export const GOAL_COINS = 75;
+export const GOAL_COINS = 200;
+
+/** The difficulties a goal met pays on: the two hardest. */
+export const GOAL_DIFFICULTIES: readonly Difficulty[] = [
+  Difficulty.Hard,
+  Difficulty.Impossible,
+];
+
+/** Whether a goal met in a game on `difficulty` pays. */
+export function goalPaysOn(difficulty: Difficulty | undefined): boolean {
+  return difficulty !== undefined && GOAL_DIFFICULTIES.includes(difficulty);
+}
 
 /** Ticks a minute (10 a second). */
 export const TICKS_PER_MINUTE = 600;
@@ -34,7 +47,8 @@ export type GoalPlace =
 
 export interface ScenarioGoal {
   /**
-   * hold: hold the place at `minute` (or when the war ends, if sooner);
+   * hold: hold the place at `minute` (or when the war ends, if sooner and
+   * your side won it);
    * take: hold it at any moment, before `minute` if set;
    * keep: hold it when the war ends.
    */
@@ -139,6 +153,8 @@ export interface GoalCheck {
   holds: boolean;
   /** Your side now (a neutral's is null until it joins the war). */
   team: string | null;
+  /** At the war's end: you (or your side) won it. */
+  won?: boolean;
 }
 
 function onSideOk(goal: ScenarioGoal, team: string | null): boolean {
@@ -165,10 +181,11 @@ export function goalMetAt(
       return c.holds && c.elapsed < due && onSideOk(goal, c.team);
     case "hold":
       if (!c.holds || !onSideOk(goal, c.team)) return false;
-      // Its minute came, or the war ended first with the place held.
-      return final
-        ? c.elapsed < due + interval
-        : c.elapsed >= due && c.elapsed < due + interval;
+      // Judged when its minute comes. A war over before then counts only
+      // if you won it: losing early with the place still held isn't
+      // holding out.
+      if (c.elapsed >= due) return c.elapsed < due + interval;
+      return final && c.won === true;
     case "keep":
       return final && c.holds && onSideOk(goal, c.team);
   }

@@ -2,14 +2,16 @@
 // nation's optional goal has it in their stats (`goal`: the tick, written by
 // the engine), and the saved game carries it. When the game is saved, each
 // signed-in player's goal is paid GOAL_COINS, once per goal per account
-// (derpy_scenario_goals), under the coin lines' own anti-farming rules (a
-// game long enough to pay, the player spawned, no cheats, someone to play
+// (derpy_scenario_goals), if the game was on Hard or Impossible (its saved
+// config's difficulty), under the coin lines' own anti-farming rules (a game
+// long enough to pay, the player spawned, no cheats, someone to play
 // against). Losing the war doesn't stop a goal met being paid.
 
 import { scenarioReplayable } from "@openfront/engine-api/game/Scenarios";
 import {
   GOAL_COINS,
   goalKey,
+  goalPaysOn,
   scenarioGoal,
 } from "@openfront/engine-lib/scenario/ScenarioGoals";
 import { scenarioRoster } from "@openfront/engine-lib/scenario/ScenarioSeats";
@@ -62,7 +64,7 @@ export function goalMetIn(
  * Pays `accountId` for the goal `player` met in the saved game (inside the
  * transaction that saved it): GOAL_COINS the first time that account meets
  * that goal, nothing after. Null when there's no goal to pay or the game
- * doesn't count.
+ * doesn't count (below Hard, or one the anti-farming rules refuse).
  */
 export async function payGoal(
   c: pg.PoolClient,
@@ -72,6 +74,8 @@ export async function payGoal(
 ): Promise<GoalLine | null> {
   const met = goalMetIn(record, player);
   if (met === null) return null;
+  // Goals pay on Hard and Impossible only.
+  if (!goalPaysOn(record.info.config.difficulty)) return null;
   if (frontGameProblem(record, player) !== null) return null;
   const inserted = await c.query(
     `INSERT INTO derpy_scenario_goals (account_id, goal, game_id, met_tick, coins)

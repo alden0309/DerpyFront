@@ -5,6 +5,10 @@ import {
   WinUpdate,
 } from "@openfront/engine-api/game/GameUpdates";
 import { renderNumber } from "@openfront/engine-lib/Format";
+import {
+  GOAL_COINS,
+  goalPaysOn,
+} from "@openfront/engine-lib/scenario/ScenarioGoals"; // DFX (r26)
 import type { GameXpEligible, Progress } from "@openfront/shared/ApiSchemas";
 import {
   conquestsFromStats,
@@ -30,11 +34,9 @@ import type { GameXpPanelState } from "../../components/GameXpPanel";
 import type { LegendCeremony } from "../../components/LegendCeremony";
 import "../../components/ProfileShare";
 import { Controller } from "../../Controller";
-import { derpyGameChallenges } from "../../derpy/DerpyAccount"; // CHAL (r25)
+import { derpyGameChallenges, derpyGameGoal } from "../../derpy/DerpyAccount"; // CHAL (r25)
 import { isDerpySignedIn } from "../../derpy/DerpySession";
 import "../../derpy/DerpyWatchButton"; // DFX (r26)
-import { derpyGameGoal } from "../../derpy/DerpyAccount"; // DFX (r26)
-import { GOAL_COINS } from "@openfront/engine-lib/scenario/ScenarioGoals"; // DFX (r26)
 import { PROGRESSION_ENABLED } from "../../derpy/UpstreamFeatures";
 import { playVictoryFanfare } from "../../derpy/VictoryFanfare";
 import { gamePortal } from "../../GamePortal";
@@ -578,11 +580,13 @@ export class WinModal extends LitElement implements Controller {
           ? html`<span
               class="rounded-full border border-green-400/40 bg-green-500/15 px-2.5 py-0.5 text-xs font-bold text-green-300"
               data-goal-line
-              >${goal.coins > 0
-                ? translateText("scenario_goal.coin_line", {
-                    coins: goal.coins,
-                  })
-                : translateText("scenario_goal.collected")}</span
+              >${goal.belowHard
+                ? translateText("scenario_goal.met_below_hard")
+                : goal.coins > 0
+                  ? translateText("scenario_goal.coin_line", {
+                      coins: goal.coins,
+                    })
+                  : translateText("scenario_goal.collected")}</span
             >`
           : null}
         ${chal.length > 0
@@ -1046,12 +1050,21 @@ export class WinModal extends LitElement implements Controller {
   /**
    * DFX (r26): the Scenario goal this game met, for the coin line: the
    * server's word once it has saved the game (signed in), or what it would
-   * pay (signed out, from the end-of-game stats). Null when none was met.
+   * pay (signed out, from the end-of-game stats). A goal met below Hard pays
+   * nothing, and says so. Null when none was met.
    */
-  private goalLine(signedIn: boolean): { coins: number } | null {
+  private goalLine(
+    signedIn: boolean,
+  ): { coins: number; belowHard?: boolean } | null {
     if (!this.goalMet) return null;
+    if (!this.goalPays()) return { coins: 0, belowHard: true };
     if (!signedIn) return { coins: GOAL_COINS };
     return this.goalPaid;
+  }
+
+  /** Goals pay on Hard and Impossible only. */
+  private goalPays(): boolean {
+    return goalPaysOn(this.game.config().gameConfig().difficulty);
   }
 
   /**
@@ -1060,7 +1073,7 @@ export class WinModal extends LitElement implements Controller {
    * settled, or when a solo game's upload arrives).
    */
   private async watchGoal(): Promise<void> {
-    if (!this.goalMet || !isDerpySignedIn()) return;
+    if (!this.goalMet || !this.goalPays() || !isDerpySignedIn()) return;
     const abort = this.savedAbort;
     const gameId = this.game.gameID();
     for (const wait of [2000, 3000, 5000, 8000, 12000, 20000, 30000]) {

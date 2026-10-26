@@ -1,8 +1,9 @@
 // DFX (r26): Scenario goals' bonus coins, from the saved game: paid once per
-// goal per account, only for a game that counts (long enough, spawned, no
-// cheats), whether the war was won or lost; and the saved game carries the
-// goal. Which goal comes from the game's seats (resolved as the engine
-// resolves them).
+// goal per account, only for a game on Hard or Impossible (its saved
+// config's difficulty) that counts (long enough, spawned, no cheats),
+// whether the war was won or lost; and the saved game carries the goal.
+// Which goal comes from the game's seats (resolved as the engine resolves
+// them).
 //
 // Needs a throwaway Postgres: DERPY_TEST_DATABASE_URL=postgres://...
 
@@ -33,6 +34,8 @@ vi.mock("../../src/server/MapLandTiles", () => ({
 const A = "AAAAAAAA";
 const B = "BBBBBBBB";
 let n = 0;
+// Saved games outlive a run: each run's game ids are its own.
+const RUN = Math.random().toString(36).slice(2, 5).padEnd(3, "x");
 
 function player(clientID: string, goal?: number): PlayerRecord {
   return {
@@ -63,13 +66,14 @@ function record(
     o.edition === undefined ? scenarioEdition("europe1939") : o.edition;
   return {
     info: {
-      gameID: `GOAL${String(++n).padStart(4, "0")}`,
+      gameID: `G${RUN}${String(++n).padStart(4, "0")}`,
       config: {
         gameMap: "Europe",
         gameMapSize: "Normal",
         gameMode: "Team",
         gameType: players.length > 1 ? "Private" : "Singleplayer",
         nations: "default",
+        difficulty: "Hard",
         bots: 0,
         scenario: {
           id: "europe1939",
@@ -215,6 +219,35 @@ describe.skipIf(!TEST_DB)("goals' bonus coins, against Postgres", () => {
     expect(lines.get(alden)!.won).toBe(false);
     expect(lines.get(alden)!.goal?.coins).toBe(GOAL_COINS);
     expect(lines.get(pat)!.goal).toBeUndefined();
+  });
+
+  test("goals pay on Hard and Impossible only; below, the game still carries it", async () => {
+    for (const difficulty of ["Easy", "Medium"]) {
+      const r = record(
+        [player(A, 3000)],
+        { poland: A },
+        { config: { difficulty } },
+      );
+      const line = (await save(r, { [A]: alden })).get(alden)!;
+      expect(line.goal, difficulty).toBeUndefined();
+      const saved = (await G.savedGameRecord(r.info.gameID)) as GameRecord;
+      expect(saved.info.players[0].stats?.goal).toBe(3000);
+      expect(await Goals.goalInGame(alden, r.info.gameID)).toEqual({
+        recorded: true,
+        goal: null,
+      });
+    }
+    expect(await Goals.goalsMet(alden)).toEqual([]);
+    const before = await coins(alden);
+    const hard = record(
+      [player(A, 3000)],
+      { poland: A },
+      { config: { difficulty: "Impossible" } },
+    );
+    const line = (await save(hard, { [A]: alden })).get(alden)!;
+    expect(line.goal).toEqual({ key: "europe1939:poland", coins: GOAL_COINS });
+    expect(GOAL_COINS).toBe(200);
+    expect(await coins(alden)).toBe(before + line.coins + 200);
   });
 
   test("anti-farming: too short, never spawned, or cheats pay no goal", async () => {

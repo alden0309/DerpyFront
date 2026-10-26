@@ -44,6 +44,14 @@ function holds(
   return goal.side === true && team !== null && owner.team() === team;
 }
 
+/** Whether `p` (or its side) won the war. */
+function won(game: Game, p: Player): boolean {
+  const winner = game.getWinner();
+  if (winner === null) return false;
+  if (typeof winner === "string") return p.team() === winner;
+  return winner === p;
+}
+
 /** Checks every human player's goal; `final`: the war has just ended. */
 export function checkScenarioGoals(game: Game, final: boolean): void {
   const scenario = game.scenario();
@@ -59,7 +67,12 @@ export function checkScenarioGoals(game: Game, final: boolean): void {
     if (tile === null) continue;
     const met = goalMetAt(
       goal,
-      { elapsed, holds: holds(game, p, goal, tile), team: p.team() },
+      {
+        elapsed,
+        holds: holds(game, p, goal, tile),
+        team: p.team(),
+        won: final && won(game, p),
+      },
       final,
       GOAL_CHECK_INTERVAL,
     );
