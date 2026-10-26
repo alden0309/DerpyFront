@@ -493,7 +493,11 @@ export class GameView extends LitElement {
 
   /** CQTUT (r26): hold a notice back while the lessons want it held (true: held). */
   private tutHold(show: () => void, ach = false): boolean {
-    if (!this.solo || !tutHoldsNotices(this.life, this.modalView, ach))
+    // A letter that came with the notice opens in this same update.
+    const opening = (this.life?.events ?? []).some(
+      (e) => !this.seenEvents.has(e.id),
+    );
+    if (!this.solo || !tutHoldsNotices(this.life, this.modalView, ach, opening))
       return false;
     this.tutHeld = [...this.tutHeld.slice(-7), { show, ach }];
     return true;
@@ -1033,6 +1037,9 @@ export class GameView extends LitElement {
   ): void {
     // CQTUT (r26): not over a lesson's letter; it's shown once that's put by.
     if (this.tutHold(() => this.toast(text, tone, go, aff))) return;
+    // CQTUT (r26): the same words already showing (a skip's stop and the
+    // journal both say "You arrive at..."): once is enough.
+    if (this.toasts.some((t) => t.text === text)) return;
     const id = this.nextId++;
     this.toasts = [
       ...this.toasts.slice(aff ? -3 : -2),

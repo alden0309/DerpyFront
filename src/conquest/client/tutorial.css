@@ -166,9 +166,10 @@
   display: block;
   font-size: 0.74rem;
 }
-/* Notices come down under the line, not over it. */
+/* While a lesson's letter is open, notices stand aside (new ones wait, and
+   come when it's put by: GameView's tutHold). */
 cq-game:has(.cq-tut-over) .cq-toasts {
-  top: 128px;
+  display: none;
 }
 /* The letter itself starts under the line, its picture a little shorter, so
    the whole of it (choices and all) fits the window. */
@@ -300,14 +301,26 @@ cq-game:has(.cq-tut-over) .cq-scene-stage {
     top: 64px;
     font-size: 0.84rem;
   }
-  cq-game:has(.cq-tut-over) .cq-toasts {
-    top: 142px;
-  }
   cq-game:has(.cq-tut-over) .cq-scrim {
     padding-top: 96px;
   }
   cq-game:has(.cq-tut-over) .cq-scene-stage {
-    height: clamp(150px, 20vh, 200px);
+    height: clamp(140px, 18vh, 190px);
+  }
+  /* A lesson's letter, a size smaller, so its choices fit a phone. */
+  cq-game:has(.cq-tut-over) .cq-scene-text {
+    font-size: 0.96rem;
+    line-height: 1.42;
+    margin-top: 0.7rem;
+  }
+  cq-game:has(.cq-tut-over) .cq-choice {
+    padding: 0.4rem 0.65rem 0.45rem;
+  }
+  cq-game:has(.cq-tut-over) .cq-choice-label {
+    font-size: 1rem;
+  }
+  cq-game:has(.cq-tut-over) .cq-choice-tip {
+    font-size: 0.8rem;
   }
   /* The card is at the top: notices come up from the foot, over the tabs. */
   cq-game:has(.cq-tut) .cq-toasts {

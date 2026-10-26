@@ -397,7 +397,7 @@ function stepSay(
           text: html`Your father, gone; your mother, your sister and you. Your
           children will be here too, and the eldest is your heir: when you die,
           you play on as them. Find someone to marry, and it's a line.`,
-          at: [{ sel: ".cq-tut .cq-btn.primary" }],
+          at: [],
           act: {
             label: "That's the last lesson",
             run: () => void ui.cmd({ k: "tut", act: "saw", what: "heir" }),
@@ -494,17 +494,22 @@ export function tutClock(
 
 /**
  * Notices held back: while one of the lessons' letters (or what came of it)
- * is open; and an achievement's, while the lessons run (they come with the end).
+ * is open, or a letter is about to open (`opening`: it came with them); and
+ * an achievement's, while the lessons run (they come with the end).
  */
 export function tutHoldsNotices(
   life: Life | null | undefined,
   modal: Modal | null,
   achievement = false,
+  opening = false,
 ): boolean {
   if (achievement && tutRunning(life)) return true;
   return (
     tutHolding(life) &&
-    (modal?.k === "event" || modal?.k === "outcome" || modal?.k === "interact")
+    (opening ||
+      modal?.k === "event" ||
+      modal?.k === "outcome" ||
+      modal?.k === "interact")
   );
 }
 

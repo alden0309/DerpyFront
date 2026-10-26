@@ -539,7 +539,7 @@ describe("nothing can go wrong while they run", () => {
     expect(keys).not.toContain("boss-dismissed");
     expect(life.job?.kind).toBe("craftsman");
     // May's accounts: every working day paid, and the purse the fuller for it.
-    const may = life.statements!.at(-1)!;
+    const may = life.statements![life.statements!.length - 1];
     const wage = may.lines.find((l) => l.k === "m:Wage: journeyman")!;
     expect(wage.l).toMatch(/24 of 24 days/);
     expect(life.purse).toBeGreaterThan(purse);
