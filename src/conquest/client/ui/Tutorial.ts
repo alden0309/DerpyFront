@@ -179,8 +179,9 @@ function stepSay(
       return {
         title: `A word with ${name}`,
         text: html`${fullOf(ui, cast.friend, "Your neighbour")} keeps the
-          cooperage next to yours. <b>Click him</b> to see what he thinks of
-          you, then <b>Talk</b> to pass the time of day.`,
+          cooperage next to yours. Open his card (<b>Show me</b> finds him) to
+          see what he thinks of you, then <b>Talk</b> to pass the time of
+          day.`,
         at: talking
           ? [{ sel: ".cq-modal .cq-btn.primary" }]
           : [
@@ -582,19 +583,21 @@ export class TutRing extends LitElement {
     b.classList.remove("again");
     void b.offsetWidth;
     b.classList.add("again");
-    // Bring it into view (after the page it's on has opened).
+    // Bring it into view (after the page it's on has opened), wherever it
+    // is on the page.
     setTimeout(() => {
-      const el = this.find();
-      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 120);
+      const el = this.findBox(true)?.el;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
   }
 
-  /** The first target that's on the screen (an element, or a place on the map). */
-  private find(): HTMLElement | null {
-    return this.findBox()?.el ?? null;
-  }
-
-  private findBox(): { el: HTMLElement | null; r: DOMRectReadOnly } | null {
+  /**
+   * The first target that's on the screen (an element, or a place on the
+   * map); `anywhere`: or scrolled out of sight on its page.
+   */
+  private findBox(
+    anywhere = false,
+  ): { el: HTMLElement | null; r: DOMRectReadOnly } | null {
     for (const t of this.at) {
       if ("prov" in t) {
         const pt = tutMap.point?.(t.prov);
@@ -605,7 +608,7 @@ export class TutRing extends LitElement {
         if (t.text && !t.text.test((el.textContent ?? "").trim())) continue;
         const r = el.getBoundingClientRect();
         if (r.width < 2 || r.height < 2) continue;
-        if (r.bottom < 0 || r.top > innerHeight) continue;
+        if (!anywhere && (r.bottom < 0 || r.top > innerHeight)) continue;
         return { el, r };
       }
     }
