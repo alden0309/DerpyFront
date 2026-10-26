@@ -33,7 +33,10 @@ function brief(v: unknown): string {
   if (v === null || v === undefined) return "";
   if (typeof v !== "object") return String(v);
   return Object.entries(v as Record<string, unknown>)
-    .map(([k, x]) => `${k}: ${typeof x === "object" && x !== null ? JSON.stringify(x) : String(x)}`)
+    .map(
+      ([k, x]) =>
+        `${k}: ${typeof x === "object" && x !== null ? JSON.stringify(x) : String(x)}`,
+    )
     .join(", ");
 }
 
@@ -75,7 +78,9 @@ export class AdminAudit extends AdminPage {
     return html`<div class="adm-head">
         <div>
           <h1>Audit log</h1>
-          <p class="adm-sub">Every admin action: who, what, to what, before and after, and when.</p>
+          <p class="adm-sub">
+            Every admin action: who, what, to what, before and after, and when.
+          </p>
         </div>
       </div>
       <form
@@ -93,21 +98,47 @@ export class AdminAudit extends AdminPage {
           );
         }}
       >
-        <input class="adm-input grow" type="search" name="q" placeholder="A name, a reason, an action…" .value=${q.get("q") ?? ""} autocomplete="off" />
+        <input
+          class="adm-input grow"
+          type="search"
+          name="q"
+          placeholder="A name, a reason, an action…"
+          .value=${q.get("q") ?? ""}
+          autocomplete="off"
+        />
         <select class="adm-select" name="action" aria-label="Action">
           <option value="">Every action</option>
           ${areas.map(
-            (area) => html`<optgroup label=${area}>
-              <option value=${area} ?selected=${q.get("action") === area}>All of ${area}</option>
-              ${(d?.actions ?? [])
-                .filter((a) => a.startsWith(`${area}.`))
-                .map((a) => html`<option value=${a} ?selected=${q.get("action") === a}>${a}</option>`)}
-            </optgroup>`,
+            (area) =>
+              html`<optgroup label=${area}>
+                <option value=${area} ?selected=${q.get("action") === area}>
+                  All of ${area}
+                </option>
+                ${(d?.actions ?? [])
+                  .filter((a) => a.startsWith(`${area}.`))
+                  .map(
+                    (a) =>
+                      html`<option
+                        value=${a}
+                        ?selected=${q.get("action") === a}
+                      >
+                        ${a}
+                      </option>`,
+                  )}
+              </optgroup>`,
           )}
         </select>
         <button class="dl-btn small">Show</button>
         ${q.get("targetId")
-          ? html`<a class="dl-btn small ghost" href=${this.with({ targetType: null, targetId: null, page: null })}>Every target</a>`
+          ? html`<a
+              class="dl-btn small ghost"
+              href=${this.with({
+                targetType: null,
+                targetId: null,
+                page: null,
+              })}
+              >Every target</a
+            >`
           : nothing}
       </form>
       ${this.error ? this.failed() : nothing}
@@ -115,8 +146,24 @@ export class AdminAudit extends AdminPage {
         ? html`<div class="adm-box">
             ${table(
               [
-                { label: "When", cls: "nowrap", cell: (r) => html`<span title=${when(r.at)}>${ago(r.at)}</span>` },
-                { label: "Action", lead: true, cell: (r) => html`${pill(r.action, r.action.includes("delete") || r.action.includes("suspend") ? "bad" : "")}` },
+                {
+                  label: "When",
+                  cls: "nowrap",
+                  cell: (r) =>
+                    html`<span title=${when(r.at)}>${ago(r.at)}</span>`,
+                },
+                {
+                  label: "Action",
+                  lead: true,
+                  cell: (r) =>
+                    html`${pill(
+                      r.action,
+                      r.action.includes("delete") ||
+                        r.action.includes("suspend")
+                        ? "bad"
+                        : "",
+                    )}`,
+                },
                 { label: "Target", cell: (r) => target(r) },
                 { label: "Reason", cell: (r) => r.reason ?? "" },
                 {
@@ -124,7 +171,15 @@ export class AdminAudit extends AdminPage {
                   cell: (r) =>
                     r.before === null && r.after === null
                       ? ""
-                      : html`<p class="adm-json">${r.before !== null ? html`<b>was</b> ${brief(r.before)}` : nothing}${r.before !== null && r.after !== null ? html`<br />` : nothing}${r.after !== null ? html`<b>now</b> ${brief(r.after)}` : nothing}</p>`,
+                      : html`<p class="adm-json">
+                          ${r.before !== null
+                            ? html`<b>was</b> ${brief(r.before)}`
+                            : nothing}${r.before !== null && r.after !== null
+                            ? html`<br />`
+                            : nothing}${r.after !== null
+                            ? html`<b>now</b> ${brief(r.after)}`
+                            : nothing}
+                        </p>`,
                 },
                 { label: "By", cell: (r) => r.actor },
               ],
@@ -132,9 +187,19 @@ export class AdminAudit extends AdminPage {
               "Nothing in the log matches.",
             )}
             <div class="adm-pager">
-              <a class="dl-btn small ghost" href=${this.with({ page: String(d.page - 1) })} ?hidden=${d.page <= 1}>‹ Newer</a>
+              <a
+                class="dl-btn small ghost"
+                href=${this.with({ page: String(d.page - 1) })}
+                ?hidden=${d.page <= 1}
+                >‹ Newer</a
+              >
               <span>Page ${d.page} of ${d.pages} · ${nf(d.total)} lines</span>
-              <a class="dl-btn small ghost" href=${this.with({ page: String(d.page + 1) })} ?hidden=${d.page >= d.pages}>Older ›</a>
+              <a
+                class="dl-btn small ghost"
+                href=${this.with({ page: String(d.page + 1) })}
+                ?hidden=${d.page >= d.pages}
+                >Older ›</a
+              >
             </div>
           </div>`
         : html`<p class="adm-quiet">Loading…</p>`}`;

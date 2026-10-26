@@ -38,7 +38,8 @@ export abstract class AdminPage extends LitElement {
       await this.fetch();
       this.error = null;
     } catch (err) {
-      this.error = err instanceof AdminError ? errorText(err.code) : String(err);
+      this.error =
+        err instanceof AdminError ? errorText(err.code) : String(err);
     }
   }
 

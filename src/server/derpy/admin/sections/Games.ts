@@ -6,8 +6,8 @@
 
 import { z } from "zod";
 import { db } from "../../DerpyDb";
-import { conquestAdmin, frontAdmin } from "../AdminSources";
 import { adminSection } from "../AdminRegistry";
+import { conquestAdmin, frontAdmin } from "../AdminSources";
 
 const ReasonBody = z.object({ reason: z.string().trim().min(1).max(300) });
 

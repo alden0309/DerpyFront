@@ -49,7 +49,10 @@ export const bannerSection = adminSection({
       method: "get",
       path: "/",
       handler: async (_req, res) => {
-        res.json({ setting: view(await bannerSetting()), showing: siteBanner() });
+        res.json({
+          setting: view(await bannerSetting()),
+          showing: siteBanner(),
+        });
       },
     },
     {
@@ -76,14 +79,18 @@ export const bannerSection = adminSection({
           const after = await saveBanner(c, {
             enabled: b.enabled,
             text: b.text,
-            link: b.link || null,
-            linkText: (b.link && b.linkText) || null,
+            link: b.link?.length ? b.link : null,
+            linkText: b.link?.length && b.linkText?.length ? b.linkText : null,
             endsAt,
           });
           await ctx.audit(
             {
               action: b.enabled ? "banner.set" : "banner.off",
-              target: { type: "banner", id: 1, name: b.text.slice(0, 80) || null },
+              target: {
+                type: "banner",
+                id: 1,
+                name: b.text.slice(0, 80) || null,
+              },
               before: view(before),
               after: view(after),
             },

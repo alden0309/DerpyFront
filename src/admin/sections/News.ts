@@ -31,18 +31,26 @@ export class AdminNews extends AdminPage {
         <div>
           <h1>What's New</h1>
           <p class="adm-sub">
-            Read-only: entries are written through Claude. Unseen counts are
-            of the accounts that have looked at What's New at least once
-            (${d ? html`${nf(d.looked)} have, ${nf(d.never)} haven't yet` : "…"}).
+            Read-only: entries are written through Claude. Unseen counts are of
+            the accounts that have looked at What's New at least once
+            (${d
+              ? html`${nf(d.looked)} have, ${nf(d.never)} haven't yet`
+              : "…"}).
           </p>
         </div>
-        <a class="dl-btn ghost small" href="/whats-new" target="_blank">The page</a>
+        <a class="dl-btn ghost small" href="/whats-new" target="_blank"
+          >The page</a
+        >
       </div>
       ${this.error ? this.failed() : nothing}
       ${d
         ? d.entries.length === 0
-          ? html`<div class="adm-box"><p class="adm-empty">No entries yet.</p></div>`
-          : html`<div class="adm-grid">${d.entries.map((e) => this.entry(e, d))}</div>`
+          ? html`<div class="adm-box">
+              <p class="adm-empty">No entries yet.</p>
+            </div>`
+          : html`<div class="adm-grid">
+              ${d.entries.map((e) => this.entry(e, d))}
+            </div>`
         : html`<p class="adm-quiet">Loading…</p>`}`;
   }
 
@@ -51,21 +59,39 @@ export class AdminNews extends AdminPage {
     const share = e.audience > 0 ? e.unseen / e.audience : 0;
     return html`<article class="adm-box">
       <h2>
-        <span class="adm-pill" style="background:${g?.color ?? "#555"}26;color:${g?.color ?? "inherit"}">${g?.name ?? e.game}</span>
+        <span
+          class="adm-pill"
+          style="background:${g?.color ?? "#555"}26;color:${g?.color ??
+          "inherit"}"
+          >${g?.name ?? e.game}</span
+        >
         ${e.title}
         <span class="adm-aside">${e.date}</span>
       </h2>
       <div class="adm-split">
         <div class="adm-news-body adm-quiet">
           ${renderNewsBody(e.body)}
-          ${e.link ? html`<p class="adm-small" style="margin-top:6px">Link: ${e.linkText ?? "Take a look"} → <span class="adm-mono">${e.link}</span></p>` : nothing}
+          ${e.link
+            ? html`<p class="adm-small" style="margin-top:6px">
+                Link: ${e.linkText ?? "Take a look"} →
+                <span class="adm-mono">${e.link}</span>
+              </p>`
+            : nothing}
         </div>
         <div>
-          <div class="adm-row" style="justify-content:space-between;font-size:14px">
-            <span>Not seen by <b>${nf(e.unseen)}</b> of ${nf(e.audience)}${g?.secret ? " (its players)" : ""}</span>
+          <div
+            class="adm-row"
+            style="justify-content:space-between;font-size:14px"
+          >
+            <span
+              >Not seen by <b>${nf(e.unseen)}</b> of
+              ${nf(e.audience)}${g?.secret ? " (its players)" : ""}</span
+            >
             <span class="adm-small">${nf(e.seen)} seen</span>
           </div>
-          <div class="adm-bar" style="margin-top:6px"><span style="width:${Math.round((1 - share) * 100)}%"></span></div>
+          <div class="adm-bar" style="margin-top:6px">
+            <span style="width:${Math.round((1 - share) * 100)}%"></span>
+          </div>
           <p class="adm-small adm-mono" style="margin-top:6px">${e.id}</p>
         </div>
       </div>

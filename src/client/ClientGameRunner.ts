@@ -1149,7 +1149,10 @@ export class ClientGameRunner {
       }
       // ADMIN (r26): Derp Land's owner ended this game for everyone: say
       // why, then back to DerpyFront's menu.
-      if (message.type === "error" && message.error === "kick_reason.derp_ended") {
+      if (
+        message.type === "error" &&
+        message.error === "kick_reason.derp_ended"
+      ) {
         void showInGameAlert(
           translateText("kick_reason.derp_ended", {
             reason: message.message ?? "",

@@ -53,8 +53,12 @@ export class AdminChallenges extends AdminPage {
 
   protected async fetch(): Promise<void> {
     const w = this.view.query.get("week");
-    this.data = await this.view.get<WeekData>(`/challenges${w ? `?week=${encodeURIComponent(w)}` : ""}`);
-    if (!this.data.games.some((g) => g.picks.some((p) => p.key === this.payKey)))
+    this.data = await this.view.get<WeekData>(
+      `/challenges${w ? `?week=${encodeURIComponent(w)}` : ""}`,
+    );
+    if (
+      !this.data.games.some((g) => g.picks.some((p) => p.key === this.payKey))
+    )
       this.payKey = "";
   }
 
@@ -65,17 +69,40 @@ export class AdminChallenges extends AdminPage {
           <h1>Weekly challenges</h1>
           <p class="adm-sub">
             ${d
-              ? html`Week of ${new Date(d.startsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                  (Monday to Monday, New York time). ${nf(d.players)} accounts have made progress.`
+              ? html`Week of
+                ${new Date(d.startsAt).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+                (Monday to Monday, New York time). ${nf(d.players)} accounts
+                have made progress.`
               : "Loading…"}
           </p>
         </div>
         ${d
           ? html`<div class="adm-row">
-              <button class="dl-btn ghost small" @click=${() => this.view.go(`/admin/challenges?week=${d.week - 1}`)}>‹ Week before</button>
+              <button
+                class="dl-btn ghost small"
+                @click=${() =>
+                  this.view.go(`/admin/challenges?week=${d.week - 1}`)}
+              >
+                ‹ Week before
+              </button>
               ${d.week < d.current
-                ? html`<button class="dl-btn ghost small" @click=${() => this.view.go(`/admin/challenges?week=${d.week + 1}`)}>Week after ›</button>
-                    <button class="dl-btn ghost small" @click=${() => this.view.go("/admin/challenges")}>This week</button>`
+                ? html`<button
+                      class="dl-btn ghost small"
+                      @click=${() =>
+                        this.view.go(`/admin/challenges?week=${d.week + 1}`)}
+                    >
+                      Week after ›
+                    </button>
+                    <button
+                      class="dl-btn ghost small"
+                      @click=${() => this.view.go("/admin/challenges")}
+                    >
+                      This week
+                    </button>`
                 : nothing}
             </div>`
           : nothing}
@@ -84,7 +111,9 @@ export class AdminChallenges extends AdminPage {
   }
 
   private body(d: WeekData): TemplateResult {
-    const all = d.games.flatMap((g) => g.picks.map((p) => ({ ...p, game: g.game })));
+    const all = d.games.flatMap((g) =>
+      g.picks.map((p) => ({ ...p, game: g.game })),
+    );
     const pay = async () => {
       const p = all.find((x) => x.key === this.payKey);
       const who = this.payAccount.trim();
@@ -98,39 +127,64 @@ export class AdminChallenges extends AdminPage {
       });
       if (!ok) return;
       const r = await this.act(() =>
-        this.view.post<{ paid: number; bonus: number; username: string }>("/challenges/pay", {
-          account: who,
-          week: d.week,
-          key: p.key,
-          reason: ok.reason,
-        }),
+        this.view.post<{ paid: number; bonus: number; username: string }>(
+          "/challenges/pay",
+          {
+            account: who,
+            week: d.week,
+            key: p.key,
+            reason: ok.reason,
+          },
+        ),
       );
       if (r) {
-        this.view.toast(`${r.username} paid ${nf(r.paid)}${r.bonus ? ` (with the ${r.bonus} bonus)` : ""}.`, "good");
+        this.view.toast(
+          `${r.username} paid ${nf(r.paid)}${r.bonus ? ` (with the ${r.bonus} bonus)` : ""}.`,
+          "good",
+        );
         this.payAccount = "";
       }
     };
     return html`<div class="adm-grid">
       <div class="adm-cols">
         ${d.games.map(
-          (g) => html`<div class="adm-box">
-            <h2>${GAME_NAME[g.game]} <span class="adm-aside">all three: ${nf(g.bonus.done)} accounts, +${g.bonus.coins} each</span></h2>
-            ${table(
-              [
-                {
-                  label: "Challenge",
-                  lead: true,
-                  cell: (p) => html`${pill(p.tier, TIER_TONE[p.tier])} ${p.name}
-                    ${p.standIn ? html` <span class="adm-small">(stand-in for those without an AI personality)</span>` : nothing}
-                    <div class="adm-small">${p.how}</div>`,
-                },
-                { label: "Pays", num: true, cell: (p) => nf(p.coins) },
-                { label: "Done", num: true, cell: (p) => html`${nf(p.done)} <span class="adm-small">of ${nf(p.tried)}</span>` },
-                { label: "Paid", num: true, cell: (p) => nf(p.paid) },
-              ],
-              g.picks,
-            )}
-          </div>`,
+          (g) =>
+            html`<div class="adm-box">
+              <h2>
+                ${GAME_NAME[g.game]}
+                <span class="adm-aside"
+                  >all three: ${nf(g.bonus.done)} accounts, +${g.bonus.coins}
+                  each</span
+                >
+              </h2>
+              ${table(
+                [
+                  {
+                    label: "Challenge",
+                    lead: true,
+                    cell: (p) =>
+                      html`${pill(p.tier, TIER_TONE[p.tier])} ${p.name}
+                        ${p.standIn
+                          ? html` <span class="adm-small"
+                              >(stand-in for those without an AI
+                              personality)</span
+                            >`
+                          : nothing}
+                        <div class="adm-small">${p.how}</div>`,
+                  },
+                  { label: "Pays", num: true, cell: (p) => nf(p.coins) },
+                  {
+                    label: "Done",
+                    num: true,
+                    cell: (p) =>
+                      html`${nf(p.done)}
+                        <span class="adm-small">of ${nf(p.tried)}</span>`,
+                  },
+                  { label: "Paid", num: true, cell: (p) => nf(p.paid) },
+                ],
+                g.picks,
+              )}
+            </div>`,
         )}
       </div>
       <div class="adm-cols">
@@ -138,9 +192,22 @@ export class AdminChallenges extends AdminPage {
           <h2>Latest done</h2>
           ${table(
             [
-              { label: "When", cls: "nowrap", cell: (r) => html`<span title=${when(r.doneAt)}>${ago(r.doneAt)}</span>` },
-              { label: "Account", cell: (r) => accountLink(r.accountId, r.username) },
-              { label: "Challenge", lead: true, cell: (r) => (r.key.startsWith("bonus:") ? "All three: the bonus" : r.name) },
+              {
+                label: "When",
+                cls: "nowrap",
+                cell: (r) =>
+                  html`<span title=${when(r.doneAt)}>${ago(r.doneAt)}</span>`,
+              },
+              {
+                label: "Account",
+                cell: (r) => accountLink(r.accountId, r.username),
+              },
+              {
+                label: "Challenge",
+                lead: true,
+                cell: (r) =>
+                  r.key.startsWith("bonus:") ? "All three: the bonus" : r.name,
+              },
               { label: "Coins", num: true, cell: (r) => nf(r.coins) },
             ],
             d.recent,
@@ -156,21 +223,49 @@ export class AdminChallenges extends AdminPage {
           <div class="adm-form">
             <label
               >Account (name or #id)
-              <input class="adm-input" autocomplete="off" .value=${this.payAccount} @input=${(e: InputEvent) => (this.payAccount = (e.target as HTMLInputElement).value)}
+              <input
+                class="adm-input"
+                autocomplete="off"
+                .value=${this.payAccount}
+                @input=${(e: InputEvent) =>
+                  (this.payAccount = (e.target as HTMLInputElement).value)}
             /></label>
             <label
               >Challenge
-              <select class="adm-select" @change=${(e: Event) => (this.payKey = (e.target as HTMLSelectElement).value)}>
-                <option value="" ?selected=${this.payKey === ""}>Pick one…</option>
+              <select
+                class="adm-select"
+                @change=${(e: Event) =>
+                  (this.payKey = (e.target as HTMLSelectElement).value)}
+              >
+                <option value="" ?selected=${this.payKey === ""}>
+                  Pick one…
+                </option>
                 ${d.games.map(
-                  (g) => html`<optgroup label=${GAME_NAME[g.game]}>
-                    ${g.picks.map((p) => html`<option value=${p.key} ?selected=${this.payKey === p.key}>${p.name} (${p.tier}, ${p.coins})</option>`)}
-                  </optgroup>`,
+                  (g) =>
+                    html`<optgroup label=${GAME_NAME[g.game]}>
+                      ${g.picks.map(
+                        (p) =>
+                          html`<option
+                            value=${p.key}
+                            ?selected=${this.payKey === p.key}
+                          >
+                            ${p.name} (${p.tier}, ${p.coins})
+                          </option>`,
+                      )}
+                    </optgroup>`,
                 )}
               </select></label
             >
             <div>
-              <button class="dl-btn small" ?disabled=${!this.payKey || !this.payAccount.trim() || this.busy} @click=${() => void pay()}>Pay it…</button>
+              <button
+                class="dl-btn small"
+                ?disabled=${!this.payKey ||
+                !this.payAccount.trim() ||
+                this.busy}
+                @click=${() => void pay()}
+              >
+                Pay it…
+              </button>
             </div>
           </div>
         </div>

@@ -74,31 +74,53 @@ export class DerpResetPassword extends HubPage {
             ? html`Done. You're signed in as <b>${this.done.username}</b>, and
                 signed out everywhere else.`
             : html`Your password is changed, but this account can't sign in
-                right now.`}
+              right now.`}
         </p>
         <a class="dl-btn" href="/">Go to Derp Land</a>`;
     if (this.owner === undefined) return html`<p>Checking the link…</p>`;
     if (this.owner === null)
       return html`<p>
-          This link doesn't work any more. Each one works once, for a day.
-          Ask for a new one.
+          This link doesn't work any more. Each one works once, for a day. Ask
+          for a new one.
         </p>
         <a class="dl-btn ghost" href="/">Go to Derp Land</a>`;
     return html`<p>
-        Pick a new password for <b>${this.owner}</b>. Everywhere you're
-        signed in now will be signed out.
+        Pick a new password for <b>${this.owner}</b>. Everywhere you're signed
+        in now will be signed out.
       </p>
-      <form class="dl-dialog-body" style="padding:0;width:100%;max-width:380px" @submit=${(e: SubmitEvent) => void this.submit(e)}>
+      <form
+        class="dl-dialog-body"
+        style="padding:0;width:100%;max-width:380px"
+        @submit=${(e: SubmitEvent) => void this.submit(e)}
+      >
         <div class="dl-field">
           <label for="rp-a">New password</label>
-          <input id="rp-a" name="password" type="password" autocomplete="new-password" minlength=${PASSWORD_MIN} required />
+          <input
+            id="rp-a"
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            minlength=${PASSWORD_MIN}
+            required
+          />
         </div>
         <div class="dl-field">
           <label for="rp-b">The same again</label>
-          <input id="rp-b" name="again" type="password" autocomplete="new-password" minlength=${PASSWORD_MIN} required />
+          <input
+            id="rp-b"
+            name="again"
+            type="password"
+            autocomplete="new-password"
+            minlength=${PASSWORD_MIN}
+            required
+          />
         </div>
-        ${this.error ? html`<p class="dl-name-error" role="alert">${this.error}</p>` : nothing}
-        <div><button class="dl-btn" ?disabled=${this.busy}>Set my password</button></div>
+        ${this.error
+          ? html`<p class="dl-name-error" role="alert">${this.error}</p>`
+          : nothing}
+        <div>
+          <button class="dl-btn" ?disabled=${this.busy}>Set my password</button>
+        </div>
       </form>`;
   }
 }

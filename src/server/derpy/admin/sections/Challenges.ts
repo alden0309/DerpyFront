@@ -92,7 +92,10 @@ export const challenges = adminSection({
             });
             return {
               game,
-              picks: [...picks.map((d) => show(d)), ...alts.map((d) => show(d, true))],
+              picks: [
+                ...picks.map((d) => show(d)),
+                ...alts.map((d) => show(d, true)),
+              ],
               bonus: { coins: CHALLENGE_BONUS, ...row(bonusKey(game)) },
             };
           }),
@@ -113,7 +116,9 @@ export const challenges = adminSection({
       path: "/pay",
       handler: async (req, res, ctx) => {
         const body = PayBody.safeParse(req.body);
-        const def = body.success ? CHALLENGE_BY_KEY.get(body.data.key) : undefined;
+        const def = body.success
+          ? CHALLENGE_BY_KEY.get(body.data.key)
+          : undefined;
         if (!body.success || !def) {
           res.status(400).json({ error: "invalid" });
           return;
@@ -206,7 +211,9 @@ export const challenges = adminSection({
           return { paid, bonus, username: String(acc.username) };
         });
         if (typeof out === "string") {
-          res.status(out === "no_such_account" ? 404 : 409).json({ error: out });
+          res
+            .status(out === "no_such_account" ? 404 : 409)
+            .json({ error: out });
           return;
         }
         res.json(out);

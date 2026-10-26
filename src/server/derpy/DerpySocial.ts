@@ -30,7 +30,6 @@ import type {
 import { type Account, accountForToken, hashToken } from "./DerpyAuth";
 import { db, DerpyDbUnavailable, inTransaction } from "./DerpyDb";
 import { newsBeat } from "./DerpyNews"; // NEWS (r25)
-import { currentBanner } from "./SiteBanner"; // ADMIN (r26)
 import { liveGames } from "./LiveGames";
 import { Limiter, mintPass } from "./LobbyLock"; // a password's pass
 import {
@@ -43,6 +42,7 @@ import {
   targetOf,
   watchHref,
 } from "./Presence";
+import { currentBanner } from "./SiteBanner"; // ADMIN (r26)
 
 /** Most in a party, its leader included. */
 export const PARTY_MAX = 8;
@@ -920,7 +920,8 @@ export function socialSignedOut(token: string): void {
  * and every list is read again.
  */
 export function socialForgetAccount(id: number): void {
-  for (const [key, s] of sessions) if (s.account.id === id) sessions.delete(key);
+  for (const [key, s] of sessions)
+    if (s.account.id === id) sessions.delete(key);
   presence.leave(id);
   forgetAllSocial();
 }
@@ -1027,7 +1028,11 @@ export function socialRouter({
       // database either); without it the bar just shows no dot.
       const news = await newsBeat(account.id).catch(() => undefined);
       // ADMIN (r26): and the site banner (kept in memory: no query either).
-      res.json({ ...(await socialState(account)), news, banner: await currentBanner() });
+      res.json({
+        ...(await socialState(account)),
+        news,
+        banner: await currentBanner(),
+      });
     }),
   );
 

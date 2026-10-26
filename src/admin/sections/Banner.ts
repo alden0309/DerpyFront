@@ -44,7 +44,9 @@ export class AdminBanner extends AdminPage {
   @state() private endsAt = "";
 
   protected async fetch(): Promise<void> {
-    const r = await this.view.get<{ setting: Setting; showing: unknown }>("/banner");
+    const r = await this.view.get<{ setting: Setting; showing: unknown }>(
+      "/banner",
+    );
     this.setting = r.setting;
     this.showing = r.showing;
     this.enabled = r.setting.enabled;
@@ -58,7 +60,11 @@ export class AdminBanner extends AdminPage {
     if (this.enabled && !this.text.trim()) return "A banner needs some text.";
     if (this.link.trim() && !BANNER_LINK_RE.test(this.link.trim()))
       return "A link is a page here (/store) or an https:// address.";
-    if (this.enabled && this.endsAt && new Date(this.endsAt).getTime() <= Date.now())
+    if (
+      this.enabled &&
+      this.endsAt &&
+      new Date(this.endsAt).getTime() <= Date.now()
+    )
       return "The end time has already passed.";
     return null;
   }
@@ -89,7 +95,8 @@ export class AdminBanner extends AdminPage {
   render(): TemplateResult {
     const s = this.setting;
     const problem = this.problem();
-    const live = s?.enabled && s.text && (!s.endsAt || Date.parse(s.endsAt) > Date.now());
+    const live =
+      s?.enabled && s.text && (!s.endsAt || Date.parse(s.endsAt) > Date.now());
     return html`<div class="adm-head">
         <div>
           <h1>Site banner</h1>
@@ -107,8 +114,14 @@ export class AdminBanner extends AdminPage {
               <h2>
                 The banner
                 <span class="adm-aside"
-                  >${live ? pill("Showing", "good") : s.enabled ? pill("Ended", "warn") : pill("Off")}
-                  ${s.updatedAt ? html`changed ${ago(s.updatedAt)}` : nothing}</span
+                  >${live
+                    ? pill("Showing", "good")
+                    : s.enabled
+                      ? pill("Ended", "warn")
+                      : pill("Off")}
+                  ${s.updatedAt
+                    ? html`changed ${ago(s.updatedAt)}`
+                    : nothing}</span
                 >
               </h2>
               <form
@@ -119,7 +132,12 @@ export class AdminBanner extends AdminPage {
                 }}
               >
                 <label class="adm-check">
-                  <input type="checkbox" .checked=${this.enabled} @change=${(e: Event) => (this.enabled = (e.target as HTMLInputElement).checked)} />
+                  <input
+                    type="checkbox"
+                    .checked=${this.enabled}
+                    @change=${(e: Event) =>
+                      (this.enabled = (e.target as HTMLInputElement).checked)}
+                  />
                   Show it
                 </label>
                 <label
@@ -128,13 +146,19 @@ export class AdminBanner extends AdminPage {
                     class="adm-textarea"
                     maxlength=${BANNER_TEXT_MAX}
                     .value=${this.text}
-                    @input=${(e: InputEvent) => (this.text = (e.target as HTMLTextAreaElement).value)}
+                    @input=${(e: InputEvent) =>
+                      (this.text = (e.target as HTMLTextAreaElement).value)}
                   ></textarea>
                 </label>
                 <div class="adm-inline">
                   <label
                     >Link (optional)
-                    <input class="adm-input" placeholder="/store or https://…" .value=${this.link} @input=${(e: InputEvent) => (this.link = (e.target as HTMLInputElement).value)}
+                    <input
+                      class="adm-input"
+                      placeholder="/store or https://…"
+                      .value=${this.link}
+                      @input=${(e: InputEvent) =>
+                        (this.link = (e.target as HTMLInputElement).value)}
                   /></label>
                   <label
                     >Link's words
@@ -144,29 +168,51 @@ export class AdminBanner extends AdminPage {
                       maxlength=${BANNER_LINK_TEXT_MAX}
                       ?disabled=${!this.link.trim()}
                       .value=${this.linkText}
-                      @input=${(e: InputEvent) => (this.linkText = (e.target as HTMLInputElement).value)}
+                      @input=${(e: InputEvent) =>
+                        (this.linkText = (e.target as HTMLInputElement).value)}
                   /></label>
                 </div>
                 <label
                   >Ends (optional, your time)
-                  <input class="adm-input" type="datetime-local" .value=${this.endsAt} @input=${(e: InputEvent) => (this.endsAt = (e.target as HTMLInputElement).value)}
+                  <input
+                    class="adm-input"
+                    type="datetime-local"
+                    .value=${this.endsAt}
+                    @input=${(e: InputEvent) =>
+                      (this.endsAt = (e.target as HTMLInputElement).value)}
                 /></label>
                 ${problem ? html`<p class="adm-err">${problem}</p>` : nothing}
                 <div class="adm-row">
-                  <button class="dl-btn" ?disabled=${!!problem || this.busy}>Save</button>
-                  ${this.endsAt ? html`<button type="button" class="dl-btn ghost small" @click=${() => (this.endsAt = "")}>No end time</button>` : nothing}
+                  <button class="dl-btn" ?disabled=${!!problem || this.busy}>
+                    Save
+                  </button>
+                  ${this.endsAt
+                    ? html`<button
+                        type="button"
+                        class="dl-btn ghost small"
+                        @click=${() => (this.endsAt = "")}
+                      >
+                        No end time
+                      </button>`
+                    : nothing}
                 </div>
               </form>
             </div>
             <div class="adm-box">
               <h2>How it looks</h2>
               ${this.text.trim()
-                ? html`<div class="adm-banner-preview">${preview(this.text.trim(), this.link.trim(), this.linkText.trim())}</div>`
+                ? html`<div class="adm-banner-preview">
+                    ${preview(
+                      this.text.trim(),
+                      this.link.trim(),
+                      this.linkText.trim(),
+                    )}
+                  </div>`
                 : html`<p class="adm-quiet">Write something to see it.</p>`}
               <p class="adm-small" style="margin-top:10px">
-                It rides on what pages already ask for (the 15-second
-                check-in, or What's New's list when signed out), so it costs
-                nothing extra. Closing it is remembered in that browser.
+                It rides on what pages already ask for (the 15-second check-in,
+                or What's New's list when signed out), so it costs nothing
+                extra. Closing it is remembered in that browser.
               </p>
             </div>
           </div>`}`;

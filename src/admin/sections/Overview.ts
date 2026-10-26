@@ -79,7 +79,9 @@ export class AdminOverview extends AdminPage {
         <div>
           <h1>Overview</h1>
           <p class="adm-sub">
-            ${d ? html`As of ${when(this.at)}. It refreshes every 30 seconds.` : "Loading…"}
+            ${d
+              ? html`As of ${when(this.at)}. It refreshes every 30 seconds.`
+              : "Loading…"}
           </p>
         </div>
         <button class="dl-btn ghost small" @click=${() => void this.reload()}>
@@ -107,25 +109,45 @@ export class AdminOverview extends AdminPage {
           `${nf(g.conquestRooms)} rooms`,
           "/admin/games",
         )}
-        ${stat("Accounts", nf(d.accounts.total), `+${nf(d.accounts.newThisWeek)} in 7 days`, "/admin/accounts")}
+        ${stat(
+          "Accounts",
+          nf(d.accounts.total),
+          `+${nf(d.accounts.newThisWeek)} in 7 days`,
+          "/admin/accounts",
+        )}
         ${stat("Database", bytes(d.dbBytes))}
         ${stat("Up for", span(d.server.uptimeS))}
         ${stat("Memory", bytes(d.server.memory.rss), "the master")}
-        ${d.lines.map((l) => stat(l.label, String(typeof l.value === "number" ? nf(l.value) : l.value), "", l.href))}
+        ${d.lines.map((l) =>
+          stat(
+            l.label,
+            String(typeof l.value === "number" ? nf(l.value) : l.value),
+            "",
+            l.href,
+          ),
+        )}
       </div>
 
       <div class="adm-cols">
         <div class="adm-box">
-          <h2>Who's on now <span class="adm-aside">${nf(d.online.length)}</span></h2>
+          <h2>
+            Who's on now <span class="adm-aside">${nf(d.online.length)}</span>
+          </h2>
           ${table(
             [
-              { label: "Player", lead: true, cell: (p) => accountLink(p.id, p.username) },
+              {
+                label: "Player",
+                lead: true,
+                cell: (p) => accountLink(p.id, p.username),
+              },
               { label: "Where", cell: (p) => p.place },
               {
                 label: "",
                 cell: (p) =>
                   html`${p.hidden ? pill("Appears offline") : nothing}
-                  ${p.basedAt ? pill(`Mr. Based ${ago(p.basedAt)}`, "violet") : nothing}`,
+                  ${p.basedAt
+                    ? pill(`Mr. Based ${ago(p.basedAt)}`, "violet")
+                    : nothing}`,
               },
             ],
             d.online,
@@ -149,13 +171,19 @@ export class AdminOverview extends AdminPage {
                 : "–"}
             </dd>
             <dt>Built</dt>
-            <dd>${d.build.builtAt ? html`${when(d.build.builtAt)} <span class="adm-small">(${ago(d.build.builtAt)})</span>` : "Not built (running from source)"}</dd>
+            <dd>
+              ${d.build.builtAt
+                ? html`${when(d.build.builtAt)}
+                    <span class="adm-small">(${ago(d.build.builtAt)})</span>`
+                : "Not built (running from source)"}
+            </dd>
             <dt>Started</dt>
             <dd>${when(d.server.startedAt)}</dd>
             <dt>Memory</dt>
             <dd>
               ${bytes(d.server.memory.rss)} in all, heap
-              ${bytes(d.server.memory.heapUsed)} of ${bytes(d.server.memory.heapTotal)}
+              ${bytes(d.server.memory.heapUsed)} of
+              ${bytes(d.server.memory.heapTotal)}
             </dd>
             <dt>Node</dt>
             <dd>${d.server.node}</dd>
@@ -164,7 +192,11 @@ export class AdminOverview extends AdminPage {
           ${d.server.workersAnswered
             ? table(
                 [
-                  { label: "Worker", lead: true, cell: (w) => `Worker ${w.worker}` },
+                  {
+                    label: "Worker",
+                    lead: true,
+                    cell: (w) => `Worker ${w.worker}`,
+                  },
                   { label: "Up for", cell: (w) => span(w.uptimeS) },
                   { label: "Memory", num: true, cell: (w) => bytes(w.rss) },
                   { label: "Games", num: true, cell: (w) => nf(w.games) },
@@ -178,12 +210,30 @@ export class AdminOverview extends AdminPage {
       </div>
 
       <div class="adm-box">
-        <h2>Recent errors <span class="adm-aside">kept in memory since the last start</span></h2>
+        <h2>
+          Recent errors
+          <span class="adm-aside">kept in memory since the last start</span>
+        </h2>
         ${table(
           [
-            { label: "When", cls: "nowrap", cell: (e) => html`<span title=${when(e.at)}>${ago(e.at)}</span>` },
-            { label: "Where", cls: "nowrap", cell: (e) => html`${e.where}${e.component ? html`<br /><span class="adm-small">${e.component}</span>` : nothing}` },
-            { label: "Error", lead: true, cell: (e) => html`<span class="adm-mono">${e.message}</span>` },
+            {
+              label: "When",
+              cls: "nowrap",
+              cell: (e) => html`<span title=${when(e.at)}>${ago(e.at)}</span>`,
+            },
+            {
+              label: "Where",
+              cls: "nowrap",
+              cell: (e) =>
+                html`${e.where}${e.component
+                  ? html`<br /><span class="adm-small">${e.component}</span>`
+                  : nothing}`,
+            },
+            {
+              label: "Error",
+              lead: true,
+              cell: (e) => html`<span class="adm-mono">${e.message}</span>`,
+            },
           ],
           d.errors,
           "No errors since the last start.",
@@ -200,7 +250,9 @@ function stat(
   href?: string,
 ): TemplateResult {
   const inner = html`<span class="k">${label}</span
-    ><span class="v">${value}${small ? html`<small>${small}</small>` : nothing}</span>`;
+    ><span class="v"
+      >${value}${small ? html`<small>${small}</small>` : nothing}</span
+    >`;
   return html`<div class="adm-stat">
     ${href ? html`<a href=${href}>${inner}</a>` : inner}
   </div>`;

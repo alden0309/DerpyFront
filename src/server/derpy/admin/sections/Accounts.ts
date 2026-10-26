@@ -13,19 +13,16 @@ import { hashToken } from "../../DerpyAuth";
 import { DERPY_ITEMS, findItem, itemGrants } from "../../DerpyCatalog";
 import { db, inTransaction } from "../../DerpyDb";
 import { renameAccount } from "../../DerpyNames";
-import {
-  socialForgetAccount,
-  socialRenamed,
-} from "../../DerpySocial";
+import { socialForgetAccount, socialRenamed } from "../../DerpySocial";
 import { placeOf, presence } from "../../Presence";
 import { forgetOwner, OWNER_SQL, SUSPENDED_SQL } from "../AdminAccess";
-import { basedSince } from "../AdminSources";
 import {
   adminSection,
   idParam,
   type AdminCtx,
   type Queryable,
 } from "../AdminRegistry";
+import { basedSince } from "../AdminSources";
 import { ledger } from "../Ledger";
 
 /** Coin changes bigger than this (either way) need a typed name and a fresh sign-in. */
@@ -202,62 +199,71 @@ async function accountPage(
   );
   const a = r.rows[0];
   if (!a) return notThere(res);
-  const [owned, front, conquest, friends, party, sessions, resets, history, audit] =
-    await Promise.all([
-      pool.query(
-        `SELECT item, acquired_at, granted, price FROM derpy_owned
+  const [
+    owned,
+    front,
+    conquest,
+    friends,
+    party,
+    sessions,
+    resets,
+    history,
+    audit,
+  ] = await Promise.all([
+    pool.query(
+      `SELECT item, acquired_at, granted, price FROM derpy_owned
          WHERE account_id = $1 ORDER BY acquired_at DESC, item`,
-        [id],
-      ),
-      pool.query(
-        `SELECT g.game_id, g.map, g.mode, g.ended_at, g.duration_s, g.num_players,
+      [id],
+    ),
+    pool.query(
+      `SELECT g.game_id, g.map, g.mode, g.ended_at, g.duration_s, g.num_players,
            g.scenario, gp.won, gp.coins
          FROM derpy_game_players gp JOIN derpy_games g ON g.game_id = gp.game_id
          WHERE gp.account_id = $1 ORDER BY g.ended_at DESC LIMIT 10`,
-        [id],
-      ),
-      pool.query(
-        `SELECT cg.game_id, cg.ended_at, cg.final_year, cg.num_players, cp.nation,
+      [id],
+    ),
+    pool.query(
+      `SELECT cg.game_id, cg.ended_at, cg.final_year, cg.num_players, cp.nation,
            cp.won, cp.coins
          FROM derpy_conquest_players cp
          JOIN derpy_conquest_games cg ON cg.game_id = cp.game_id
          WHERE cp.account_id = $1 ORDER BY cg.ended_at DESC LIMIT 10`,
-        [id],
-      ),
-      pool.query(
-        `SELECT
+      [id],
+    ),
+    pool.query(
+      `SELECT
            (SELECT count(*) FROM derpy_friends WHERE account_id = $1)::int AS friends,
            (SELECT count(*) FROM derpy_friend_requests WHERE to_id = $1)::int AS requests_in,
            (SELECT count(*) FROM derpy_friend_requests WHERE from_id = $1)::int AS requests_out,
            (SELECT count(*) FROM derpy_game_players WHERE account_id = $1)::int AS front_games,
            (SELECT count(*) FROM derpy_conquest_players WHERE account_id = $1)::int AS conquest_games`,
-        [id],
-      ),
-      pool.query(
-        `SELECT p.id, p.leader_id = $1 AS leader,
+      [id],
+    ),
+    pool.query(
+      `SELECT p.id, p.leader_id = $1 AS leader,
            (SELECT count(*) FROM derpy_party_members m2 WHERE m2.party_id = p.id)::int AS size
          FROM derpy_party_members m JOIN derpy_parties p ON p.id = m.party_id
          WHERE m.account_id = $1`,
-        [id],
-      ),
-      pool.query(
-        `SELECT token_hash, created_at, last_seen FROM derpy_sessions
+      [id],
+    ),
+    pool.query(
+      `SELECT token_hash, created_at, last_seen FROM derpy_sessions
          WHERE account_id = $1 ORDER BY last_seen DESC`,
-        [id],
-      ),
-      pool.query(
-        `SELECT created_at, expires_at, used_at FROM derpy_password_resets
+      [id],
+    ),
+    pool.query(
+      `SELECT created_at, expires_at, used_at FROM derpy_password_resets
          WHERE account_id = $1 ORDER BY created_at DESC LIMIT 3`,
-        [id],
-      ),
-      ledger({ accountId: id, limit: 40 }),
-      pool.query(
-        `SELECT id, at, actor_name, action, reason, before, after
+      [id],
+    ),
+    ledger({ accountId: id, limit: 40 }),
+    pool.query(
+      `SELECT id, at, actor_name, action, reason, before, after
          FROM derpy_admin_audit WHERE target_type = 'account' AND target_id = $1
          ORDER BY at DESC, id DESC LIMIT 20`,
-        [String(id)],
-      ),
-    ]);
+      [String(id)],
+    ),
+  ]);
   // What other sections add (PROFILE's picture and badges, say).
   const panels: Record<string, unknown> = {};
   for (const s of ctx.sections) {
@@ -415,7 +421,10 @@ async function changeCoins(
   if (!body.success) return bad(res, "invalid");
   const { delta, reason, confirm } = body.data;
   await onAccount(req, res, async (c, acc) => {
-    if (Math.abs(delta) > COIN_CONFIRM_OVER && !confirmed(confirm, acc.username))
+    if (
+      Math.abs(delta) > COIN_CONFIRM_OVER &&
+      !confirmed(confirm, acc.username)
+    )
       return "confirm";
     if (acc.coins + delta < 0) return "not_enough_coins";
     const r = await c.query(
@@ -442,7 +451,10 @@ async function changeCoins(
   });
 }
 
-const ItemBody = z.object({ item: z.string().max(60), reason: Reason.optional() });
+const ItemBody = z.object({
+  item: z.string().max(60),
+  reason: Reason.optional(),
+});
 
 async function grantItem(
   req: Request,
@@ -547,10 +559,10 @@ async function setMark(
       // Given by hand: never with the owner's name mark (based_granted_as),
       // so it never makes anyone the owner. Taken away, the name it was
       // first given under stays used, so a restart doesn't give it back.
-      await c.query("UPDATE derpy_accounts SET based_access = $2 WHERE id = $1", [
-        acc.id,
-        value,
-      ]);
+      await c.query(
+        "UPDATE derpy_accounts SET based_access = $2 WHERE id = $1",
+        [acc.id, value],
+      );
     } else {
       await c.query(
         "UPDATE derpy_accounts SET appear_offline = $2 WHERE id = $1",
@@ -599,7 +611,10 @@ async function rename(
   await ctx.audit({
     action: "account.rename",
     target: { type: "account", id, name: result.username },
-    reason: typeof req.body?.reason === "string" ? req.body.reason.slice(0, 300) : null,
+    reason:
+      typeof req.body?.reason === "string"
+        ? req.body.reason.slice(0, 300)
+        : null,
     before: { username: acc.username },
     after: { username: result.username },
   });
@@ -615,9 +630,10 @@ async function signOutEverywhere(
   await onAccount(req, res, async (c, acc) => {
     if (!confirmed(confirm.success ? confirm.data : undefined, acc.username))
       return "confirm";
-    const r = await c.query("DELETE FROM derpy_sessions WHERE account_id = $1", [
-      acc.id,
-    ]);
+    const r = await c.query(
+      "DELETE FROM derpy_sessions WHERE account_id = $1",
+      [acc.id],
+    );
     await ctx.audit(
       {
         action: "account.signout",
@@ -658,9 +674,10 @@ async function suspend(
       [acc.id, until, body.data.reason],
     );
     // No sign-in from now: every session goes too.
-    const s = await c.query("DELETE FROM derpy_sessions WHERE account_id = $1", [
-      acc.id,
-    ]);
+    const s = await c.query(
+      "DELETE FROM derpy_sessions WHERE account_id = $1",
+      [acc.id],
+    );
     await ctx.audit(
       {
         action: "account.suspend",
@@ -696,7 +713,10 @@ async function unsuspend(
       {
         action: "account.unsuspend",
         target: target(acc),
-        reason: typeof req.body?.reason === "string" ? req.body.reason.slice(0, 300) : null,
+        reason:
+          typeof req.body?.reason === "string"
+            ? req.body.reason.slice(0, 300)
+            : null,
       },
       c,
     );
@@ -746,11 +766,15 @@ async function deleteAccount(
   ctx: AdminCtx,
 ): Promise<void> {
   const confirm = Confirm.safeParse(req.body?.confirm);
-  const reason = typeof req.body?.reason === "string" ? req.body.reason.slice(0, 300) : null;
+  const reason =
+    typeof req.body?.reason === "string" ? req.body.reason.slice(0, 300) : null;
   await onAccount(req, res, async (c, acc) => {
     if (acc.owner) return "own_account";
     if (
-      !confirmed(confirm.success ? confirm.data : undefined, `delete ${acc.username}`)
+      !confirmed(
+        confirm.success ? confirm.data : undefined,
+        `delete ${acc.username}`,
+      )
     )
       return "confirm";
     const counts = await c.query(
@@ -795,15 +819,31 @@ export const accounts = adminSection({
     {
       method: "post",
       path: "/:id/marks",
-      fresh: (b) => (b as { mark?: unknown } | undefined)?.mark === "based_access",
+      fresh: (b) =>
+        (b as { mark?: unknown } | undefined)?.mark === "based_access",
       handler: setMark,
     },
     { method: "post", path: "/:id/rename", fresh: true, handler: rename },
-    { method: "post", path: "/:id/signout", fresh: true, handler: signOutEverywhere },
+    {
+      method: "post",
+      path: "/:id/signout",
+      fresh: true,
+      handler: signOutEverywhere,
+    },
     { method: "post", path: "/:id/suspend", fresh: true, handler: suspend },
     { method: "post", path: "/:id/unsuspend", handler: unsuspend },
-    { method: "post", path: "/:id/reset-link", fresh: true, handler: resetLink },
-    { method: "post", path: "/:id/delete", fresh: true, handler: deleteAccount },
+    {
+      method: "post",
+      path: "/:id/reset-link",
+      fresh: true,
+      handler: resetLink,
+    },
+    {
+      method: "post",
+      path: "/:id/delete",
+      fresh: true,
+      handler: deleteAccount,
+    },
   ],
   overview: async () => {
     const r = await (
@@ -812,7 +852,13 @@ export const accounts = adminSection({
       `SELECT count(*)::int AS n FROM derpy_accounts a WHERE ${SUSPENDED_SQL("a")}`,
     );
     return r.rows[0].n > 0
-      ? [{ label: "Suspended accounts", value: r.rows[0].n, href: "/admin/accounts?filter=suspended" }]
+      ? [
+          {
+            label: "Suspended accounts",
+            value: r.rows[0].n,
+            href: "/admin/accounts?filter=suspended",
+          },
+        ]
       : [];
   },
 });

@@ -23,9 +23,15 @@ export const gaugeIcon = (cls?: string) =>
     cls,
   );
 export const userIcon = (cls?: string) =>
-  icon(svg`<circle cx="12" cy="8" r="3.6"/><path d="M5 20c1-4 4-6 7-6s6 2 7 6"/>`, cls);
+  icon(
+    svg`<circle cx="12" cy="8" r="3.6"/><path d="M5 20c1-4 4-6 7-6s6 2 7 6"/>`,
+    cls,
+  );
 export const shieldIcon = (cls?: string) =>
-  icon(svg`<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/>`, cls);
+  icon(
+    svg`<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/>`,
+    cls,
+  );
 export const gamesIcon = (cls?: string) =>
   icon(
     svg`<rect x="3" y="7" width="18" height="11" rx="4"/><path d="M8 11v3M6.5 12.5h3"/><circle cx="15.5" cy="11.5" r=".9"/><circle cx="17.5" cy="13.5" r=".9"/>`,
@@ -44,6 +50,12 @@ export const calendarIcon = (cls?: string) =>
 export const flagBannerIcon = (cls?: string) =>
   icon(svg`<path d="M5 21V4"/><path d="M5 5h12l-2.5 4L17 13H5"/>`, cls);
 export const listIcon = (cls?: string) =>
-  icon(svg`<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>`, cls);
+  icon(
+    svg`<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>`,
+    cls,
+  );
 export const newsIcon = (cls?: string) =>
-  icon(svg`<path d="M4 9v6h3l6 4V5L7 9z"/><path d="M17 9a4 4 0 0 1 0 6"/>`, cls);
+  icon(
+    svg`<path d="M4 9v6h3l6 4V5L7 9z"/><path d="M17 9a4 4 0 0 1 0 6"/>`,
+    cls,
+  );

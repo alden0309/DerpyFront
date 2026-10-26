@@ -18,6 +18,8 @@
     "scripts/replay",
     "scripts/split-packages",
     "scripts/based-notes.ts",
+    // ADMIN (r26): build-prod's last step, the admin page's script.
+    "scripts/buildAdmin.ts",
     "vite.config.ts"
   ],
   "exclude": [

@@ -9,11 +9,10 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import type { RenameError } from "../../derpland/Names"; // NAMES (r20)
 import { finalizeGameRecord } from "../Archive";
-import { keepAdminKey } from "./admin/AdminAccess"; // ADMIN (r26)
-import { adminRouter } from "./admin/AdminRouter"; // ADMIN (r26)
-import { passwordRouter } from "./PasswordReset"; // ADMIN (r26)
 import { logger } from "../Logger";
 import { setNoStoreHeaders } from "../NoStoreHeaders";
+import { keepAdminKey } from "./admin/AdminAccess"; // ADMIN (r26)
+import { adminRouter } from "./admin/AdminRouter"; // ADMIN (r26)
 import { dynastyFor } from "./ConquestDynasties"; // TREE (r25)
 import {
   Account,
@@ -59,6 +58,7 @@ import { checkName, nameStatus, renameAccount } from "./DerpyNames"; // NAMES (r
 import { loadNews, newsRouter } from "./DerpyNews"; // NEWS (r25)
 import { socialRenamed, socialRouter, socialSignedOut } from "./DerpySocial"; // FRIENDS (r25)
 import { liveGames } from "./LiveGames"; // SITE (r19)
+import { passwordRouter } from "./PasswordReset"; // ADMIN (r26)
 
 const log = logger.child({ component: "DerpyApi" });
 

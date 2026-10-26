@@ -21,7 +21,8 @@ export function noteError(message: string, component?: string): void {
     message: message.slice(0, MAX_MESSAGE),
     ...(component ? { component: component.slice(0, 60) } : {}),
   });
-  if (ring.length > ERROR_RING_SIZE) ring.splice(0, ring.length - ERROR_RING_SIZE);
+  if (ring.length > ERROR_RING_SIZE)
+    ring.splice(0, ring.length - ERROR_RING_SIZE);
 }
 
 /** The errors kept, newest first. */

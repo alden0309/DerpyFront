@@ -75,6 +75,15 @@ export async function adminFetch<T>(
   return (await res.json()) as T;
 }
 
+/** Opens a modal dialog (where the browser has them). */
+function openDialog(d: HTMLDialogElement | undefined): void {
+  if (d && !d.open && typeof d.showModal === "function") d.showModal();
+}
+
+function shutDialog(d: HTMLDialogElement | undefined): void {
+  if (d?.open && typeof d.close === "function") d.close();
+}
+
 interface Toast {
   id: number;
   text: string;
@@ -87,8 +96,9 @@ export class AdminApp extends LitElement {
   @state() private failed: "signed_out" | "error" | null = null;
   @state() private route: Route = routeOf(location);
   @state() private toasts: Toast[] = [];
-  @state() private ask: (ConfirmAsk & { done: (v: false | { reason: string }) => void }) | null =
-    null;
+  @state() private ask:
+    | (ConfirmAsk & { done: (v: false | { reason: string }) => void })
+    | null = null;
   @state() private typed = "";
   @state() private reason = "";
   @state() private reauth: { done: (ok: boolean) => void } | null = null;
@@ -127,7 +137,14 @@ export class AdminApp extends LitElement {
 
   /** Links to other admin pages stay in the page. */
   private onClick = (e: MouseEvent) => {
-    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
+    if (
+      e.defaultPrevented ||
+      e.button !== 0 ||
+      e.metaKey ||
+      e.ctrlKey ||
+      e.shiftKey ||
+      e.altKey
+    )
       return;
     const a = (e.target as Element).closest?.("a");
     const href = a?.getAttribute("href");
@@ -176,14 +193,14 @@ export class AdminApp extends LitElement {
     this.reason = ask.reasonValue ?? "";
     return new Promise((done) => {
       this.ask = { ...ask, done };
-      void this.updateComplete.then(() => this.confirmDialog?.showModal());
+      void this.updateComplete.then(() => openDialog(this.confirmDialog));
     });
   }
 
   private closeConfirm(v: false | { reason: string }): void {
     const a = this.ask;
     this.ask = null;
-    this.confirmDialog?.close();
+    shutDialog(this.confirmDialog);
     a?.done(v);
   }
 
@@ -193,14 +210,14 @@ export class AdminApp extends LitElement {
     this.reauthError = null;
     return new Promise((done) => {
       this.reauth = { done };
-      void this.updateComplete.then(() => this.reauthDialog?.showModal());
+      void this.updateComplete.then(() => openDialog(this.reauthDialog));
     });
   }
 
   private closeReauth(ok: boolean): void {
     const r = this.reauth;
     this.reauth = null;
-    this.reauthDialog?.close();
+    shutDialog(this.reauthDialog);
     r?.done(ok);
   }
 
@@ -219,7 +236,9 @@ export class AdminApp extends LitElement {
       this.closeReauth(true);
     } catch (err) {
       this.reauthError =
-        err instanceof AdminError ? errorText(err.code) : errorText("server_error");
+        err instanceof AdminError
+          ? errorText(err.code)
+          : errorText("server_error");
     } finally {
       this.reauthBusy = false;
     }
@@ -254,12 +273,16 @@ export class AdminApp extends LitElement {
       return html`<div class="dl-panel dl-empty">
         <h1 class="dl-h1">Sign in</h1>
         <p>Sign in to use this page.</p>
-        <button class="dl-btn" @click=${() => openSignIn("signin")}>Sign in</button>
+        <button class="dl-btn" @click=${() => openSignIn("signin")}>
+          Sign in
+        </button>
       </div>`;
     if (this.failed === "error")
       return html`<div class="dl-panel dl-empty">
         <p>The server didn't answer. Try again in a moment.</p>
-        <button class="dl-btn ghost" @click=${() => void this.load()}>Try again</button>
+        <button class="dl-btn ghost" @click=${() => void this.load()}>
+          Try again
+        </button>
       </div>`;
     if (!this.hello) return html`<p class="adm-quiet">Loading…</p>`;
     const r = this.route;
@@ -309,14 +332,19 @@ export class AdminApp extends LitElement {
     const h = this.hello!;
     const until = Date.parse(h.freshUntil);
     if (h.fresh && until > Date.now())
-      return html`<span title="Bans, deletes, renames and big coin changes need a sign-in from the last 12 hours"
-        >${pill(`Signed in: until ${when(until).split(", ").pop()}`, "good")}</span
+      return html`<span
+        title="Bans, deletes, renames and big coin changes need a sign-in from the last 12 hours"
+        >${pill(
+          `Signed in: until ${when(until).split(", ").pop()}`,
+          "good",
+        )}</span
       >`;
     return html`<button
       class="adm-link adm-small"
       title="Bans, deletes, renames and big coin changes need a sign-in from the last 12 hours"
       @click=${async () => {
-        if (await this.askPassword()) this.toast("Thanks. Good for 12 hours.", "good");
+        if (await this.askPassword())
+          this.toast("Thanks. Good for 12 hours.", "good");
       }}
     >
       Confirm your password
@@ -358,7 +386,9 @@ export class AdminApp extends LitElement {
               ${a.reason
                 ? html`<div class="dl-field">
                     <label for="adm-reason"
-                      >${typeof a.reason === "string" ? a.reason : "Reason"}${a.reasonRequired
+                      >${typeof a.reason === "string"
+                        ? a.reason
+                        : "Reason"}${a.reasonRequired
                         ? ""
                         : " (optional)"}</label
                     >
@@ -432,9 +462,13 @@ export class AdminApp extends LitElement {
               @submit=${(e: SubmitEvent) => void this.submitReauth(e)}
             >
               <p>
-                Bans, deletes, renames and big coin changes need a sign-in
-                from the last 12 hours. You signed in
-                ${ago(this.hello?.freshUntil ? Date.parse(this.hello.freshUntil) - 12 * 3600_000 : null)}.
+                Bans, deletes, renames and big coin changes need a sign-in from
+                the last 12 hours. You signed in
+                ${ago(
+                  this.hello?.freshUntil
+                    ? Date.parse(this.hello.freshUntil) - 12 * 3600_000
+                    : null,
+                )}.
               </p>
               <div class="dl-field">
                 <label for="adm-pw">Password</label>

@@ -79,7 +79,13 @@ interface AccountData {
     price: number | null;
     priceKnown: boolean;
   }[];
-  store: { name: string; label: string; game: string; category: string; price: number }[];
+  store: {
+    name: string;
+    label: string;
+    game: string;
+    category: string;
+    price: number;
+  }[];
   games: {
     derpyfront: {
       gameId: string;
@@ -110,7 +116,12 @@ interface AccountData {
     requestsOut: number;
     party: { leader: boolean; size: number } | null;
   };
-  sessions: { tag: string; createdAt: string; lastSeen: string; current: boolean }[];
+  sessions: {
+    tag: string;
+    createdAt: string;
+    lastSeen: string;
+    current: boolean;
+  }[];
   resets: { createdAt: string; expiresAt: string; usedAt: string | null }[];
   history: LedgerRow[];
   audit: {
@@ -177,14 +188,22 @@ export class AdminAccounts extends AdminPage {
     return html`<div class="adm-head">
         <div>
           <h1>Accounts</h1>
-          <p class="adm-sub">${nf(this.total)} accounts. Search by name (also a name given up lately) or by id.</p>
+          <p class="adm-sub">
+            ${nf(this.total)} accounts. Search by name (also a name given up
+            lately) or by id.
+          </p>
         </div>
       </div>
       <form
         class="adm-search"
         @submit=${(e: SubmitEvent) => {
           e.preventDefault();
-          set("q", String(new FormData(e.target as HTMLFormElement).get("q") ?? "").trim());
+          set(
+            "q",
+            String(
+              new FormData(e.target as HTMLFormElement).get("q") ?? "",
+            ).trim(),
+          );
         }}
       >
         <input
@@ -199,25 +218,33 @@ export class AdminAccounts extends AdminPage {
         <select
           class="adm-select"
           aria-label="Show"
-          @change=${(e: Event) => set("filter", (e.target as HTMLSelectElement).value)}
+          @change=${(e: Event) =>
+            set("filter", (e.target as HTMLSelectElement).value)}
         >
           ${[
             ["", "Everyone"],
             ["suspended", "Suspended"],
             ["based", "Plays Mr. Based"],
-          ].map(([v, l]) => html`<option value=${v} ?selected=${filter === v}>${l}</option>`)}
+          ].map(
+            ([v, l]) =>
+              html`<option value=${v} ?selected=${filter === v}>${l}</option>`,
+          )}
         </select>
         <select
           class="adm-select"
           aria-label="Order"
-          @change=${(e: Event) => set("sort", (e.target as HTMLSelectElement).value)}
+          @change=${(e: Event) =>
+            set("sort", (e.target as HTMLSelectElement).value)}
         >
           ${[
             ["new", "Newest first"],
             ["seen", "Last seen"],
             ["coins", "Most coins"],
             ["name", "By name"],
-          ].map(([v, l]) => html`<option value=${v} ?selected=${sort === v}>${l}</option>`)}
+          ].map(
+            ([v, l]) =>
+              html`<option value=${v} ?selected=${sort === v}>${l}</option>`,
+          )}
         </select>
       </form>
       ${this.error ? this.failed() : nothing}
@@ -239,14 +266,32 @@ export class AdminAccounts extends AdminPage {
                 { label: "", cell: (a) => flags(a) },
                 { label: "Coins", num: true, cell: (a) => nf(a.coins) },
                 { label: "Games", num: true, cell: (a) => nf(a.games) },
-                { label: "Joined", cls: "nowrap", cell: (a) => html`<span title=${when(a.createdAt)}>${ago(a.createdAt)}</span>` },
-                { label: "Last seen", cls: "nowrap", cell: (a) => (a.lastSeen ? html`<span title=${when(a.lastSeen)}>${ago(a.lastSeen)}</span>` : "never signed in") },
+                {
+                  label: "Joined",
+                  cls: "nowrap",
+                  cell: (a) =>
+                    html`<span title=${when(a.createdAt)}
+                      >${ago(a.createdAt)}</span
+                    >`,
+                },
+                {
+                  label: "Last seen",
+                  cls: "nowrap",
+                  cell: (a) =>
+                    a.lastSeen
+                      ? html`<span title=${when(a.lastSeen)}
+                          >${ago(a.lastSeen)}</span
+                        >`
+                      : "never signed in",
+                },
               ],
               this.rows,
               "No account matches.",
             )}
             ${this.rows.length === 100
-              ? html`<p class="adm-small" style="margin-top:8px">Showing the first 100. Search to narrow it down.</p>`
+              ? html`<p class="adm-small" style="margin-top:8px">
+                  Showing the first 100. Search to narrow it down.
+                </p>`
               : nothing}
           </div>`}`;
   }
@@ -296,12 +341,16 @@ export class AdminAccount extends AdminPage {
 
   render(): TemplateResult {
     if (this.error && !this.data)
-      return html`<p class="adm-crumb"><a href="/admin/accounts">Accounts</a></p>
+      return html`<p class="adm-crumb">
+          <a href="/admin/accounts">Accounts</a>
+        </p>
         ${this.failed()}`;
     const d = this.data;
     if (!d) return html`<p class="adm-quiet">Loading…</p>`;
     const a = d.account;
-    return html`<p class="adm-crumb"><a href="/admin/accounts">Accounts</a> / #${a.id}</p>
+    return html`<p class="adm-crumb">
+        <a href="/admin/accounts">Accounts</a> / #${a.id}
+      </p>
       <div class="adm-head">
         <div>
           <h1>${a.username}</h1>
@@ -313,31 +362,35 @@ export class AdminAccount extends AdminPage {
               online: d.online !== null,
             })}
             Joined ${when(a.createdAt)}.
-            <a class="adm-link" href="/player/${encodeURIComponent(a.username)}" target="_blank">Their page</a>
+            <a
+              class="adm-link"
+              href="/player/${encodeURIComponent(a.username)}"
+              target="_blank"
+              >Their page</a
+            >
           </p>
         </div>
-        <button class="dl-btn ghost small" @click=${() => void this.reload()}>Refresh</button>
+        <button class="dl-btn ghost small" @click=${() => void this.reload()}>
+          Refresh
+        </button>
       </div>
       ${this.error ? this.failed() : nothing}
       ${a.suspension?.now
         ? html`<div class="adm-badline" style="margin-bottom:14px">
-            Suspended ${when(a.suspension.at)}${a.suspension.until
+            Suspended
+            ${when(a.suspension.at)}${a.suspension.until
               ? html`, until ${when(a.suspension.until)}`
               : ", until lifted"}.
-            ${a.suspension.reason ? html`Reason: ${a.suspension.reason}` : nothing}
+            ${a.suspension.reason
+              ? html`Reason: ${a.suspension.reason}`
+              : nothing}
           </div>`
         : nothing}
       <div class="adm-grid">
-        <div class="adm-cols">
-          ${this.profileBox(d)} ${this.coinsBox(d)}
-        </div>
+        <div class="adm-cols">${this.profileBox(d)} ${this.coinsBox(d)}</div>
         ${this.actionsBox(d)}
-        <div class="adm-cols">
-          ${this.historyBox(d)} ${this.itemsBox(d)}
-        </div>
-        <div class="adm-cols">
-          ${this.gamesBox(d)} ${this.sessionsBox(d)}
-        </div>
+        <div class="adm-cols">${this.historyBox(d)} ${this.itemsBox(d)}</div>
+        <div class="adm-cols">${this.gamesBox(d)} ${this.sessionsBox(d)}</div>
         ${this.panelsBox(d)} ${this.auditBox(d)}
       </div>`;
   }
@@ -354,38 +407,64 @@ export class AdminAccount extends AdminPage {
         <dt>Name</dt>
         <dd>
           ${a.username}${a.oldName && a.oldName !== a.username
-            ? html` <span class="adm-small">(was ${a.oldName}, changed ${ago(a.usernameChangedAt)})</span>`
+            ? html` <span class="adm-small"
+                >(was ${a.oldName}, changed ${ago(a.usernameChangedAt)})</span
+              >`
             : a.usernameChangedAt
-              ? html` <span class="adm-small">(changed ${ago(a.usernameChangedAt)})</span>`
+              ? html` <span class="adm-small"
+                  >(changed ${ago(a.usernameChangedAt)})</span
+                >`
               : nothing}
         </dd>
         <dt>Now</dt>
         <dd>
-          ${d.online ? html`${d.online.place}${d.online.hidden ? html` ${pill("Appears offline")}` : nothing}` : "Not on the site"}
+          ${d.online
+            ? html`${d.online.place}${d.online.hidden
+                ? html` ${pill("Appears offline")}`
+                : nothing}`
+            : "Not on the site"}
         </dd>
         <dt>Mr. Based</dt>
         <dd>
           ${a.marks.based_access
-            ? html`Plays it${a.basedGrantedAs ? html` <span class="adm-small">(marked as ${a.basedGrantedAs})</span>` : nothing}${d.basedLastActive ? html`, last ${ago(d.basedLastActive)}` : nothing}`
+            ? html`Plays
+              it${a.basedGrantedAs
+                ? html` <span class="adm-small"
+                    >(marked as ${a.basedGrantedAs})</span
+                  >`
+                : nothing}${d.basedLastActive
+                ? html`, last ${ago(d.basedLastActive)}`
+                : nothing}`
             : "No"}
         </dd>
         <dt>Friends</dt>
         <dd>
           ${nf(d.social.friends)}${d.social.requestsIn || d.social.requestsOut
-            ? html` <span class="adm-small">(${d.social.requestsIn} requests in, ${d.social.requestsOut} out)</span>`
+            ? html` <span class="adm-small"
+                >(${d.social.requestsIn} requests in, ${d.social.requestsOut}
+                out)</span
+              >`
             : nothing}
         </dd>
         <dt>Party</dt>
-        <dd>${d.social.party ? `${d.social.party.leader ? "Leads" : "In"} a party of ${d.social.party.size}` : "None"}</dd>
+        <dd>
+          ${d.social.party
+            ? `${d.social.party.leader ? "Leads" : "In"} a party of ${d.social.party.size}`
+            : "None"}
+        </dd>
         <dt>Games</dt>
-        <dd>${nf(d.games.frontCount)} DerpyFront, ${nf(d.games.conquestCount)} Derpy Conquest</dd>
+        <dd>
+          ${nf(d.games.frontCount)} DerpyFront, ${nf(d.games.conquestCount)}
+          Derpy Conquest
+        </dd>
       </dl>
     </div>`;
   }
 
   private coinsBox(d: AccountData): TemplateResult {
     const n = Math.trunc(Number(this.coinAmount));
-    const valid = Number.isFinite(n) && n > 0 && this.coinReason.trim().length > 0;
+    const valid =
+      Number.isFinite(n) && n > 0 && this.coinReason.trim().length > 0;
     const change = async (sign: 1 | -1) => {
       const amount = sign * n;
       const big = Math.abs(amount) > COIN_CONFIRM_OVER;
@@ -412,7 +491,10 @@ export class AdminAccount extends AdminPage {
       }
     };
     return html`<div class="adm-box">
-      <h2>${coinIcon("dl-coin sm")} Derp Coins <span class="adm-aside">${nf(d.account.coins)}</span></h2>
+      <h2>
+        ${coinIcon("dl-coin sm")} Derp Coins
+        <span class="adm-aside">${nf(d.account.coins)}</span>
+      </h2>
       <div class="adm-form">
         <div class="adm-inline">
           <label
@@ -424,7 +506,8 @@ export class AdminAccount extends AdminPage {
               max="1000000"
               inputmode="numeric"
               .value=${this.coinAmount}
-              @input=${(e: InputEvent) => (this.coinAmount = (e.target as HTMLInputElement).value)}
+              @input=${(e: InputEvent) =>
+                (this.coinAmount = (e.target as HTMLInputElement).value)}
           /></label>
           <label style="flex:3 1 200px"
             >Reason (in their coin history)
@@ -432,13 +515,29 @@ export class AdminAccount extends AdminPage {
               class="adm-input"
               maxlength="300"
               .value=${this.coinReason}
-              @input=${(e: InputEvent) => (this.coinReason = (e.target as HTMLInputElement).value)}
+              @input=${(e: InputEvent) =>
+                (this.coinReason = (e.target as HTMLInputElement).value)}
           /></label>
         </div>
         <div class="adm-row">
-          <button class="dl-btn small" ?disabled=${!valid || this.busy} @click=${() => void change(1)}>Give</button>
-          <button class="dl-btn small adm-danger ghost" ?disabled=${!valid || this.busy} @click=${() => void change(-1)}>Take</button>
-          <span class="adm-small">Over ${nf(COIN_CONFIRM_OVER)}: type their name, and a sign-in from the last 12 hours.</span>
+          <button
+            class="dl-btn small"
+            ?disabled=${!valid || this.busy}
+            @click=${() => void change(1)}
+          >
+            Give
+          </button>
+          <button
+            class="dl-btn small adm-danger ghost"
+            ?disabled=${!valid || this.busy}
+            @click=${() => void change(-1)}
+          >
+            Take
+          </button>
+          <span class="adm-small"
+            >Over ${nf(COIN_CONFIRM_OVER)}: type their name, and a sign-in from
+            the last 12 hours.</span
+          >
         </div>
       </div>
     </div>`;
@@ -448,8 +547,12 @@ export class AdminAccount extends AdminPage {
     const a = d.account;
     const name = a.username;
     const susp = a.suspension?.now ?? false;
-    const mark = async (m: "based_access" | "appear_offline", value: boolean) => {
-      const label = m === "based_access" ? "Plays Mr. Based" : "Appears offline";
+    const mark = async (
+      m: "based_access" | "appear_offline",
+      value: boolean,
+    ) => {
+      const label =
+        m === "based_access" ? "Plays Mr. Based" : "Appears offline";
       const ok = await this.view.confirm({
         title: `${value ? "Set" : "Clear"} "${label}"`,
         body:
@@ -465,7 +568,12 @@ export class AdminAccount extends AdminPage {
       });
       if (!ok) return;
       await this.act(
-        () => this.view.post(this.path("/marks"), { mark: m, value, confirm: name }),
+        () =>
+          this.view.post(this.path("/marks"), {
+            mark: m,
+            value,
+            confirm: name,
+          }),
         "Done.",
       );
     };
@@ -474,7 +582,10 @@ export class AdminAccount extends AdminPage {
       <div class="adm-actions">
         <div class="adm-action">
           <h3>Marks</h3>
-          <label class="adm-check" style="display:flex;gap:8px;align-items:center">
+          <label
+            class="adm-check"
+            style="display:flex;gap:8px;align-items:center"
+          >
             <input
               type="checkbox"
               .checked=${a.marks.based_access}
@@ -488,7 +599,10 @@ export class AdminAccount extends AdminPage {
             />
             Plays Mr. Based
           </label>
-          <label class="adm-check" style="display:flex;gap:8px;align-items:center">
+          <label
+            class="adm-check"
+            style="display:flex;gap:8px;align-items:center"
+          >
             <input
               type="checkbox"
               .checked=${a.marks.appear_offline}
@@ -502,12 +616,19 @@ export class AdminAccount extends AdminPage {
             />
             Appears offline
           </label>
-          ${a.owner ? html`<p>Your own Mr. Based mark is how this page knows you: it stays.</p>` : nothing}
+          ${a.owner
+            ? html`<p>
+                Your own Mr. Based mark is how this page knows you: it stays.
+              </p>`
+            : nothing}
         </div>
 
         <div class="adm-action">
           <h3>Rename</h3>
-          <p>No 7-day wait. The name must be free and allowed; the old one is kept for them 7 days.</p>
+          <p>
+            No 7-day wait. The name must be free and allowed; the old one is
+            kept for them 7 days.
+          </p>
           <div class="adm-row">
             <input
               class="adm-input"
@@ -516,11 +637,13 @@ export class AdminAccount extends AdminPage {
               maxlength="20"
               autocomplete="off"
               .value=${this.newName}
-              @input=${(e: InputEvent) => (this.newName = (e.target as HTMLInputElement).value)}
+              @input=${(e: InputEvent) =>
+                (this.newName = (e.target as HTMLInputElement).value)}
             />
             <button
               class="dl-btn small"
-              ?disabled=${!/^[A-Za-z0-9_]{3,20}$/.test(this.newName.trim()) || this.busy}
+              ?disabled=${!/^[A-Za-z0-9_]{3,20}$/.test(this.newName.trim()) ||
+              this.busy}
               @click=${async () => {
                 const to = this.newName.trim();
                 const ok = await this.view.confirm({
@@ -532,7 +655,12 @@ export class AdminAccount extends AdminPage {
                 });
                 if (!ok) return;
                 const r = await this.act(
-                  () => this.view.post(this.path("/rename"), { username: to, confirm: name, reason: ok.reason }),
+                  () =>
+                    this.view.post(this.path("/rename"), {
+                      username: to,
+                      confirm: name,
+                      reason: ok.reason,
+                    }),
                   `Renamed to ${to}.`,
                 );
                 if (r) this.newName = "";
@@ -545,7 +673,10 @@ export class AdminAccount extends AdminPage {
 
         <div class="adm-action">
           <h3>Sign out everywhere</h3>
-          <p>Ends every session they have (${d.sessions.length} now). They can sign in again.</p>
+          <p>
+            Ends every session they have (${d.sessions.length} now). They can
+            sign in again.
+          </p>
           <div>
             <button
               class="dl-btn small ghost"
@@ -561,7 +692,8 @@ export class AdminAccount extends AdminPage {
                 });
                 if (ok)
                   await this.act(
-                    () => this.view.post(this.path("/signout"), { confirm: name }),
+                    () =>
+                      this.view.post(this.path("/signout"), { confirm: name }),
                     "Signed out everywhere.",
                   );
               }}
@@ -573,24 +705,42 @@ export class AdminAccount extends AdminPage {
 
         <div class="adm-action">
           <h3>Password reset link</h3>
-          <p>A one-time link for 24 hours, for you to send them yourself (there's no email). A new link ends the old one.</p>
+          <p>
+            A one-time link for 24 hours, for you to send them yourself (there's
+            no email). A new link ends the old one.
+          </p>
           ${this.link
             ? html`<div class="adm-copy">
-                  <input class="adm-input adm-mono" readonly .value=${this.link.url} @focus=${(e: Event) => (e.target as HTMLInputElement).select()} />
+                  <input
+                    class="adm-input adm-mono"
+                    readonly
+                    .value=${this.link.url}
+                    @focus=${(e: Event) =>
+                      (e.target as HTMLInputElement).select()}
+                  />
                   <button
                     class="dl-btn small"
                     @click=${() =>
                       void navigator.clipboard
                         ?.writeText(this.link!.url)
                         .then(() => this.view.toast("Copied.", "good"))
-                        .catch(() => this.view.toast("Select it and copy it.", "bad"))}
+                        .catch(() =>
+                          this.view.toast("Select it and copy it.", "bad"),
+                        )}
                   >
                     Copy
                   </button>
                 </div>
-                <p class="adm-small">Works once, until ${when(this.link.expiresAt)}.</p>`
-            : d.resets[0] && !d.resets[0].usedAt && Date.parse(d.resets[0].expiresAt) > Date.now()
-              ? html`<p class="adm-small">A link made ${ago(d.resets[0].createdAt)} is still open (until ${when(d.resets[0].expiresAt)}).</p>`
+                <p class="adm-small">
+                  Works once, until ${when(this.link.expiresAt)}.
+                </p>`
+            : d.resets[0] &&
+                !d.resets[0].usedAt &&
+                Date.parse(d.resets[0].expiresAt) > Date.now()
+              ? html`<p class="adm-small">
+                  A link made ${ago(d.resets[0].createdAt)} is still open (until
+                  ${when(d.resets[0].expiresAt)}).
+                </p>`
               : nothing}
           <div>
             <button
@@ -605,9 +755,16 @@ export class AdminAccount extends AdminPage {
                 });
                 if (!ok) return;
                 const r = await this.act(() =>
-                  this.view.post<{ path: string; expiresAt: string }>(this.path("/reset-link"), { confirm: name }),
+                  this.view.post<{ path: string; expiresAt: string }>(
+                    this.path("/reset-link"),
+                    { confirm: name },
+                  ),
                 );
-                if (r) this.link = { url: `${location.origin}${r.path}`, expiresAt: r.expiresAt };
+                if (r)
+                  this.link = {
+                    url: `${location.origin}${r.path}`,
+                    expiresAt: r.expiresAt,
+                  };
               }}
             >
               Make a link
@@ -620,7 +777,12 @@ export class AdminAccount extends AdminPage {
           ${a.owner
             ? html`<p>Your own account can't be suspended or deleted here.</p>`
             : susp
-              ? html`<p>They can't sign in${a.suspension?.until ? html` until ${when(a.suspension.until)}` : nothing}.</p>
+              ? html`<p>
+                    They can't sign
+                    in${a.suspension?.until
+                      ? html` until ${when(a.suspension.until)}`
+                      : nothing}.
+                  </p>
                   <div>
                     <button
                       class="dl-btn small"
@@ -634,7 +796,10 @@ export class AdminAccount extends AdminPage {
                         });
                         if (ok)
                           await this.act(
-                            () => this.view.post(this.path("/unsuspend"), { reason: ok.reason }),
+                            () =>
+                              this.view.post(this.path("/unsuspend"), {
+                                reason: ok.reason,
+                              }),
                             "Suspension lifted.",
                           );
                       }}
@@ -642,7 +807,10 @@ export class AdminAccount extends AdminPage {
                       Lift the suspension
                     </button>
                   </div>`
-              : html`<p>No sign-in (and every session ends) until it's lifted or the end date.</p>
+              : html`<p>
+                    No sign-in (and every session ends) until it's lifted or the
+                    end date.
+                  </p>
                   <div class="adm-form">
                     <label
                       >Reason
@@ -650,7 +818,10 @@ export class AdminAccount extends AdminPage {
                         class="adm-input"
                         maxlength="300"
                         .value=${this.suspendReason}
-                        @input=${(e: InputEvent) => (this.suspendReason = (e.target as HTMLInputElement).value)}
+                        @input=${(e: InputEvent) =>
+                          (this.suspendReason = (
+                            e.target as HTMLInputElement
+                          ).value)}
                     /></label>
                     <label
                       >Ends (optional)
@@ -658,14 +829,19 @@ export class AdminAccount extends AdminPage {
                         class="adm-input"
                         type="datetime-local"
                         .value=${this.suspendUntil}
-                        @input=${(e: InputEvent) => (this.suspendUntil = (e.target as HTMLInputElement).value)}
+                        @input=${(e: InputEvent) =>
+                          (this.suspendUntil = (
+                            e.target as HTMLInputElement
+                          ).value)}
                     /></label>
                     <div>
                       <button
                         class="dl-btn small adm-danger"
                         ?disabled=${!this.suspendReason.trim() || this.busy}
                         @click=${async () => {
-                          const until = this.suspendUntil ? new Date(this.suspendUntil) : null;
+                          const until = this.suspendUntil
+                            ? new Date(this.suspendUntil)
+                            : null;
                           if (until && Number.isNaN(until.getTime())) return;
                           const ok = await this.view.confirm({
                             title: `Suspend ${name}`,
@@ -700,7 +876,10 @@ export class AdminAccount extends AdminPage {
           <h3>Delete the account</h3>
           ${a.owner
             ? html`<p>Your own account can't be deleted here.</p>`
-            : html`<p>For good: their games' lines, items, coins, friends, saves and sessions go with it. The games themselves stay.</p>
+            : html`<p>
+                  For good: their games' lines, items, coins, friends, saves and
+                  sessions go with it. The games themselves stay.
+                </p>
                 <div>
                   <button
                     class="dl-btn small adm-danger"
@@ -723,7 +902,12 @@ export class AdminAccount extends AdminPage {
                         this.view.toast(`${name} is deleted.`, "good");
                         this.view.go("/admin/accounts");
                       } catch (err) {
-                        this.view.toast(errorText((err as { code?: string }).code ?? "server_error"), "bad");
+                        this.view.toast(
+                          errorText(
+                            (err as { code?: string }).code ?? "server_error",
+                          ),
+                          "bad",
+                        );
                       }
                     }}
                   >
@@ -737,11 +921,29 @@ export class AdminAccount extends AdminPage {
 
   private historyBox(d: AccountData): TemplateResult {
     return html`<div class="adm-box">
-      <h2>Coin history <span class="adm-aside"><a href="/admin/economy?account=${encodeURIComponent(d.account.username)}">All of it</a></span></h2>
+      <h2>
+        Coin history
+        <span class="adm-aside"
+          ><a
+            href="/admin/economy?account=${encodeURIComponent(
+              d.account.username,
+            )}"
+            >All of it</a
+          ></span
+        >
+      </h2>
       ${table(
         [
-          { label: "When", cls: "nowrap", cell: (r) => html`<span title=${when(r.at)}>${ago(r.at)}</span>` },
-          { label: "What", lead: true, cell: (r) => html`${r.what} ${pill(KIND_NAMES[r.kind] ?? r.kind)}` },
+          {
+            label: "When",
+            cls: "nowrap",
+            cell: (r) => html`<span title=${when(r.at)}>${ago(r.at)}</span>`,
+          },
+          {
+            label: "What",
+            lead: true,
+            cell: (r) => html`${r.what} ${pill(KIND_NAMES[r.kind] ?? r.kind)}`,
+          },
           { label: "Coins", num: true, cell: (r) => delta(r.delta) },
         ],
         d.history,
@@ -756,21 +958,40 @@ export class AdminAccount extends AdminPage {
     const available = d.store.filter((s) => !owned.has(s.name));
     const name = d.account.username;
     return html`<div class="adm-box">
-      <h2>Store items <span class="adm-aside">${packs.length} owned, ${d.items.length} rows</span></h2>
+      <h2>
+        Store items
+        <span class="adm-aside"
+          >${packs.length} owned, ${d.items.length} rows</span
+        >
+      </h2>
       <div class="adm-row" style="margin-bottom:10px">
         <select
           class="adm-select"
           style="flex:1 1 200px"
           aria-label="Item to give"
-          @change=${(e: Event) => (this.grantItem = (e.target as HTMLSelectElement).value)}
+          @change=${(e: Event) =>
+            (this.grantItem = (e.target as HTMLSelectElement).value)}
         >
-          <option value="" ?selected=${this.grantItem === ""}>Give an item…</option>
+          <option value="" ?selected=${this.grantItem === ""}>
+            Give an item…
+          </option>
           ${["derpyfront", "conquest"].map(
-            (g) => html`<optgroup label=${g === "derpyfront" ? "DerpyFront" : "Derpy Conquest"}>
-              ${available
-                .filter((s) => s.game === g)
-                .map((s) => html`<option value=${s.name} ?selected=${this.grantItem === s.name}>${s.label} (${nf(s.price)})</option>`)}
-            </optgroup>`,
+            (g) =>
+              html`<optgroup
+                label=${g === "derpyfront" ? "DerpyFront" : "Derpy Conquest"}
+              >
+                ${available
+                  .filter((s) => s.game === g)
+                  .map(
+                    (s) =>
+                      html`<option
+                        value=${s.name}
+                        ?selected=${this.grantItem === s.name}
+                      >
+                        ${s.label} (${nf(s.price)})
+                      </option>`,
+                  )}
+              </optgroup>`,
           )}
         </select>
         <button
@@ -787,7 +1008,11 @@ export class AdminAccount extends AdminPage {
             });
             if (!ok) return;
             const r = await this.act(
-              () => this.view.post(this.path("/items/grant"), { item: item.name, ...(ok.reason ? { reason: ok.reason } : {}) }),
+              () =>
+                this.view.post(this.path("/items/grant"), {
+                  item: item.name,
+                  ...(ok.reason ? { reason: ok.reason } : {}),
+                }),
               `${item.label} given.`,
             );
             if (r) this.grantItem = "";
@@ -798,9 +1023,37 @@ export class AdminAccount extends AdminPage {
       </div>
       ${table(
         [
-          { label: "Item", lead: true, cell: (i) => html`${i.label ?? i.item.slice(5)} <span class="adm-small">${i.game === "conquest" ? "Conquest" : i.game === "derpyfront" ? "DerpyFront" : ""}</span>` },
-          { label: "How", cell: (i) => (i.granted ? pill("Given") : i.price === null ? pill("Bought") : html`Bought, ${nf(i.price)}${i.priceKnown ? "" : " (today's price)"}`) },
-          { label: "When", cls: "nowrap", cell: (i) => html`<span title=${when(i.acquiredAt)}>${ago(i.acquiredAt)}</span>` },
+          {
+            label: "Item",
+            lead: true,
+            cell: (i) =>
+              html`${i.label ?? i.item.slice(5)}
+                <span class="adm-small"
+                  >${i.game === "conquest"
+                    ? "Conquest"
+                    : i.game === "derpyfront"
+                      ? "DerpyFront"
+                      : ""}</span
+                >`,
+          },
+          {
+            label: "How",
+            cell: (i) =>
+              i.granted
+                ? pill("Given")
+                : i.price === null
+                  ? pill("Bought")
+                  : html`Bought,
+                    ${nf(i.price)}${i.priceKnown ? "" : " (today's price)"}`,
+          },
+          {
+            label: "When",
+            cls: "nowrap",
+            cell: (i) =>
+              html`<span title=${when(i.acquiredAt)}
+                >${ago(i.acquiredAt)}</span
+              >`,
+          },
           {
             label: "",
             cls: "acts",
@@ -819,7 +1072,11 @@ export class AdminAccount extends AdminPage {
                   });
                   if (ok)
                     await this.act(
-                      () => this.view.post(this.path("/items/revoke"), { item: i.item, ...(ok.reason ? { reason: ok.reason } : {}) }),
+                      () =>
+                        this.view.post(this.path("/items/revoke"), {
+                          item: i.item,
+                          ...(ok.reason ? { reason: ok.reason } : {}),
+                        }),
                       `${label} taken back.`,
                     );
                 }}
@@ -839,11 +1096,27 @@ export class AdminAccount extends AdminPage {
       <h2>Recent games</h2>
       ${table(
         [
-          { label: "Game", lead: true, cell: (g) => html`DerpyFront: ${g.scenario ?? g.map} ${g.won ? pill("Won", "good") : nothing}` },
+          {
+            label: "Game",
+            lead: true,
+            cell: (g) =>
+              html`DerpyFront: ${g.scenario ?? g.map}
+              ${g.won ? pill("Won", "good") : nothing}`,
+          },
           { label: "When", cls: "nowrap", cell: (g) => ago(g.endedAt) },
           { label: "Length", cls: "nowrap", cell: (g) => span(g.durationS) },
           { label: "Coins", num: true, cell: (g) => nf(g.coins) },
-          { label: "", cls: "acts", cell: (g) => html`<a class="dl-btn small tiny ghost" href="/game/${encodeURIComponent(g.gameId)}" target="_blank">Replay</a>` },
+          {
+            label: "",
+            cls: "acts",
+            cell: (g) =>
+              html`<a
+                class="dl-btn small tiny ghost"
+                href="/game/${encodeURIComponent(g.gameId)}"
+                target="_blank"
+                >Replay</a
+              >`,
+          },
         ],
         d.games.derpyfront,
         "No DerpyFront games saved.",
@@ -851,11 +1124,27 @@ export class AdminAccount extends AdminPage {
       <div style="height:10px"></div>
       ${table(
         [
-          { label: "Game", lead: true, cell: (g) => html`Conquest to ${g.year} ${g.won ? pill("Won", "good") : nothing}` },
+          {
+            label: "Game",
+            lead: true,
+            cell: (g) =>
+              html`Conquest to ${g.year}
+              ${g.won ? pill("Won", "good") : nothing}`,
+          },
           { label: "When", cls: "nowrap", cell: (g) => ago(g.endedAt) },
           { label: "Players", num: true, cell: (g) => nf(g.players) },
           { label: "Coins", num: true, cell: (g) => nf(g.coins) },
-          { label: "", cls: "acts", cell: (g) => html`<a class="dl-btn small tiny ghost" href="/chronicle/${encodeURIComponent(g.gameId)}" target="_blank">Story</a>` },
+          {
+            label: "",
+            cls: "acts",
+            cell: (g) =>
+              html`<a
+                class="dl-btn small tiny ghost"
+                href="/chronicle/${encodeURIComponent(g.gameId)}"
+                target="_blank"
+                >Story</a
+              >`,
+          },
         ],
         d.games.conquest,
         "No Derpy Conquest games finished.",
@@ -868,9 +1157,26 @@ export class AdminAccount extends AdminPage {
       <h2>Sessions <span class="adm-aside">${d.sessions.length}</span></h2>
       ${table(
         [
-          { label: "Session", lead: true, cell: (s) => html`<span class="adm-mono">${s.tag}…</span> ${s.current ? pill("This browser", "blue") : nothing}` },
-          { label: "Signed in", cls: "nowrap", cell: (s) => html`<span title=${when(s.createdAt)}>${ago(s.createdAt)}</span>` },
-          { label: "Last used", cls: "nowrap", cell: (s) => html`<span title=${when(s.lastSeen)}>${ago(s.lastSeen)}</span>` },
+          {
+            label: "Session",
+            lead: true,
+            cell: (s) =>
+              html`<span class="adm-mono">${s.tag}…</span> ${s.current
+                  ? pill("This browser", "blue")
+                  : nothing}`,
+          },
+          {
+            label: "Signed in",
+            cls: "nowrap",
+            cell: (s) =>
+              html`<span title=${when(s.createdAt)}>${ago(s.createdAt)}</span>`,
+          },
+          {
+            label: "Last used",
+            cls: "nowrap",
+            cell: (s) =>
+              html`<span title=${when(s.lastSeen)}>${ago(s.lastSeen)}</span>`,
+          },
         ],
         d.sessions,
         "Not signed in anywhere.",
@@ -880,7 +1186,15 @@ export class AdminAccount extends AdminPage {
             ${table(
               [
                 { label: "Made", lead: true, cell: (r) => when(r.createdAt) },
-                { label: "State", cell: (r) => (r.usedAt ? `Used ${ago(r.usedAt)}` : Date.parse(r.expiresAt) > Date.now() ? `Open until ${when(r.expiresAt)}` : "Expired") },
+                {
+                  label: "State",
+                  cell: (r) =>
+                    r.usedAt
+                      ? `Used ${ago(r.usedAt)}`
+                      : Date.parse(r.expiresAt) > Date.now()
+                        ? `Open until ${when(r.expiresAt)}`
+                        : "Expired",
+                },
               ],
               d.resets,
             )}`
@@ -891,13 +1205,23 @@ export class AdminAccount extends AdminPage {
   private panelsBox(d: AccountData): TemplateResult | typeof nothing {
     const panels = accountPanels();
     if (panels.length === 0) return nothing;
-    const ref = { id: d.account.id, username: d.account.username, owner: d.account.owner };
+    const ref = {
+      id: d.account.id,
+      username: d.account.username,
+      owner: d.account.owner,
+    };
     return html`<div class="adm-cols">
       ${panels.map(
-        (p) => html`<div class="adm-box">
-          <h2>${p.label}</h2>
-          ${p.render(ref, d.panels[p.id], this.view, () => void this.reload())}
-        </div>`,
+        (p) =>
+          html`<div class="adm-box">
+            <h2>${p.label}</h2>
+            ${p.render(
+              ref,
+              d.panels[p.id],
+              this.view,
+              () => void this.reload(),
+            )}
+          </div>`,
       )}
     </div>`;
   }
@@ -906,11 +1230,19 @@ export class AdminAccount extends AdminPage {
     return html`<div class="adm-box">
       <h2>
         What you've done here
-        <span class="adm-aside"><a href="/admin/audit?targetType=account&targetId=${d.account.id}">The whole log</a></span>
+        <span class="adm-aside"
+          ><a href="/admin/audit?targetType=account&targetId=${d.account.id}"
+            >The whole log</a
+          ></span
+        >
       </h2>
       ${table(
         [
-          { label: "When", cls: "nowrap", cell: (r) => html`<span title=${when(r.at)}>${ago(r.at)}</span>` },
+          {
+            label: "When",
+            cls: "nowrap",
+            cell: (r) => html`<span title=${when(r.at)}>${ago(r.at)}</span>`,
+          },
           { label: "Action", lead: true, cell: (r) => pill(r.action) },
           { label: "Reason", cell: (r) => r.reason ?? "" },
         ],

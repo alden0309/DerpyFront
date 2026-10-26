@@ -112,7 +112,10 @@ export class AdminGames extends AdminPage {
     });
     if (!ok) return;
     await this.act(
-      () => this.view.post(`/games/front/${encodeURIComponent(g.id)}/end`, { reason: ok.reason }),
+      () =>
+        this.view.post(`/games/front/${encodeURIComponent(g.id)}/end`, {
+          reason: ok.reason,
+        }),
       lobby ? "Lobby closed." : "Game ended.",
     );
   }
@@ -128,7 +131,10 @@ export class AdminGames extends AdminPage {
     });
     if (!ok) return;
     await this.act(
-      () => this.view.post(`/games/conquest/${encodeURIComponent(r.code)}/close`, { reason: ok.reason }),
+      () =>
+        this.view.post(`/games/conquest/${encodeURIComponent(r.code)}/close`, {
+          reason: ok.reason,
+        }),
       "Room closed.",
     );
   }
@@ -138,9 +144,14 @@ export class AdminGames extends AdminPage {
     return html`<div class="adm-head">
         <div>
           <h1>Games</h1>
-          <p class="adm-sub">What's running now (it refreshes every 15 seconds), and the latest saved.</p>
+          <p class="adm-sub">
+            What's running now (it refreshes every 15 seconds), and the latest
+            saved.
+          </p>
         </div>
-        <button class="dl-btn ghost small" @click=${() => void this.reload()}>Refresh</button>
+        <button class="dl-btn ghost small" @click=${() => void this.reload()}>
+          Refresh
+        </button>
       </div>
       ${this.error ? this.failed() : nothing}
       ${d ? this.body(d) : html`<p class="adm-quiet">Loading…</p>`}`;
@@ -150,7 +161,12 @@ export class AdminGames extends AdminPage {
     const now = Date.now();
     return html`<div class="adm-grid">
       <div class="adm-box">
-        <h2>DerpyFront <span class="adm-aside">${nf(d.front.games.length)} lobbies and games</span></h2>
+        <h2>
+          DerpyFront
+          <span class="adm-aside"
+            >${nf(d.front.games.length)} lobbies and games</span
+          >
+        </h2>
         ${d.front.available
           ? table(
               [
@@ -165,22 +181,40 @@ export class AdminGames extends AdminPage {
                   label: "Kind",
                   cell: (g) =>
                     html`${pill(...(KIND[g.kind] ?? [g.kind, ""]))}
-                    ${g.locked ? pill("Password") : nothing} ${g.mode === "Team" ? pill("Teams") : nothing}`,
+                    ${g.locked ? pill("Password") : nothing}
+                    ${g.mode === "Team" ? pill("Teams") : nothing}`,
                 },
                 {
                   label: "State",
                   cell: (g) =>
                     g.phase === "lobby"
-                      ? html`${pill("Lobby", "warn")} <span class="adm-small">${ago(g.createdAt, now)}</span>`
-                      : html`${pill(g.phase === "playing" ? "Playing" : "Starting", "good")}
-                          ${g.startedAt ? html`<span class="adm-small">${span((now - g.startedAt) / 1000)}</span>` : nothing}`,
+                      ? html`${pill("Lobby", "warn")}
+                          <span class="adm-small"
+                            >${ago(g.createdAt, now)}</span
+                          >`
+                      : html`${pill(
+                          g.phase === "playing" ? "Playing" : "Starting",
+                          "good",
+                        )}
+                        ${g.startedAt
+                          ? html`<span class="adm-small"
+                              >${span((now - g.startedAt) / 1000)}</span
+                            >`
+                          : nothing}`,
                 },
                 {
                   label: "Players",
                   cell: (g) =>
                     html`<span title=${g.players.join(", ")}
-                      >${nf(g.players.length)}${g.maxPlayers ? ` / ${g.maxPlayers}` : ""}${g.players.length
-                        ? html` <span class="adm-small">${g.players.slice(0, 4).join(", ")}${g.players.length > 4 ? "…" : ""}</span>`
+                      >${nf(g.players.length)}${g.maxPlayers
+                        ? ` / ${g.maxPlayers}`
+                        : ""}${g.players.length
+                        ? html` <span class="adm-small"
+                            >${g.players.slice(0, 4).join(", ")}${g.players
+                              .length > 4
+                              ? "…"
+                              : ""}</span
+                          >`
                         : nothing}</span
                     >`,
                 },
@@ -190,13 +224,26 @@ export class AdminGames extends AdminPage {
                   cls: "acts",
                   cell: (g) =>
                     html`${g.phase === "playing"
-                      ? g.watchable
-                        ? html`<a class="dl-btn small tiny ghost" href="/game/${encodeURIComponent(g.id)}?spectate" target="_blank">Watch</a>`
-                        : html`<span class="adm-small" title="Its host hasn't opened it to watchers">No watchers</span>`
-                      : nothing}
-                    <button class="dl-btn small tiny adm-danger ghost" ?disabled=${this.busy} @click=${() => void this.endFront(g)}>
-                      ${g.phase === "lobby" ? "Close" : "End"}
-                    </button>`,
+                        ? g.watchable
+                          ? html`<a
+                              class="dl-btn small tiny ghost"
+                              href="/game/${encodeURIComponent(g.id)}?spectate"
+                              target="_blank"
+                              >Watch</a
+                            >`
+                          : html`<span
+                              class="adm-small"
+                              title="Its host hasn't opened it to watchers"
+                              >No watchers</span
+                            >`
+                        : nothing}
+                      <button
+                        class="dl-btn small tiny adm-danger ghost"
+                        ?disabled=${this.busy}
+                        @click=${() => void this.endFront(g)}
+                      >
+                        ${g.phase === "lobby" ? "Close" : "End"}
+                      </button>`,
                 },
               ],
               d.front.games,
@@ -206,18 +253,27 @@ export class AdminGames extends AdminPage {
       </div>
 
       <div class="adm-box">
-        <h2>Derpy Conquest <span class="adm-aside">${nf(d.conquest.rooms.length)} rooms</span></h2>
+        <h2>
+          Derpy Conquest
+          <span class="adm-aside">${nf(d.conquest.rooms.length)} rooms</span>
+        </h2>
         ${table(
           [
             {
               label: "Room",
               lead: true,
-              cell: (r) => html`${r.title} <span class="adm-small adm-mono">${r.code}</span>`,
+              cell: (r) =>
+                html`${r.title}
+                  <span class="adm-small adm-mono">${r.code}</span>`,
             },
             {
               label: "Kind",
               cell: (r) =>
-                html`${r.solo ? pill("Solo") : r.open ? pill("Open", "blue") : pill("Private")}
+                html`${r.solo
+                  ? pill("Solo")
+                  : r.open
+                    ? pill("Open", "blue")
+                    : pill("Private")}
                 ${r.locked ? pill("Password") : nothing}`,
             },
             {
@@ -226,7 +282,11 @@ export class AdminGames extends AdminPage {
                 r.over
                   ? pill("Over")
                   : r.started
-                    ? html`${pill(r.paused ? "Paused" : "Playing", r.paused ? "warn" : "good")} ${r.year ?? ""}`
+                    ? html`${pill(
+                        r.paused ? "Paused" : "Playing",
+                        r.paused ? "warn" : "good",
+                      )}
+                      ${r.year ?? ""}`
                     : pill("Setting up", "warn"),
             },
             {
@@ -234,8 +294,14 @@ export class AdminGames extends AdminPage {
               cell: (r) =>
                 html`${r.seats.map(
                   (s, i) =>
-                    html`${i ? ", " : ""}<span style=${s.online ? "" : "opacity:.55"} title=${s.online ? "At the table" : "Away"}
-                        >${s.accountId ? html`<a href="/admin/accounts/${s.accountId}">${s.name}</a>` : s.name}</span
+                    html`${i ? ", " : ""}<span
+                        style=${s.online ? "" : "opacity:.55"}
+                        title=${s.online ? "At the table" : "Away"}
+                        >${s.accountId
+                          ? html`<a href="/admin/accounts/${s.accountId}"
+                              >${s.name}</a
+                            >`
+                          : s.name}</span
                       >`,
                 )}`,
             },
@@ -245,9 +311,20 @@ export class AdminGames extends AdminPage {
               cls: "acts",
               cell: (r) =>
                 html`${r.watchId
-                  ? html`<a class="dl-btn small tiny ghost" href="/conquest?watch=${encodeURIComponent(r.watchId)}" target="_blank">Watch</a>`
-                  : nothing}
-                <button class="dl-btn small tiny adm-danger ghost" ?disabled=${this.busy} @click=${() => void this.closeRoom(r)}>Close</button>`,
+                    ? html`<a
+                        class="dl-btn small tiny ghost"
+                        href="/conquest?watch=${encodeURIComponent(r.watchId)}"
+                        target="_blank"
+                        >Watch</a
+                      >`
+                    : nothing}
+                  <button
+                    class="dl-btn small tiny adm-danger ghost"
+                    ?disabled=${this.busy}
+                    @click=${() => void this.closeRoom(r)}
+                  >
+                    Close
+                  </button>`,
             },
           ],
           d.conquest.rooms,
@@ -260,11 +337,37 @@ export class AdminGames extends AdminPage {
           <h2>Latest DerpyFront games saved</h2>
           ${table(
             [
-              { label: "Game", lead: true, cell: (g) => html`${g.scenario ?? g.map} <span class="adm-small">${g.type}</span>` },
-              { label: "Ended", cls: "nowrap", cell: (g) => html`<span title=${when(g.endedAt)}>${ago(g.endedAt)}</span>` },
-              { label: "Players", cell: (g) => html`${g.players} <span class="adm-small">${g.accounts}</span>` },
+              {
+                label: "Game",
+                lead: true,
+                cell: (g) =>
+                  html`${g.scenario ?? g.map}
+                    <span class="adm-small">${g.type}</span>`,
+              },
+              {
+                label: "Ended",
+                cls: "nowrap",
+                cell: (g) =>
+                  html`<span title=${when(g.endedAt)}>${ago(g.endedAt)}</span>`,
+              },
+              {
+                label: "Players",
+                cell: (g) =>
+                  html`${g.players}
+                    <span class="adm-small">${g.accounts}</span>`,
+              },
               { label: "Winner", cell: (g) => g.winner ?? "–" },
-              { label: "", cls: "acts", cell: (g) => html`<a class="dl-btn small tiny ghost" href="/game/${encodeURIComponent(g.gameId)}" target="_blank">Replay</a>` },
+              {
+                label: "",
+                cls: "acts",
+                cell: (g) =>
+                  html`<a
+                    class="dl-btn small tiny ghost"
+                    href="/game/${encodeURIComponent(g.gameId)}"
+                    target="_blank"
+                    >Replay</a
+                  >`,
+              },
             ],
             d.recent.derpyfront,
             "No saved games yet.",
@@ -274,11 +377,37 @@ export class AdminGames extends AdminPage {
           <h2>Latest Derpy Conquest games finished</h2>
           ${table(
             [
-              { label: "Game", lead: true, cell: (g) => html`To ${g.year} <span class="adm-small">${g.difficulty}</span>` },
-              { label: "Ended", cls: "nowrap", cell: (g) => html`<span title=${when(g.endedAt)}>${ago(g.endedAt)}</span>` },
-              { label: "Players", cell: (g) => html`${g.players} <span class="adm-small">${g.accounts}</span>` },
+              {
+                label: "Game",
+                lead: true,
+                cell: (g) =>
+                  html`To ${g.year}
+                    <span class="adm-small">${g.difficulty}</span>`,
+              },
+              {
+                label: "Ended",
+                cls: "nowrap",
+                cell: (g) =>
+                  html`<span title=${when(g.endedAt)}>${ago(g.endedAt)}</span>`,
+              },
+              {
+                label: "Players",
+                cell: (g) =>
+                  html`${g.players}
+                    <span class="adm-small">${g.accounts}</span>`,
+              },
               { label: "Winner", cell: (g) => g.winner ?? "–" },
-              { label: "", cls: "acts", cell: (g) => html`<a class="dl-btn small tiny ghost" href="/chronicle/${encodeURIComponent(g.gameId)}" target="_blank">Story</a>` },
+              {
+                label: "",
+                cls: "acts",
+                cell: (g) =>
+                  html`<a
+                    class="dl-btn small tiny ghost"
+                    href="/chronicle/${encodeURIComponent(g.gameId)}"
+                    target="_blank"
+                    >Story</a
+                  >`,
+              },
             ],
             d.recent.conquest,
             "No finished games yet.",

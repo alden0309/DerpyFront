@@ -7,11 +7,7 @@ import { html, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { shieldIcon } from "../icons";
 import { AdminPage } from "../Page";
-import {
-  type AdminView,
-  childSections,
-  registerSection,
-} from "../Registry";
+import { type AdminView, childSections, registerSection } from "../Registry";
 import { accountLink, ago, table, when } from "../ui";
 
 /** Tabs Moderation keeps a place for, shown empty until a section fills them. */
@@ -37,9 +33,10 @@ function moderationPage(view: AdminView): TemplateResult {
     ...children.map((c) => ({ id: c.id, label: c.label, order: c.order })),
     ...SLOTS.filter((s) => !children.some((c) => c.id === s.id)),
   ].sort((a, b) => a.order - b.order);
-  const at = view.path[0] && tabs.some((t) => t.id === view.path[0])
-    ? view.path[0]
-    : (tabs[0]?.id ?? "names");
+  const at =
+    view.path[0] && tabs.some((t) => t.id === view.path[0])
+      ? view.path[0]
+      : (tabs[0]?.id ?? "names");
   const child = children.find((c) => c.id === at);
   const slot = SLOTS.find((s) => s.id === at);
   return html`<div class="adm-head">
@@ -63,7 +60,9 @@ function moderationPage(view: AdminView): TemplateResult {
     ${child
       ? child.render({ ...view, path: view.path.slice(1) })
       : slot
-        ? html`<div class="adm-box"><p class="adm-empty">${slot.empty}</p></div>`
+        ? html`<div class="adm-box">
+            <p class="adm-empty">${slot.empty}</p>
+          </div>`
         : nothing}`;
 }
 
@@ -96,11 +95,13 @@ export class AdminNames extends AdminPage {
     return html`${this.error ? this.failed() : nothing}
       <div class="adm-cols">
         <div class="adm-box">
-          <h2>Blocked words <span class="adm-aside">${d?.words.length ?? 0}</span></h2>
+          <h2>
+            Blocked words <span class="adm-aside">${d?.words.length ?? 0}</span>
+          </h2>
           <p class="adm-quiet" style="margin-bottom:10px">
-            No new name (at sign-up or a rename) may have one of these in it,
-            in any capitals, with underscores or with digits for letters
-            (b4dw0rd). Names people already have stay until you rename them.
+            No new name (at sign-up or a rename) may have one of these in it, in
+            any capitals, with underscores or with digits for letters (b4dw0rd).
+            Names people already have stay until you rename them.
           </p>
           <form
             class="adm-row"
@@ -122,17 +123,33 @@ export class AdminNames extends AdminPage {
               maxlength="20"
               autocomplete="off"
               .value=${this.word}
-              @input=${(e: InputEvent) => (this.word = (e.target as HTMLInputElement).value)}
+              @input=${(e: InputEvent) =>
+                (this.word = (e.target as HTMLInputElement).value)}
             />
-            <button class="dl-btn small" ?disabled=${!/^[A-Za-z0-9]{2,20}$/.test(this.word.trim()) || this.busy}>
+            <button
+              class="dl-btn small"
+              ?disabled=${!/^[A-Za-z0-9]{2,20}$/.test(this.word.trim()) ||
+              this.busy}
+            >
               Block
             </button>
           </form>
           ${d
             ? table(
                 [
-                  { label: "Word", lead: true, cell: (w) => html`<span class="adm-mono">${w.word}</span>` },
-                  { label: "Since", cls: "nowrap", cell: (w) => html`<span title=${when(w.createdAt)}>${ago(w.createdAt)}</span>` },
+                  {
+                    label: "Word",
+                    lead: true,
+                    cell: (w) => html`<span class="adm-mono">${w.word}</span>`,
+                  },
+                  {
+                    label: "Since",
+                    cls: "nowrap",
+                    cell: (w) =>
+                      html`<span title=${when(w.createdAt)}
+                        >${ago(w.createdAt)}</span
+                      >`,
+                  },
                   {
                     label: "",
                     cls: "acts",
@@ -142,7 +159,10 @@ export class AdminNames extends AdminPage {
                         ?disabled=${this.busy}
                         @click=${() =>
                           void this.act(
-                            () => this.view.post("/moderation/names/unblock", { word: w.word }),
+                            () =>
+                              this.view.post("/moderation/names/unblock", {
+                                word: w.word,
+                              }),
                             `"${w.word}" allowed again.`,
                           )}
                       >
@@ -156,16 +176,35 @@ export class AdminNames extends AdminPage {
             : html`<p class="adm-quiet">Loading…</p>`}
         </div>
         <div class="adm-box">
-          <h2>Names with a blocked word <span class="adm-aside">${d?.flagged.length ?? 0}</span></h2>
+          <h2>
+            Names with a blocked word
+            <span class="adm-aside">${d?.flagged.length ?? 0}</span>
+          </h2>
           <p class="adm-quiet" style="margin-bottom:10px">
             Open one to rename it (no 7-day wait).
           </p>
           ${d
             ? table(
                 [
-                  { label: "Account", lead: true, cell: (f) => accountLink(f.id, f.username) },
-                  { label: "Word", cell: (f) => html`<span class="adm-mono">${f.word}</span>` },
-                  { label: "", cls: "acts", cell: (f) => html`<a class="dl-btn small tiny ghost" href="/admin/accounts/${f.id}">Rename…</a>` },
+                  {
+                    label: "Account",
+                    lead: true,
+                    cell: (f) => accountLink(f.id, f.username),
+                  },
+                  {
+                    label: "Word",
+                    cell: (f) => html`<span class="adm-mono">${f.word}</span>`,
+                  },
+                  {
+                    label: "",
+                    cls: "acts",
+                    cell: (f) =>
+                      html`<a
+                        class="dl-btn small tiny ghost"
+                        href="/admin/accounts/${f.id}"
+                        >Rename…</a
+                      >`,
+                  },
                 ],
                 d.flagged,
                 "None.",

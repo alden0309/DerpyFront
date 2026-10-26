@@ -12,12 +12,7 @@ import path from "path";
 import { logger } from "../../Logger";
 import { renderHtmlContent } from "../../RenderHtml";
 import { ownerFromCookie } from "./AdminAccess";
-import {
-  AdminBundle,
-  bundleAdmin,
-  readBuiltAdmin,
-  ROOT,
-} from "./AdminBundle";
+import { AdminBundle, bundleAdmin, readBuiltAdmin, ROOT } from "./AdminBundle";
 
 const log = logger.child({ component: "DerpyAdmin" });
 
@@ -117,12 +112,7 @@ export function adminPage() {
       return;
     }
     void (async () => {
-      let owner: { id: number } | null = null;
-      try {
-        owner = await ownerFromCookie(req);
-      } catch {
-        owner = null;
-      }
+      const owner = await ownerFromCookie(req).catch(() => null);
       if (owner === null) {
         next();
         return;

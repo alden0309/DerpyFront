@@ -4,7 +4,10 @@
 //
 //   tsx scripts/buildAdmin.ts
 
-import { ADMIN_DIST, writeAdminBundle } from "../src/server/derpy/admin/AdminBundle";
+import {
+  ADMIN_DIST,
+  writeAdminBundle,
+} from "../src/server/derpy/admin/AdminBundle";
 
 const b = await writeAdminBundle();
 console.log(

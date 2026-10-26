@@ -80,7 +80,6 @@ import WebSocket from "ws";
 import { z } from "zod";
 import type { LiveFrontGame } from "../derpland/LiveTypes"; // SITE (r19)
 import { archive, finalizeGameRecord } from "./Archive";
-import type { AdminFrontGame } from "./IPCBridgeSchema"; // ADMIN (r26)
 import { Client } from "./Client";
 import { applyGameConfigPatch, hostCheatsEnabled } from "./ConfigPatch";
 import { LiveStatsVote, voteKey, WinnerVote } from "./Consensus";
@@ -95,6 +94,7 @@ import {
   IntentActor,
   IntentOutcome,
 } from "./IntentAuthorization";
+import type { AdminFrontGame } from "./IPCBridgeSchema"; // ADMIN (r26)
 import { ListingState } from "./ListingState";
 import { identityFor, MatchTelemetryRecorder } from "./MatchTelemetryRecorder";
 import { friendsLookup, NameVisibility } from "./NameVisibility";

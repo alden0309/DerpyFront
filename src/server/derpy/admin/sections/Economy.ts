@@ -50,7 +50,11 @@ export const economy = adminSection({
           before: Number.isNaN(Date.parse(before)) ? undefined : before,
           limit: 100,
         });
-        res.json({ rows, kinds: LEDGER_KIND_NAMES, account: accountId ?? null });
+        res.json({
+          rows,
+          kinds: LEDGER_KIND_NAMES,
+          account: accountId ?? null,
+        });
       },
     },
     {
@@ -59,7 +63,9 @@ export const economy = adminSection({
       handler: async (_req, res) => {
         const r = await (
           await db()
-        ).query("SELECT coalesce(sum(coins), 0)::bigint AS coins FROM derpy_accounts");
+        ).query(
+          "SELECT coalesce(sum(coins), 0)::bigint AS coins FROM derpy_accounts",
+        );
         res.json({
           days: await dailyTotals(30),
           inAccounts: Number(r.rows[0].coins),
@@ -78,7 +84,10 @@ export const economy = adminSection({
            FROM derpy_owned WHERE item LIKE 'pack:%' GROUP BY item`,
         );
         const owners = new Map(
-          r.rows.map((x) => [String(x.item), { owners: x.owners, given: x.given }]),
+          r.rows.map((x) => [
+            String(x.item),
+            { owners: x.owners, given: x.given },
+          ]),
         );
         res.json({
           tabs: DERPY_STORE_TABS.map((t) => ({

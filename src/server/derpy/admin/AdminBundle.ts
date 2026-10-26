@@ -73,7 +73,10 @@ export function readBuiltAdmin(dir = ADMIN_DIST): AdminBundle | null {
       fs.readFileSync(path.join(dir, ADMIN_MANIFEST), "utf8"),
     ) as { file: string; hash: string };
     if (!/^app-[0-9a-f]{16}\.js$/.test(m.file)) return null;
-    return { js: fs.readFileSync(path.join(dir, m.file), "utf8"), hash: m.hash };
+    return {
+      js: fs.readFileSync(path.join(dir, m.file), "utf8"),
+      hash: m.hash,
+    };
   } catch {
     return null;
   }

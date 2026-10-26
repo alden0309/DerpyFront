@@ -106,8 +106,12 @@ export async function auditPage(
   const w = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const pool = await db();
   const total = Number(
-    (await pool.query(`SELECT count(*)::int AS n FROM derpy_admin_audit ${w}`, args))
-      .rows[0].n,
+    (
+      await pool.query(
+        `SELECT count(*)::int AS n FROM derpy_admin_audit ${w}`,
+        args,
+      )
+    ).rows[0].n,
   );
   const pages = Math.max(1, Math.ceil(total / AUDIT_PAGE));
   const page = Math.min(Math.max(1, Math.floor(f.page ?? 1)), pages);

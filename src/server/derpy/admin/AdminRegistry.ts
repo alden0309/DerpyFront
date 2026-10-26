@@ -18,8 +18,8 @@
 
 import type { Request, Response } from "express";
 import type pg from "pg";
-import type { AuditEntry } from "./AdminAudit";
 import type { OwnerSession } from "./AdminAccess";
+import type { AuditEntry } from "./AdminAudit";
 
 export type Queryable = Pick<pg.Pool | pg.PoolClient, "query">;
 

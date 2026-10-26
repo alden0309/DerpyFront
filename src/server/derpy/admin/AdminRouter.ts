@@ -65,8 +65,7 @@ export function adminRouter(
     return {
       owner,
       sections,
-      audit: async (entry, q) =>
-        writeAudit(q ?? (await db()), owner, entry),
+      audit: async (entry, q) => writeAudit(q ?? (await db()), owner, entry),
     };
   };
 
@@ -112,7 +111,9 @@ export function adminRouter(
       return;
     }
     const s = req.admin!;
-    const body = z.object({ password: z.string().max(1000) }).safeParse(req.body);
+    const body = z
+      .object({ password: z.string().max(1000) })
+      .safeParse(req.body);
     if (!body.success) {
       res.status(400).json({ error: "wrong_password" });
       return;

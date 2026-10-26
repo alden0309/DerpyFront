@@ -11,8 +11,8 @@ import { englishSocial, placeText } from "../../../../derpland/SocialText";
 import { recentErrors } from "../../../ErrorRing";
 import { db } from "../../DerpyDb";
 import { placeOf, presence, whereRank } from "../../Presence";
-import { basedSince, conquestAdmin, frontAdmin } from "../AdminSources";
 import { adminSection, type OverviewLine } from "../AdminRegistry";
+import { basedSince, conquestAdmin, frontAdmin } from "../AdminSources";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "../../../../..");
@@ -26,13 +26,18 @@ export function deployedCommit(): string | null {
   const render = process.env.RENDER_GIT_COMMIT;
   if (render && /^[0-9a-f]{7,40}$/i.test(render)) return render;
   try {
-    const head = fs.readFileSync(path.join(ROOT, ".git", "HEAD"), "utf8").trim();
+    const head = fs
+      .readFileSync(path.join(ROOT, ".git", "HEAD"), "utf8")
+      .trim();
     if (/^[0-9a-f]{40}$/.test(head)) return head;
     const ref = /^ref: (.+)$/.exec(head)?.[1];
     if (ref) {
       const loose = path.join(ROOT, ".git", ref);
       if (fs.existsSync(loose)) return fs.readFileSync(loose, "utf8").trim();
-      const packed = fs.readFileSync(path.join(ROOT, ".git", "packed-refs"), "utf8");
+      const packed = fs.readFileSync(
+        path.join(ROOT, ".git", "packed-refs"),
+        "utf8",
+      );
       const line = packed.split("\n").find((l) => l.endsWith(` ${ref}`));
       if (line) return line.split(" ")[0];
     }
@@ -54,7 +59,12 @@ export function builtAt(): string | null {
   return null;
 }
 
-async function overview(ctxSections: readonly { overview?: () => Promise<OverviewLine[]>; id: string }[]) {
+async function overview(
+  ctxSections: readonly {
+    overview?: () => Promise<OverviewLine[]>;
+    id: string;
+  }[],
+) {
   const pool = await db();
   const now = Date.now();
   const front = frontAdmin();
@@ -128,14 +138,20 @@ async function overview(ctxSections: readonly { overview?: () => Promise<Overvie
       startedAt: new Date(STARTED_AT).toISOString(),
       uptimeS: Math.round(process.uptime()),
       node: process.version,
-      memory: { rss: mem.rss, heapUsed: mem.heapUsed, heapTotal: mem.heapTotal },
+      memory: {
+        rss: mem.rss,
+        heapUsed: mem.heapUsed,
+        heapTotal: mem.heapTotal,
+      },
       workers: frontList?.workers ?? [],
       workersAnswered: frontList !== null,
     },
     online,
     games: {
-      frontLobbies: frontList?.games.filter((g) => g.phase === "lobby").length ?? null,
-      frontGames: frontList?.games.filter((g) => g.phase !== "lobby").length ?? null,
+      frontLobbies:
+        frontList?.games.filter((g) => g.phase === "lobby").length ?? null,
+      frontGames:
+        frontList?.games.filter((g) => g.phase !== "lobby").length ?? null,
       frontPlayers:
         frontList?.games.reduce((n, g) => n + g.players.length, 0) ?? null,
       conquestRooms: rooms.filter((r) => !r.started).length,

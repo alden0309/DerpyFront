@@ -45,7 +45,9 @@ function fromRow(r: Record<string, unknown> | undefined): BannerSetting {
     linkText: (r.link_text as string | null) ?? null,
     endsAt: r.ends_at ? new Date(r.ends_at as string).getTime() : null,
     version: Number(r.version ?? 0),
-    updatedAt: r.updated_at ? new Date(r.updated_at as string).toISOString() : null,
+    updatedAt: r.updated_at
+      ? new Date(r.updated_at as string).toISOString()
+      : null,
   };
 }
 
@@ -53,9 +55,9 @@ function fromRow(r: Record<string, unknown> | undefined): BannerSetting {
 export function loadBanner(): Promise<void> {
   if (!derpyDbConfigured()) return Promise.resolve();
   loading ??= (async () => {
-    const r = await (await db()).query(
-      "SELECT * FROM derpy_site_banner WHERE id = 1",
-    );
+    const r = await (
+      await db()
+    ).query("SELECT * FROM derpy_site_banner WHERE id = 1");
     current = fromRow(r.rows[0]);
   })().catch((err: unknown) => {
     log.warn(`couldn't read the site banner: ${err}`);

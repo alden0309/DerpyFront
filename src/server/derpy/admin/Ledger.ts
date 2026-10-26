@@ -105,11 +105,17 @@ export async function ledger(f: LedgerFilter = {}): Promise<LedgerRow[]> {
   const limit = Math.min(Math.max(1, f.limit ?? 100), 500);
   // $1 the account (or null), $2 before, $3 since; $4-$6 the catalog, only
   // when purchases are asked for (a parameter nothing uses is an error).
-  const args: unknown[] = [f.accountId ?? null, f.before ?? null, f.since ?? null];
+  const args: unknown[] = [
+    f.accountId ?? null,
+    f.before ?? null,
+    f.since ?? null,
+  ];
   if (kinds.includes("purchase")) args.push(...catalogArgs());
   // Each branch is cut to the page on its own, so the union stays small.
   const parts = kinds.map(
-    (k) => `(SELECT * FROM (${branch(k, 4)}) b(at, account_id, kind, delta, what, ref)
+    (
+      k,
+    ) => `(SELECT * FROM (${branch(k, 4)}) b(at, account_id, kind, delta, what, ref)
       WHERE ($1::bigint IS NULL OR b.account_id = $1)
         AND ($2::timestamptz IS NULL OR b.at < $2)
         AND ($3::timestamptz IS NULL OR b.at >= $3)

@@ -26,6 +26,8 @@ import {
   signIn,
   signOut,
 } from "./Account";
+import { banner, BANNER_EVENT } from "./Banner"; // ADMIN (r26)
+import type { SiteBanner } from "./BannerTypes"; // ADMIN (r26)
 import {
   bananaMark,
   caretIcon,
@@ -43,8 +45,6 @@ import {
   stallIcon,
   tokenColor,
 } from "./Icons";
-import { banner, BANNER_EVENT } from "./Banner"; // ADMIN (r26)
-import type { SiteBanner } from "./BannerTypes"; // ADMIN (r26)
 import { news, NEWS_EVENT } from "./News"; // NEWS (r25)
 import { englishNews, type NewsTranslate } from "./NewsText";
 import { social, SOCIAL_EVENT } from "./Social"; // FRIENDS (r25)
@@ -359,8 +359,7 @@ export class DerpBar extends LitElement {
           </div>
         </div>
       </header>
-      ${this.renderBanner()}
-      ${this.renderDialog()}
+      ${this.renderBanner()} ${this.renderDialog()}
     `;
   }
 
@@ -382,7 +381,7 @@ export class DerpBar extends LitElement {
                 href=${b.link}
                 target=${outside ? "_blank" : "_self"}
                 rel=${outside ? "noopener noreferrer" : ""}
-                >${b.linkText || "Take a look"}</a
+                >${b.linkText ?? "Take a look"}</a
               >`
             : nothing}
         </p>
@@ -659,7 +658,8 @@ export class DerpBar extends LitElement {
     /* ADMIN (r26): the site banner, a slim strip under the bar. */
     .site-banner {
       background: color-mix(in srgb, var(--accent) 14%, #16161a);
-      border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+      border-bottom: 1px solid
+        color-mix(in srgb, var(--accent) 35%, transparent);
       color: var(--text);
     }
     .sb-inner {

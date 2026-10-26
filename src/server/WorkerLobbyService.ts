@@ -10,6 +10,7 @@ import {
 import { encodeLobbyMessage } from "@openfront/shared/ZbinWire";
 import http from "http";
 import { WebSocket, WebSocketServer } from "ws";
+import { recentErrors } from "./ErrorRing"; // ADMIN (r26)
 import { GameManager } from "./GameManager";
 import {
   InternalGameInfo,
@@ -20,7 +21,6 @@ import {
   WorkerLobbyList,
   WorkerReady,
 } from "./IPCBridgeSchema";
-import { recentErrors } from "./ErrorRing"; // ADMIN (r26)
 import { logger } from "./Logger";
 import { ServerEnv } from "./ServerEnv";
 

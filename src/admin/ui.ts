@@ -37,7 +37,10 @@ export function when(iso: string | number | null | undefined): string {
   });
 }
 
-export function ago(iso: string | number | null | undefined, now = Date.now()): string {
+export function ago(
+  iso: string | number | null | undefined,
+  now = Date.now(),
+): string {
   if (iso === null || iso === undefined) return "–";
   const s = Math.max(0, (now - new Date(iso).getTime()) / 1000);
   if (s < 60) return "just now";
@@ -88,7 +91,8 @@ export function table<T>(
       <thead>
         <tr>
           ${cols.map(
-            (c) => html`<th class=${c.num ? "num" : c.cls ?? ""}>${c.label}</th>`,
+            (c) =>
+              html`<th class=${c.num ? "num" : (c.cls ?? "")}>${c.label}</th>`,
           )}
         </tr>
       </thead>
@@ -100,7 +104,9 @@ export function table<T>(
                 (c) =>
                   html`<td
                     data-label=${c.lead ? "" : c.label}
-                    class="${c.num ? "num" : ""} ${c.lead ? "lead" : ""} ${c.cls ?? ""}"
+                    class="${c.num ? "num" : ""} ${c.lead
+                      ? "lead"
+                      : ""} ${c.cls ?? ""}"
                   >
                     ${c.cell(r) ?? nothing}
                   </td>`,
