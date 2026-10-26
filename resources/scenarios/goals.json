@@ -1057,7 +1057,7 @@
         "minute": 20
       },
       "austria_hungary": {
-        "kind": "take",
+        "kind": "hold",
         "place": {
           "name": "Warsaw",
           "at": [1859, 774],
@@ -1079,7 +1079,7 @@
           "at": [1671, 937],
           "of": "austria_hungary"
         },
-        "minute": 15
+        "minute": 6
       },
       "united_kingdom": {
         "kind": "take",

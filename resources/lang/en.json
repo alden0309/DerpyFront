@@ -2894,7 +2894,7 @@
     },
     "ww1914": {
       "albania": "Take Pristina",
-      "austria_hungary": "Take Warsaw before minute {minute}",
+      "austria_hungary": "Take Warsaw and hold it at minute {minute}",
       "belgium": "Hold Antwerp past minute {minute}",
       "bulgaria": "Take Skopje",
       "denmark": "Take Flensburg",
