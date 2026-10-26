@@ -1764,6 +1764,7 @@
   },
   "kick_reason": {
     "admin": "Kicked by an admin",
+    "derp_ended": "Derp Land closed this game: {reason}",
     "duplicate_session": "Kicked from game (you may have been playing on another tab)",
     "host_left": "The host has left the lobby.",
     "lobby_creator": "Kicked by lobby creator",

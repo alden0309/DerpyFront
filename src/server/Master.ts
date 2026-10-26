@@ -67,6 +67,8 @@ const PAGES: Record<string, string> = {
   // NEWS (r25): What's New. The same page for everyone; its entries only
   // come from /derpy/api/news.
   "/whats-new": "derpland.html",
+  // ADMIN (r26): a one-time password reset link (the owner makes them).
+  "/reset-password": "derpland.html",
   "/conquest": "conquest.html",
   "/conquest/": "conquest.html",
   // BASED (r19): Mr. Based. The page is the same for everyone; its story
