@@ -28,7 +28,6 @@ import {
   translateText,
 } from "../../../client/Utils";
 import type { ChallengeDone } from "../../../derpland/Challenges"; // CHAL (r25)
-import { replaySaved } from "../../../derpland/Watch"; // DFX (r26)
 import { fetchUserMeUncached, invalidateUserMe } from "../../Api";
 import type { GameXpPanelState } from "../../components/GameXpPanel";
 import type { LegendCeremony } from "../../components/LegendCeremony";
@@ -139,7 +138,7 @@ export class WinModal extends LitElement implements Controller {
   private goalMet = false;
   @state()
   private goalPaid: { coins: number } | null = null;
-  private savedAbort: AbortController | null = null;
+  private goalAbort: AbortController | null = null;
 
   // DFSTORE (r21): your fanfare played, so the win screen offers it again.
   @state()
@@ -677,7 +676,7 @@ export class WinModal extends LitElement implements Controller {
   disconnectedCallback(): void {
     this.xpAbort?.abort();
     this.challengeAbort?.abort(); // CHAL (r25)
-    this.savedAbort?.abort(); // DFX (r26)
+    this.goalAbort?.abort(); // DFX (r26)
     super.disconnectedCallback();
   }
 
@@ -718,7 +717,11 @@ export class WinModal extends LitElement implements Controller {
           );
       }
       this.challenges = r.done;
-      if (r.recorded) return;
+      if (r.recorded) {
+        // DFX (r26): saved, so its replay can be watched together.
+        this.replayIsSaved = true;
+        return;
+      }
     }
   }
 
@@ -1014,37 +1017,17 @@ export class WinModal extends LitElement implements Controller {
     this.awards = wu.awards ?? [];
     this.coins = this.computeCoins(wu);
     void this.show();
-    void this.watchChallenges(); // CHAL (r25)
-    void this.watchSaved(); // DFX (r26)
+    // CHAL (r25). DFX (r26): signed in, it also says when the game is saved,
+    // for the "Watch together" line; signed out, nothing is asked.
+    void this.watchChallenges();
     // DFX (r26): the Scenario goal met, from the engine's end-of-game stats.
     const me = this.game.myPlayer()?.clientID();
     this.goalMet =
-      !this.game.config().isReplay() &&
       me !== undefined &&
       me !== null &&
-      wu.allPlayersStats[me]?.goal !== undefined;
+      wu.allPlayersStats[me]?.goal !== undefined &&
+      !this.game.config().isReplay();
     void this.watchGoal();
-  }
-
-  /**
-   * DFX (r26): asks, a few times over the next minute, whether the server
-   * has saved this game (it does once the winner is settled, or when a solo
-   * game's upload arrives); then it can be watched together.
-   */
-  private async watchSaved(): Promise<void> {
-    if (this.game.config().isReplay()) return;
-    this.savedAbort?.abort();
-    const abort = new AbortController();
-    this.savedAbort = abort;
-    const gameId = this.game.gameID();
-    for (const wait of [2500, 3000, 5000, 8000, 12000, 20000, 30000]) {
-      await new Promise((r) => setTimeout(r, wait));
-      if (abort.signal.aborted) return;
-      if (await replaySaved(gameId)) {
-        if (!abort.signal.aborted) this.replayIsSaved = true;
-        return;
-      }
-    }
   }
 
   /**
@@ -1074,11 +1057,13 @@ export class WinModal extends LitElement implements Controller {
    */
   private async watchGoal(): Promise<void> {
     if (!this.goalMet || !this.goalPays() || !isDerpySignedIn()) return;
-    const abort = this.savedAbort;
+    this.goalAbort?.abort();
+    const abort = new AbortController();
+    this.goalAbort = abort;
     const gameId = this.game.gameID();
     for (const wait of [2000, 3000, 5000, 8000, 12000, 20000, 30000]) {
       await new Promise((r) => setTimeout(r, wait));
-      if (abort?.signal.aborted) return;
+      if (abort.signal.aborted) return;
       const r = await derpyGameGoal(gameId);
       if (r === null) continue;
       if (r.goal !== null) {
@@ -1090,7 +1075,10 @@ export class WinModal extends LitElement implements Controller {
             6000,
           );
       }
-      if (r.recorded) return;
+      if (r.recorded) {
+        this.replayIsSaved = true;
+        return;
+      }
     }
   }
 

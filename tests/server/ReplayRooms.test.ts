@@ -653,14 +653,6 @@ describe.skipIf(!TEST_DB)("making a watch room, against Postgres", () => {
     expect(R.replayRooms.count().rooms).toBe(1);
   });
 
-  test("whether a game is saved", async () => {
-    const yes = await fetch(`${base}/watch/saved/${SAVED}`);
-    expect(await yes.json()).toEqual({ saved: true });
-    const no = await fetch(`${base}/watch/saved/NoSuch12`);
-    expect(await no.json()).toEqual({ saved: false });
-    expect((await fetch(`${base}/watch/saved/bad!`)).status).toBe(400);
-  });
-
   test("rooms are made a few at a time per address", async () => {
     let limited = false;
     for (let i = 0; i < 20 && !limited; i++) {

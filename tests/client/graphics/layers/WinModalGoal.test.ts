@@ -53,9 +53,6 @@ vi.mock("../../../../src/client/derpy/DerpyAccount", async (orig) => ({
   derpyGameChallenges: vi.fn(async () => null),
   derpyGameGoal: vi.fn(async () => mocks.goal),
 }));
-vi.mock("../../../../src/derpland/Watch", () => ({
-  replaySaved: vi.fn(async () => false),
-}));
 
 import { derpyGameGoal } from "../../../../src/client/derpy/DerpyAccount";
 import "../../../../src/client/hud/layers/WinModal";

@@ -80,18 +80,6 @@ export async function watchTogether(
   return null;
 }
 
-/** Whether a game's replay is saved yet (the win screen asks a few times). */
-export async function replaySaved(gameId: string): Promise<boolean> {
-  try {
-    const r = await api<{ saved: boolean }>(
-      `/watch/saved/${encodeURIComponent(gameId)}`,
-    );
-    return r.saved === true;
-  } catch {
-    return false;
-  }
-}
-
 /** Words for why a room couldn't be made (Derp Land's pages, in English). */
 export const WATCH_CREATE_TEXT: Record<
   WatchCreateError | "unreachable",

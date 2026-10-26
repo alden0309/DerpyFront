@@ -144,6 +144,8 @@ describe("DerpyFront's win screen: weekly challenges", () => {
     expect(modal.textContent).toContain('derpy.coins_earned:{"coins":77}');
     await vi.advanceTimersByTimeAsync(2_100);
     expect(toasts).toEqual([]);
+    // DFX (r26): not saved yet, so not yet to be watched together.
+    expect(modal.querySelector("[data-win-watch]")).toBeNull();
     await vi.advanceTimersByTimeAsync(3_100);
     await modal.updateComplete;
     // (A name with no translation here falls back to the server's.)
@@ -157,6 +159,9 @@ describe("DerpyFront's win screen: weekly challenges", () => {
     expect(chips).toContain("derpy.challenges_title");
     expect(chips).toContain('"coins":100');
     expect(chips).toContain('derpy.challenge_bonus_line:{"coins":150}');
+    // DFX (r26): saved, its replay can be watched together (the same
+    // answer says so: nothing more is asked).
+    expect(modal.querySelector("[data-win-watch]")).not.toBeNull();
     // Saved: it stops asking, and nothing is toasted twice.
     const asked = fetchMock.mock.calls.length;
     await vi.advanceTimersByTimeAsync(120_000);
@@ -170,5 +175,6 @@ describe("DerpyFront's win screen: weekly challenges", () => {
     await vi.advanceTimersByTimeAsync(120_000);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(modal.querySelector("[data-challenges]")).toBeNull();
+    expect(modal.querySelector("[data-win-watch]")).toBeNull();
   });
 });

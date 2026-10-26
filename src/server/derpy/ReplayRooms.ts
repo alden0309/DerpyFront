@@ -630,7 +630,7 @@ export interface WatchRouterDeps {
 
 const CreateBody = z.object({ gameId: z.string().regex(GAME_ID_REGEX) });
 
-/** /derpy/api/watch: make a room for a saved game; whether a game is saved. */
+/** /derpy/api/watch: make a room for a saved game. */
 export function watchRouter({
   handle,
   rooms = replayRooms,
@@ -645,7 +645,6 @@ export function watchRouter({
       res.status(429).json({ error: "rate_limited" });
     },
   });
-  const savedLimiter = rateLimit({ windowMs: 60_000, limit: 60 });
 
   router.post(
     "/",
@@ -682,23 +681,6 @@ export function watchRouter({
       }
       log.info("watch room made", { room: made.room, game: body.data.gameId });
       res.json(made);
-    }),
-  );
-
-  // Whether a game's replay is saved yet (the win screen asks a few times).
-  router.get(
-    "/saved/:id",
-    savedLimiter,
-    handle(async (req, res) => {
-      const id = String(req.params.id);
-      if (!GAME_ID_REGEX.test(id)) {
-        res.status(400).json({ error: "invalid" });
-        return;
-      }
-      const found = await (
-        await db()
-      ).query("SELECT 1 FROM derpy_games WHERE game_id = $1", [id]);
-      res.json({ saved: (found.rowCount ?? 0) > 0 });
     }),
   );
 
