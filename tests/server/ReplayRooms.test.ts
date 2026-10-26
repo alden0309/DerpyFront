@@ -236,6 +236,97 @@ describe("watch-together rooms", () => {
     expect(clockFrameAt(w.room.clock, w.now)).toBe(1300);
   });
 
+  test("the host's rewind moves every viewer back, playing or paused", async () => {
+    const { WatchSync, ServerTime } =
+      await import("../../src/client/replay/WatchSync");
+    const { rewindFrame, REWIND_LONG_S, REWIND_SHORT_S } =
+      await import("../../src/client/replay/ReplayControls");
+    const { room, key } = rooms.create(GAME, 3600) as {
+      room: string;
+      key: string;
+    };
+    /** A viewer: the room's real messages drive its WatchSync and playback. */
+    async function viewer(opts: { key?: string }) {
+      const pb = {
+        frame: -1,
+        totalFrames: 36_000,
+        playing: false,
+        speed: 1,
+        live: false,
+        seeks: [] as number[],
+        play() {
+          this.playing = true;
+        },
+        pause() {
+          this.playing = false;
+        },
+        async seek(f: number) {
+          this.seeks.push(f);
+          this.frame = f;
+        },
+        setSpeed(sp: number) {
+          this.speed = sp;
+        },
+      };
+      let session: WatchSession | null = null;
+      const sync = new WatchSync(
+        (m) => session?.message(JSON.stringify(m)),
+        new ServerTime(() => now),
+        () => now,
+      );
+      const conn = new FakeConn();
+      conn.send = (m) => {
+        conn.sent.push(m);
+        sync.receive(m);
+      };
+      session = rooms.connect(conn);
+      session.message(JSON.stringify({ t: "join", room, ...opts }));
+      await flush();
+      sync.attach(pb);
+      return { sync, pb };
+    }
+    const host = await viewer({ key });
+    const guests = [await viewer({}), await viewer({})];
+    expect(host.sync.inControl).toBe(true);
+
+    // Playing at x2, three minutes in.
+    host.sync.setSpeed(2);
+    host.sync.seek(1800);
+    host.sync.togglePlay();
+    for (const v of [host, ...guests]) {
+      expect(v.pb.frame).toBe(1800);
+      expect(v.pb.playing).toBe(true);
+    }
+
+    // Back a minute: everyone is there and still playing.
+    now += 1000;
+    const here = host.pb.frame;
+    host.sync.seek(rewindFrame(here, REWIND_LONG_S));
+    for (const v of [host, ...guests]) {
+      expect(v.pb.frame).toBe(1200);
+      expect(v.pb.playing).toBe(true);
+    }
+
+    // Paused, back 10 seconds, then to the start: exactly there for all.
+    now += 1000;
+    host.sync.togglePlay();
+    now += 1000;
+    host.sync.seek(rewindFrame(host.pb.frame, REWIND_SHORT_S));
+    const at = host.pb.frame;
+    for (const g of guests) {
+      expect(g.pb.playing).toBe(false);
+      expect(g.pb.frame).toBe(at);
+    }
+    now += 1000;
+    host.sync.seek(0);
+    for (const v of [host, ...guests]) expect(v.pb.frame).toBe(0);
+
+    // A guest can't rewind the room.
+    now += 1000;
+    guests[0].sync.seek(500);
+    for (const v of [host, ...guests]) expect(v.pb.frame).toBe(0);
+  });
+
   test("the controls are handed on, and the host takes them back", async () => {
     const { room, key } = rooms.create(GAME, 600) as {
       room: string;

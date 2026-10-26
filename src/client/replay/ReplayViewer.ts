@@ -71,7 +71,13 @@ import { terrainOf } from "./codec/Terrain";
 import { processInBrowser, type Processing } from "./LocalProcessing";
 import { ReplayAppearance } from "./ReplayAppearance";
 import { CameraGestures, ReplayCamera } from "./ReplayCamera";
-import { formatGameTime, timelineFrames } from "./ReplayControls";
+import {
+  formatGameTime,
+  REWIND_LONG_S,
+  REWIND_SHORT_S,
+  rewindFrame,
+  timelineFrames,
+} from "./ReplayControls";
 import { classicReplayHref, versionedViewerUrl } from "./ReplayEntry";
 import { ReplayGameView } from "./ReplayGameAdapter";
 import { ReplayNukedLayers } from "./ReplayNukedLayers";
@@ -726,6 +732,16 @@ export class ReplayViewer extends LitElement {
     } else if (e.code === "ArrowLeft") {
       e.preventDefault();
       this.seekTo(p.frame - (e.shiftKey ? 100 : 1));
+    } else if (e.code === "KeyJ" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // DFX (r26): rewind, 10 seconds (J) or a minute (Shift+J).
+      e.preventDefault();
+      this.seekTo(
+        rewindFrame(p.frame, e.shiftKey ? REWIND_LONG_S : REWIND_SHORT_S),
+      );
+    } else if (e.code === "Home") {
+      // DFX (r26): back to the start.
+      e.preventDefault();
+      this.seekTo(0);
     }
   }
 

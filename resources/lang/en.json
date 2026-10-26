@@ -2674,7 +2674,11 @@
     "replay_speed": "Replay speed"
   },
   "replay_viewer": {
+    "back_10s": "Back 10 seconds",
+    "back_1m": "Back 1 minute",
+    "back_start": "Back to the start",
     "following": "Following {name}",
+    "key_hint": "{label} ({key})",
     "load_failed": "This replay could not be loaded.",
     "loading": "Loading replay…",
     "partial": "Only the first {time} of this game can be watched.",

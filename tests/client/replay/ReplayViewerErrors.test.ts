@@ -472,3 +472,40 @@ test("playback keys do nothing while the game settings are open, or in their sli
     gameSettings.remove();
   }
 });
+
+// DFX (r26): rewinding from the keyboard.
+test("J rewinds 10 seconds, Shift+J a minute, Home to the start", () => {
+  const element = new ReplayViewer();
+  const v = element as unknown as {
+    status: string;
+    playback: unknown;
+    onKey(e: KeyboardEvent): void;
+  };
+  const playback = {
+    playing: true,
+    frame: 1500,
+    play: vi.fn(),
+    pause: vi.fn(),
+    seek: vi.fn(async () => {}),
+  };
+  v.status = "ready";
+  v.playback = playback;
+  const key = (code: string, shiftKey = false, ctrlKey = false) =>
+    new KeyboardEvent("keydown", { code, shiftKey, ctrlKey });
+  v.onKey(key("KeyJ"));
+  expect(playback.seek).toHaveBeenLastCalledWith(1400);
+  v.onKey(key("KeyJ", true));
+  expect(playback.seek).toHaveBeenLastCalledWith(900);
+  v.onKey(key("Home"));
+  expect(playback.seek).toHaveBeenLastCalledWith(0);
+  playback.frame = 40;
+  v.onKey(key("KeyJ", true));
+  expect(playback.seek).toHaveBeenLastCalledWith(0);
+  // Ctrl+J is the browser's, not a rewind.
+  playback.seek.mockClear();
+  v.onKey(key("KeyJ", false, true));
+  expect(playback.seek).not.toHaveBeenCalled();
+  // Rewinding never pauses or plays.
+  expect(playback.play).not.toHaveBeenCalled();
+  expect(playback.pause).not.toHaveBeenCalled();
+});
