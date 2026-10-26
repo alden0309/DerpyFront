@@ -63,13 +63,21 @@ export async function adminShell(hash: string): Promise<string> {
   if (!hit) {
     hit = (async () => {
       // The built shell carries the build's asset addresses (rendered as
-      // every page is); without a build, the source shell has none.
-      const html = fs.existsSync(BUILT_SHELL)
-        ? await renderHtmlContent(BUILT_SHELL, { perServer: false })
-        : await fs.promises.readFile(SOURCE_SHELL, "utf8");
+      // every page is); without a build (or one missing its manifest), the
+      // source shell has none.
+      const built = fs.existsSync(BUILT_SHELL)
+        ? await renderHtmlContent(BUILT_SHELL, { perServer: false }).catch(
+            () => null,
+          )
+        : null;
+      const html = built ?? (await fs.promises.readFile(SOURCE_SHELL, "utf8"));
       return shellFrom(html, adminScriptPath(hash));
     })();
     shells = new Map([[hash, hit]]);
+    // A shell that couldn't be read is asked for again next time.
+    hit.catch(() => {
+      if (shells.get(hash) === hit) shells = new Map();
+    });
   }
   return hit;
 }

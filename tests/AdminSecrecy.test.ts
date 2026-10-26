@@ -132,5 +132,10 @@ describe("the admin page stays the owner's", () => {
     const b = await bundleAdmin();
     for (const m of MARKERS) expect(b.js, m).toContain(m);
     expect(b.hash).toMatch(/^[0-9a-f]{16}$/);
+    // PROFILE's pictures tabs, and the stylesheets they import, ride in it
+    // (as <style>s added when it runs).
+    expect(b.js).toContain("adm-pictures");
+    expect(b.js).toMatch(/\.adm-pics-count\{/);
+    expect(b.js).not.toMatch(/^import\b|\bimport\s*["']/m);
   }, 60_000);
 });

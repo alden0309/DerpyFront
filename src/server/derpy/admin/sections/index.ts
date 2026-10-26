@@ -12,11 +12,14 @@ import { games } from "./Games";
 import { moderation } from "./Moderation";
 import { newsSection } from "./News";
 import { overviewSection } from "./Overview";
+import { picturesSection, reportsSection } from "./Pictures"; // PROFILE (r26)
 
 export const ADMIN_SECTIONS: readonly AdminServerSection[] = [
   overviewSection,
   accounts,
   moderation,
+  picturesSection,
+  reportsSection,
   games,
   economy,
   challenges,

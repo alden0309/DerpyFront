@@ -1,7 +1,6 @@
 // ADMIN (r26): Moderation: a page of tabs, one per section registered with
-// `parent: "moderation"`. Usernames is here; profile pictures and reports
-// come from their own sections when they're on the site (until then their
-// tabs say so).
+// `parent: "moderation"`: profile pictures and reported pictures (PROFILE's,
+// Pictures.ts) and usernames (here).
 
 import { html, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
@@ -10,40 +9,13 @@ import { AdminPage } from "../Page";
 import { type AdminView, childSections, registerSection } from "../Registry";
 import { accountLink, ago, table, when } from "../ui";
 
-/** Tabs Moderation keeps a place for, shown empty until a section fills them. */
-const SLOTS: { id: string; label: string; order: number; empty: string }[] = [
-  {
-    id: "pictures",
-    label: "Profile pictures",
-    order: 10,
-    empty:
-      "Profile pictures aren't on this site yet. When they are, reported and recent uploads show here.",
-  },
-  {
-    id: "reports",
-    label: "Reports",
-    order: 30,
-    empty: "Nobody can report anything on this site yet.",
-  },
-];
-
 function moderationPage(view: AdminView): TemplateResult {
-  const children = childSections("moderation");
-  const tabs = [
-    ...children.map((c) => ({ id: c.id, label: c.label, order: c.order })),
-    ...SLOTS.filter((s) => !children.some((c) => c.id === s.id)),
-  ].sort((a, b) => a.order - b.order);
-  // Straight to the first tab that has something (not an empty slot).
-  const at =
-    view.path[0] && tabs.some((t) => t.id === view.path[0])
-      ? view.path[0]
-      : (children[0]?.id ?? tabs[0]?.id ?? "names");
-  const child = children.find((c) => c.id === at);
-  const slot = SLOTS.find((s) => s.id === at);
+  const tabs = childSections("moderation");
+  const at = tabs.find((t) => t.id === view.path[0]) ?? tabs[0];
   return html`<div class="adm-head">
       <div>
         <h1>Moderation</h1>
-        <p class="adm-sub">Names, pictures and reports.</p>
+        <p class="adm-sub">Pictures, reports and names.</p>
       </div>
     </div>
     <div class="dl-seg adm-tabs" role="tablist">
@@ -51,20 +23,14 @@ function moderationPage(view: AdminView): TemplateResult {
         (t) =>
           html`<button
             role="tab"
-            aria-selected=${t.id === at}
+            aria-selected=${t === at}
             @click=${() => view.go(`/admin/moderation/${t.id}`)}
           >
             ${t.label}
           </button>`,
       )}
     </div>
-    ${child
-      ? child.render({ ...view, path: view.path.slice(1) })
-      : slot
-        ? html`<div class="adm-box">
-            <p class="adm-empty">${slot.empty}</p>
-          </div>`
-        : nothing}`;
+    ${at ? at.render({ ...view, path: view.path.slice(1) }) : nothing}`;
 }
 
 registerSection({
@@ -219,7 +185,7 @@ export class AdminNames extends AdminPage {
 registerSection({
   id: "names",
   label: "Usernames",
-  order: 20,
+  order: 30,
   parent: "moderation",
   render: (view) => html`<adm-names .view=${view}></adm-names>`,
 });

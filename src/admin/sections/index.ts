@@ -11,3 +11,4 @@ import "./Games";
 import "./Moderation";
 import "./News";
 import "./Overview";
+import "./Pictures"; // PROFILE (r26): Moderation's picture tabs, and a panel

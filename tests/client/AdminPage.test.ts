@@ -8,6 +8,7 @@ import { html, render } from "lit";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { routeOf } from "../../src/admin/App";
 import {
+  accountPanels,
   AdminError,
   childSections,
   findSection,
@@ -19,7 +20,7 @@ import "../../src/admin/sections";
 import { table } from "../../src/admin/ui";
 
 describe("the registry", () => {
-  test("every section in the side list, in order; Usernames is a tab of Moderation", () => {
+  test("every section in the side list, in order; pictures, reports and usernames are Moderation's tabs", () => {
     expect(topSections().map((s) => s.id)).toEqual([
       "overview",
       "accounts",
@@ -31,20 +32,28 @@ describe("the registry", () => {
       "banner",
       "audit",
     ]);
-    expect(childSections("moderation").map((s) => s.id)).toEqual(["names"]);
+    expect(childSections("moderation").map((s) => s.id)).toEqual([
+      "pictures",
+      "reports",
+      "names",
+    ]);
     expect(findSection("names")?.parent).toBe("moderation");
+    // PROFILE's panel on each account's page.
+    expect(accountPanels().map((p) => p.id)).toContain("pictures");
   });
 
   test("a section can be added without touching the others, but not twice", () => {
     registerSection({
-      id: "pictures-test",
-      label: "Pictures",
-      order: 10,
+      id: "spam-test",
+      label: "Spam",
+      order: 25,
       parent: "moderation",
-      render: () => html`<p>pictures</p>`,
+      render: () => html`<p>spam</p>`,
     });
     expect(childSections("moderation").map((s) => s.id)).toEqual([
-      "pictures-test",
+      "pictures",
+      "reports",
+      "spam-test",
       "names",
     ]);
     expect(() =>

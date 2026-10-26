@@ -243,6 +243,8 @@ describe.skipIf(!TEST_DB)("the admin page, against Postgres", () => {
           "overview",
           "accounts",
           "moderation",
+          "pictures",
+          "reports",
           "games",
           "economy",
           "challenges",

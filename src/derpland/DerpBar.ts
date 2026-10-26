@@ -26,11 +26,11 @@ import {
   signIn,
   signOut,
 } from "./Account";
-import { banner, BANNER_EVENT } from "./Banner"; // ADMIN (r26)
-import type { SiteBanner } from "./BannerTypes"; // ADMIN (r26)
 import { avatar, AVATAR_CSS } from "./Avatar"; // PROFILE (r26)
 import { badgeEmblem } from "./BadgeArt"; // PROFILE (r26)
 import { BADGE_BY_KEY } from "./Badges"; // PROFILE (r26)
+import { banner, BANNER_EVENT } from "./Banner"; // ADMIN (r26)
+import type { SiteBanner } from "./BannerTypes"; // ADMIN (r26)
 import {
   bananaMark,
   caretIcon,
