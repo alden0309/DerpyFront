@@ -537,7 +537,8 @@ const SETUP: Record<string, Setup> = {
 /** The 1776 campaign's own world for the peace (the others don't need it). */
 const IN_1776 = new Set(["r76-peace"]);
 
-const NEW = ACHIEVEMENTS.filter((a) => !(a.key in OLD));
+// CQTUT (r26): the first life's (an account's own) is tested with the lessons.
+const NEW = ACHIEVEMENTS.filter((a) => !(a.key in OLD) && !a.account);
 
 // ---------------------------------------------------------------- the list
 

@@ -19,6 +19,7 @@ import {
   checkAchievements,
   countsOverall,
   gameCoins,
+  paysOverall, // CQTUT (r26)
   setCampaignOwned,
 } from "../../conquest/engine/Achievements"; // MAP (r12); CQACH (r22): this game's and overall
 import { validateLook } from "../../conquest/engine/Appearance";
@@ -121,6 +122,7 @@ import type { ConquestWhere } from "../derpy/Presence"; // FRIENDS (r25)
 import { logger } from "../Logger";
 import { TablePay, type SeatPay } from "./ConquestPay"; // LEGACY (r21)
 // CHAL (r25): the weekly challenges, watched as the game is played.
+import { tutorialGame } from "../../conquest/engine/TutorialStart"; // CQTUT (r26)
 import type { ChallengeDone } from "../../derpland/Challenges";
 import {
   challengesInGame,
@@ -129,6 +131,7 @@ import {
   conquestGameProgress,
 } from "../derpy/DerpyChallenges";
 import { ConquestChallenges, type SeatChallenges } from "./ConquestChallenges";
+import { TUTORIAL_ROOM, tutorialTitle } from "./ConquestTutorial"; // CQTUT (r26)
 // DLC (r21): Conquest's store items, checked here from the account's rows.
 import { NO_DLC, type ConquestDlcOwned } from "../../conquest/DlcIds";
 import { setLegendsOwned } from "../../conquest/engine/Legends";
@@ -338,6 +341,8 @@ const Message = z.discriminatedUnion("t", [
       .max(PASSWORD_MAX * 4)
       .nullable(),
   }),
+  // CQTUT (r26): a first life, guided.
+  z.object({ t: z.literal("tutorial"), female: z.boolean() }),
 ]);
 
 export function cleanName(raw: string): string {
@@ -681,6 +686,9 @@ export class ConquestRooms {
       // SITE (r19): watch a game being played (no seat, nobody's secrets).
       case "watch":
         return this.watch(conn, m.id);
+      // CQTUT (r26): a first life, guided: straight into its game.
+      case "tutorial":
+        return this.startTutorial(conn, m.female);
     }
     const room = conn.room;
     const seat = conn.seat;
@@ -1030,6 +1038,37 @@ export class ConquestRooms {
     this.sendLobby(room);
     log.info("room opened", { code: room.code, solo });
   }
+
+  // ---------------------------------------------------------------- CQTUT (r26)
+
+  /**
+   * A first life, guided: a room of its own (alone), its game made at once
+   * (no register, no lobby: the world and the life are fixed), and in.
+   */
+  private startTutorial(conn: Conn, female: boolean): void {
+    this.leaveCurrent(conn);
+    if (this.rooms.size >= MAX_ROOMS) {
+      return this.send(conn, {
+        t: "err",
+        msg: "The server is full of games right now. Try again soon.",
+      });
+    }
+    const room = this.newRoom(conn, true, false, TUTORIAL_ROOM);
+    const seat = room.seats[0];
+    room.game = tutorialGame(AMERICAS, seat.id, seat.name, female);
+    room.game.takeDelta();
+    room.startedAt = this.now();
+    room.saveId = `${room.code}-${room.startedAt}`;
+    room.owner = seat.accountId;
+    room.paused = true;
+    room.speed = DEFAULT_SPEED;
+    room.owed = 0;
+    this.sendGame(room, seat);
+    log.info("first life begun", { code: room.code });
+    void this.save(room);
+  }
+
+  // ---------------------------------------------------------------- /CQTUT (r26)
 
   private join(
     conn: Conn,
@@ -1964,7 +2003,8 @@ export class ConquestRooms {
     // difficulty (in company, the game's); this game's own coins are paid
     // with the line's (ConquestPay), on any difficulty.
     const difficulty = room.game?.state.settings.difficulty ?? "";
-    const overall = countsOverall(difficulty);
+    // CQTUT (r26): an account's own (the first life's lessons) on any difficulty.
+    const overall = paysOverall(key, difficulty);
     let paid: { first: boolean; coins: number } | null = null;
     if (seat.accountId !== null && derpyDbConfigured() && overall) {
       try {
@@ -2621,6 +2661,7 @@ function cap(t: string): string {
 
 function titleOf(room: Room): string {
   const s = room.game?.state;
+  if (s?.settings.tutorial) return tutorialTitle(s); // CQTUT (r26)
   const from = room.settings.start ?? 1607;
   const families = room.seats
     .map((seat) => (s ? lifeOfSeat(s, seat.id) : undefined))

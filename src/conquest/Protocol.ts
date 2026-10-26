@@ -279,7 +279,9 @@ export type ClientMessage =
   | { t: "watch"; id: string }
   | { t: "allowwatch"; allow: boolean }
   // FRIENDS (r25): the host gives the room a password, or takes it away (null).
-  | { t: "password"; password: string | null };
+  | { t: "password"; password: string | null }
+  // CQTUT (r26): a first life, guided: alone, as Hannah (female) or Thomas Hale.
+  | { t: "tutorial"; female: boolean };
 
 export type ServerMessage =
   | {

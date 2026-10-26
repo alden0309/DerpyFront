@@ -224,6 +224,9 @@ function nextStep(g: ConquestGame, life: Life, how: "done" | "skipped"): void {
   const t = touchLife(g, life).tut!;
   const id = TUTORIAL_STEPS[t.step];
   if (id) (how === "done" ? t.done : t.skipped).push(id);
+  // A step skipped takes its letter with it, if it's still waiting.
+  if (how === "skipped" && t.wait)
+    life.events = life.events.filter((e) => e.key !== t.wait);
   t.step++;
   t.since = g.s.day;
   delete t.wait;
@@ -400,5 +403,12 @@ hooks.eventFired.push((g, life, key) => {
 });
 
 hooks.shield.push((g, life) => (tutRunning(life) ? TUT_FLOOR : null));
+
+// The character who had the lessons dead after all (by a road the shield
+// doesn't cover): they end there.
+hooks.death.push((g, c) => {
+  for (const life of g.s.lives)
+    if (tutRunning(life) && life.line[0] === c.id) endLessons(g, life, "left");
+});
 
 hooks.skip.push((g, c) => inCast(g, c));
