@@ -872,7 +872,7 @@ export class ReplayViewer extends LitElement {
           the replay is still loading. Its content is w-96 from 1200px up,
           so it widens with it there instead of spilling off the right. -->
         <events-display
-          class="absolute right-3 bottom-20 w-80 max-w-[40vw] min-[1200px]:w-96 ${this
+          class="absolute right-3 bottom-20 max-sm:bottom-24 w-80 max-w-[40vw] min-[1200px]:w-96 ${this
             .status === "ready"
             ? ""
             : "hidden"}"

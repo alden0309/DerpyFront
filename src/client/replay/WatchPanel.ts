@@ -121,7 +121,7 @@ export class WatchPanel extends LitElement {
     const count = sync.members.length;
     return html`
       <div
-        class="fixed z-[9001] flex flex-col gap-2 text-white select-none max-sm:left-2 max-sm:right-2 max-sm:bottom-16 sm:top-3 sm:right-3 sm:w-72"
+        class="fixed z-[9001] flex flex-col gap-2 text-white select-none max-sm:left-2 max-sm:right-2 max-sm:bottom-20 sm:top-3 sm:right-3 sm:w-72"
         data-watch-panel
       >
         ${this.open
