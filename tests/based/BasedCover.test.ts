@@ -67,7 +67,9 @@ function allLines(): { where: string; who?: string; text: string }[] {
     for (const op of chapter.scenes[id].ops as Op[]) {
       if (op.op === "line") {
         out.push({ where: id, who: op.who, text: op.text });
-        if (op.trans) out.push({ where: id, who: op.who, text: op.trans });
+        for (const t of op.levels ?? []) {
+          out.push({ where: id, who: op.who, text: t });
+        }
       }
     }
   }
@@ -134,6 +136,8 @@ describe("his cover (r26): one American story, the same to everyone", () => {
       )
       .map((l) => `${l.where}: ${l.text.split(" ").slice(0, 5).join(" ")}`);
     expect(brit).toEqual([
+      // r26: asking the man under the awning again, with little French.
+      "watcher: Sorry. English? A light?",
       "t_phone: Deniable. The most British word",
       "talk: His English was very good.",
       "talk: Westminster, then Sciences Po. The",

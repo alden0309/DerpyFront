@@ -237,7 +237,11 @@ export interface Deduction {
   failAt?: number;
 }
 
-export type LineKind = "narr" | "say" | "think";
+/**
+ * r26: "read" is words in another language with nobody in the cast saying
+ * them to him: a poster, a sign, a notice, the radio, the television's ticker.
+ */
+export type LineKind = "narr" | "say" | "think" | "read";
 
 /** Where someone stands in a 3D place, and how. */
 export interface ActorState {
@@ -323,17 +327,27 @@ export type Op =
       skill?: string;
       diff?: number;
       /**
-       * r22: spoken in another language ("WHO [fr]: Bonsoir. | Good
-       * evening."): `text` is what's said, `trans` what it means, and
-       * `langDiff` a Languages check that can get the gist without it.
+       * r22: in another language ("WHO [fr]: Bonsoir." or, read, "[fr]:
+       * RELÂCHE"): `text` is what's said or written. r26: `levels` is what
+       * he makes of it at 1, 2 and 3 points in that language (poor, decent,
+       * perfect: the "| 1:", "| 2:", "| 3:" lines under it); at 0 he sees
+       * only the words.
        */
       lang?: string;
-      trans?: string;
-      langDiff?: number;
+      levels?: string[];
+      /** r26: `@read news`: the television's ticker as it is now, read. */
+      news?: boolean;
       src: number;
     }
   | { op: "card"; title: string; sub?: string; src: number }
-  | { op: "news"; text: string | null; src: number }
+  | {
+      op: "news";
+      text: string | null;
+      /** r26: the ticker's language and what he makes of it (as a line's). */
+      lang?: string;
+      levels?: string[];
+      src: number;
+    }
   | { op: "backdrop"; key: string | null; src: number }
   | { op: "figure"; who: string | null; src: number }
   | { op: "ambient"; key: string | null; src: number }

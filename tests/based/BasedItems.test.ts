@@ -732,7 +732,10 @@ boost LANGUAGES.fr +1 "Lessons with the concierge"
 choose "The guard looks at him."
   * white LANGUAGES.ru medium [Ask in Russian]
     bonus +1 if speaks.ru >= 2 "Good Russian"
-    GUARD [ru]: Da. | Yes.
+    GUARD [ru]: Da.
+    | 1: Give.
+    | 2: Yes.
+    | 3: Yes.
   fail
     GUARD: Nyet.
   * [Go home] -> END

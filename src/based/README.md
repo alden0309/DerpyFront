@@ -324,12 +324,12 @@ attribute, plus one if it's his signature; at least one). The player spends
 them on the setup screen, under Languages in Intelligence, **0 to 3 per
 language**:
 
-| Points | He...                                               |
-| ------ | --------------------------------------------------- |
-| 0      | doesn't speak it (his Languages may catch the gist) |
-| 1      | gets by: follows plain speech                       |
-| 2      | is fluent                                           |
-| 3      | passes for a native                                 |
+| Points | He follows it (r26, the owner's language system)                       |
+| ------ | ---------------------------------------------------------------------- |
+| 0      | **none**: he sees only the words, marked "French he can't follow"      |
+| 1      | **poor**: a poor translation, the gist half right and believably wrong |
+| 2      | **decent**: a decent translation                                       |
+| 3      | **perfect**: exactly what it means                                     |
 
 So the Analyst (Intelligence 4) has 4 points, the Handler 3 and the Operator
 2: one language well, or two at getting by, or a little of everything. Your
@@ -337,15 +337,22 @@ own man ranges from 1 (Intelligence 1) to 6 (Intelligence 5 and known for
 Languages). The points must all be spent before the game starts (unless
 every language is already at 3).
 
-- **A line** in a language he has at 1 or more is understood. One with a
-  difficulty (`[fr medium]`: said low, fast, guardedly) is a passive check of
-  **his Languages skill plus his rating in it** (plus six against the
-  difficulty), so at 0 his Languages alone may still get the gist.
+- **Every foreign line** (r26) is shown at his points in its language:
+  everything in French or Russian, said to him, overheard, or written (a
+  poster, a sign, a notice, the radio, the television's ticker) carries
+  what he makes of it at 1, 2 and 3 points, and at 0 he sees only the
+  words. There's no gist at 0 and no check: how hard a line is to follow
+  (said low, fast, on the telephone) is written into its versions (the
+  clerk's call has the car at six at 2 points, and where it goes only at
+  3). Whatever depends on having understood it asks for the level it
+  needs (`if speaks.fr >= 2`), with a way through for less (the man under
+  the awning can be asked again in English).
 - **A check in a tongue** names it: `* white LANGUAGES.ru medium [Ask him, in
 Russian]`. Its base is his Languages skill, with "His Russian" (his
   rating) as a modifier, and whatever he wears for either; `bonus` lines work
   as on any check. Voices can be in one too: `~ LANGUAGES.fr medium: ...`.
-- **Conditions** read the rating: `speaks.fr` (1 or more), `speaks.ru >= 2`.
+- **Conditions** read the rating: `speaks.fr` (1 or more), `speaks.fr >= 2`
+  (decent or better), `speaks.fr >= 3` (perfect).
 - **Later points**: `boost LANGUAGES.fr +1 "Lessons with the concierge"`
   adds to one language for good; an item can add while it's worn or held:
   `@item phrasebook "Russian phrasebook" kind=document slot=hand
@@ -420,14 +427,27 @@ task contact done
 @weather rain                    // rain, drizzle, clear, fog, changing, none
 @time 23:15                      // the clock (earlier than now: next day)
 @actor BARMAN behind_bar lean in=vauban   // someone in another place
-WOMAN [fr]: Bonsoir. | Good evening.      // in another language
-DELORME [fr medium]: L'Américain. | The American.   // gist with Languages
+WOMAN [fr]: Bonsoir.             // said in another language...
+| 1: Good night.                 // ...what he makes of it with 1 point (poor)
+| 2: Evening.                    // 2 (decent)
+| 3: Good evening.               // 3 (perfect)
+[fr]: HORS SERVICE               // r26: written (or overheard), nobody saying it to him
+| 1: OUTSIDE SERVICE
+| 2: OUT OF SERVICE
+| 3: OUT OF ORDER
+@news [fr] "Le président..."     // r26: the ticker, in a language, with its | lines
+@read news                       // r26: he reads the ticker that's on now
 ```
 
-A line in another language shows its meaning if he speaks the language (a
-point or more), and the words as said if he doesn't; with a difficulty, it's
-his Languages skill plus his points in it, plus six (see Languages, above).
-The clock moves twenty seconds a line and ten a choice.
+r26: a line in another language shows what he makes of it at his points in
+that language (0 to 3): at 0 the words as they are, marked "French he can't
+follow"; at 1, 2 or 3 its `| 1:`, `| 2:` or `| 3:` version, with the words
+on hover (and, for what he reads, above it). The poor version is believably
+wrong, not just shorter (_Préviens-moi_ read as "prevent me", _seul_ as
+"single"); the perfect one is the exact meaning. The validator wants all
+three under every foreign line; a difficulty on one (`[fr medium]`) or a
+meaning after " | " is a mistake now. The clock moves twenty seconds a
+line and ten a choice.
 
 ### Lines
 
@@ -535,7 +555,7 @@ Flags are read as numbers (unset is 0); `rel.name` is a relationship.
 `and`, `or`, `not`, parentheses, `>= <= > < == !=`.
 
 r25: `heard` is whether the scene's last passive check was heard (a voice
-with a difficulty, or a hard line's gist), so what he only learns if he
+with a difficulty), so what he only learns if he
 heard it is set only then:
 
 ```

@@ -745,7 +745,7 @@ export class ScriptExport {
       case "flag":
         return this.flagYes(e.name);
       case "lang":
-        return `he speaks ${this.langName(e.code)}`;
+        return `he has some ${this.langName(e.code)} (1 or more)`;
       case "rel":
         return `${this.castName(e.who)}'s liking for him isn't nothing`;
       case "skill":
@@ -765,7 +765,7 @@ export class ScriptExport {
       case "weather":
         return WEATHER_YES[e.kind] ?? `the weather is ${e.kind}`;
       case "heard":
-        return "he heard the voice or the hard line just above (its check passed)";
+        return "he heard the voice just above (its check passed)";
       case "num":
         return e.v !== 0 ? "always" : "never";
       case "not":
@@ -788,7 +788,7 @@ export class ScriptExport {
       case "flag":
         return this.flagNo(e.name);
       case "lang":
-        return `he doesn't speak ${this.langName(e.code)}`;
+        return `he has no ${this.langName(e.code)}`;
       case "has":
         return `he doesn't have ${this.item(e.item)}`;
       case "wears":
@@ -802,7 +802,7 @@ export class ScriptExport {
       case "weather":
         return WEATHER_NO[e.kind] ?? `the weather isn't ${e.kind}`;
       case "heard":
-        return "he didn't hear the voice or the hard line just above (its check failed)";
+        return "he didn't hear the voice just above (its check failed)";
       case "num":
         return e.v !== 0 ? "never" : "always";
       case "not":
@@ -856,18 +856,29 @@ export class ScriptExport {
         return `“${a.name}” is ${this.amount(op, String(v))}`;
       }
       case "lang": {
+        // r26: his points in it, as the language system names them.
         const name = this.langName(a.code);
         const lv = (n: number) =>
           LANG_LEVELS[Math.max(0, Math.min(LANG_MAX, n))];
-        if ((op === ">=" && v >= 1) || (op === ">" && v >= 0)) {
-          const n = op === ">" ? v + 1 : v;
-          if (n >= LANG_MAX) return `he speaks ${name} ${lv(LANG_MAX)}`;
-          return `his ${name} is ${lv(n)} or better (${n} or more)`;
+        const atLeast = op === ">=" ? v : op === ">" ? v + 1 : null;
+        if (atLeast !== null) {
+          if (atLeast <= 0) return "always";
+          if (atLeast >= LANG_MAX) {
+            return `his ${name} is ${lv(LANG_MAX)} (${LANG_MAX})`;
+          }
+          return `his ${name} is ${lv(atLeast)} or better (${atLeast} or more)`;
         }
-        if ((op === "<" && v === 1) || (op === "==" && v === 0)) {
-          return `he doesn't speak ${name}`;
+        const under = op === "<" ? v : op === "<=" ? v + 1 : null;
+        if (under !== null) {
+          if (under <= 1) return `he has no ${name}`;
+          return `his ${name} is below ${lv(under)} (under ${under})`;
         }
-        return `his ${name} is ${this.amount(op, String(v), "less than")}`;
+        if (op === "==") {
+          return v === 0
+            ? `he has no ${name}`
+            : `his ${name} is ${lv(v)} (${v})`;
+        }
+        return `his ${name} isn't ${lv(v)} (not ${v})`;
       }
       case "rel":
         return `${this.castName(a.who)}'s liking for him is ${this.amount(op, String(v), "less than")}`;
@@ -984,6 +995,18 @@ export class ScriptExport {
         op.src,
       );
     }
+    if (op.kind === "read") {
+      // r26: words in another language nobody in the cast says to him.
+      if (op.news) return this.readNewsRow(s, op, ref);
+      const lang = this.langName(op.lang ?? "");
+      return this.row(
+        s,
+        ref,
+        "read foreign",
+        `<span class="tag">In ${esc(lang)}</span> <span class="orig">${words(op.text)}</span>${this.levelsHtml(op.lang ?? "", op.levels)}`,
+        op.src,
+      );
+    }
     const who = op.who ?? "";
     const how = op.how ? ` <i class="how">(${esc(op.how)})</i>` : "";
     const name = `<b class="who">${esc(this.castName(who))}</b>${how}`;
@@ -997,18 +1020,54 @@ export class ScriptExport {
       );
     }
     const lang = this.langName(op.lang);
-    const meaning = op.trans ?? op.text;
-    const note =
-      op.langDiff !== undefined
-        ? `Said low, or fast, or guardedly (Languages, ${tierName(op.langDiff).toLowerCase()} ${op.langDiff}): he follows it only if his Languages, plus his ${esc(lang)}, plus six, makes ${op.langDiff}, and then he reads ${quote(meaning)}. If not, he sees the words as said.`
-        : `If he speaks ${esc(lang)}, he reads ${quote(meaning)}. If not, he sees the words as said.`;
     return this.row(
       s,
       ref,
       `say foreign${who === hero ? " hero" : ""}`,
-      `${name} <span class="lang">in ${esc(lang)}</span>: ${words(op.text)}<div class="note">${note}</div>`,
+      `${name} <span class="lang">in ${esc(lang)}</span>: <span class="orig">${words(op.text)}</span>${this.levelsHtml(op.lang, op.levels)}`,
       op.src,
     );
+  }
+
+  /**
+   * r26: what he makes of words in a language, at each of his points in it:
+   * 0 the words alone, 1 poor, 2 decent, 3 perfect.
+   */
+  private levelsHtml(code: string, levels: string[] | undefined): string {
+    const lang = esc(this.langName(code));
+    const rows = [
+      `<div class="lv lv0"><span class="lvk">0 · ${LANG_LEVELS[0]}</span> <span class="lvt">He sees only the words, marked “${lang} he can't follow”.</span></div>`,
+    ];
+    for (let lv = 1; lv <= LANG_MAX; lv++) {
+      const t = levels?.[lv - 1];
+      rows.push(
+        `<div class="lv lv${lv}"><span class="lvk">${lv} · ${LANG_LEVELS[lv]}</span> <span class="lvt">${t ? words(t) : "<i>(missing)</i>"}</span></div>`,
+      );
+    }
+    return `<div class="levels" aria-label="What he makes of it, by his points in ${lang}">${rows.join("")}</div>`;
+  }
+
+  /** r26: `@read news`: he reads the ticker that's on (its versions). */
+  private readNewsRow(
+    s: SceneInfo,
+    op: OpOf<"line">,
+    ref: string | undefined,
+  ): string {
+    const tickers: { ref: string; op: OpOf<"news"> }[] = [];
+    for (const id of this.chapter.order) {
+      const info = this.info.get(id)!;
+      info.scene.ops.forEach((o, at) => {
+        if (o.op === "news" && o.text) {
+          tickers.push({ ref: info.refs.get(at) ?? `S${info.n}`, op: o });
+        }
+      });
+    }
+    const one = tickers.length === 1 ? tickers[0] : null;
+    const from = tickers.map((t) => this.refLink(t.ref)).join(", ");
+    const body = one?.op.lang
+      ? `<span class="tag">He reads the ticker</span> <span class="dim">(set at ${from}), in ${esc(this.langName(one.op.lang))}:</span> <span class="orig">${words(one.op.text ?? "")}</span>${this.levelsHtml(one.op.lang, one.op.levels)}`
+      : `<span class="tag">He reads the ticker</span> as it is then${from ? ` (set at ${from})` : ""}, at his points in its language. If the television's off, nothing.`;
+    return this.row(s, ref, "read foreign", body, op.src);
   }
 
   /** A row for an op that isn't a block. */
@@ -1036,7 +1095,7 @@ export class ScriptExport {
               s,
               ref,
               "news",
-              `<span class="tag">The television's ticker</span> ${words(op.text)}`,
+              `<span class="tag">The television's ticker${op.lang ? `, in ${esc(this.langName(op.lang))}` : ""}</span> ${words(op.text)}${op.lang ? `<div class="note">It crawls on the television in the bar as it is. What he makes of it, when he looks at it:</div>${this.levelsHtml(op.lang, op.levels)}` : ""}`,
               op.src,
             )
           : this.row(
@@ -1718,6 +1777,7 @@ export class ScriptExport {
 <div class="howto">
 <p><b>Notes:</b> every line has a reference, like <span class="ref-eg">S12.7</span> (scene 12, its seventh line). Write notes as “S12.7: change to …” and paste them in the chat, as with Copy my notes. Tap a reference to copy it with its line.</p>
 <p class="legend"><span class="row narr"><span class="tx">Narration</span></span> <span class="row examine"><span class="tx"><span class="tag">Looking</span> What he sees when he looks at something</span></span> <span class="row say"><span class="tx"><b class="who">Someone</b>: what they say</span></span> <span class="row say hero"><span class="tx"><b class="who">Mr. Based</b>: what he says</span></span> <span class="row think"><span class="tx"><span class="tag">Thought</span> His thoughts</span></span> <span class="row voice a1"><span class="tx"><b class="who">Perception, medium 9</b> A skill's voice</span></span> <span class="row hover"><span class="tx"><span class="tag">Hover label</span> The words over a thing</span></span> <span class="row fx"><span class="tx">What he gets, pays, learns</span></span></p>
+<p><b>Other languages:</b> every line in French or Russian shows the words, then what he makes of them by his points in that language: <b>0</b> none (only the words), <b>1</b> poor, <b>2</b> decent, <b>3</b> perfect.</p>
 </div>
 </header>
 <div class="bar" id="bar">
@@ -1799,6 +1859,15 @@ details.scene>summary{cursor:pointer;font:600 1.05rem/1.35 system-ui,-apple-syst
 .say.hero .who{color:var(--accent)}
 .how{color:var(--dim)}
 .lang{font:600 11px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.04em;border:1px solid var(--line);border-radius:3px;padding:0 4px;color:var(--dim)}
+.orig{font-style:italic}
+.levels{margin:.3rem 0 .1rem;border:1px solid var(--line);border-radius:6px;background:var(--card);font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+.lv{display:flex;gap:.5rem;padding:.2rem .5rem;border-top:1px solid var(--line)}
+.lv:first-child{border-top:0}
+.lvk{flex:0 0 5.4rem;font:600 11.5px/1.7 ui-monospace,Menlo,Consolas,monospace;color:var(--dim);white-space:nowrap}
+.lvt{flex:1;min-width:0}
+.lv0 .lvt{color:var(--dim);font-style:italic}
+.lv3 .lvk{color:var(--fx)}
+.read .tx>.tag{margin-right:.4em}
 .think .tx{font-style:italic;color:var(--think)}
 .think .tag{font-style:normal}
 .voice .tx{font-style:italic}
@@ -1830,7 +1899,7 @@ details.scene>summary{cursor:pointer;font:600 1.05rem/1.35 system-ui,-apple-syst
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);font:14px system-ui,sans-serif;padding:8px 14px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:calc(100vw - 32px)}
 #toast.on{opacity:1}
 [hidden]{display:none!important}
-@media (max-width:540px){body{font-size:16px}.bar{padding:6px 10px}.bar button{padding:7px 8px;font-size:13px}#count{position:absolute;right:12px;bottom:-24px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:0 8px}.row{gap:.4rem;padding:.1rem 0}.row .ref{flex-basis:2.9rem;font-size:10.5px}.body{margin-left:.45rem;padding-left:.35rem}.resume{margin-left:3.2rem}}
+@media (max-width:540px){body{font-size:16px}.bar{padding:6px 10px}.bar button{padding:7px 8px;font-size:13px}#count{position:absolute;right:12px;bottom:-24px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:0 8px}.row{gap:.4rem;padding:.1rem 0}.row .ref{flex-basis:2.9rem;font-size:10.5px}.body{margin-left:.45rem;padding-left:.35rem}.resume{margin-left:3.2rem}.lvk{flex-basis:4.6rem}}
 @media print{:root{--bg:#fff;--ink:#000;--card:#fff;--hero:#f3f3f3;--ex:#f6f6f6;--hover:#f3f3f3;--news:#fff;--news-ink:#000;--hit:transparent}.bar,#toast,.toc{display:none}body{font-size:11pt}.row{break-inside:avoid}h2{break-after:avoid}details.scene>summary{break-after:avoid;list-style:none}a{text-decoration:none}.news .tx{border:1px solid #000}}
 `;
 

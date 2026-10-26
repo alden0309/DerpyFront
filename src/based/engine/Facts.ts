@@ -421,7 +421,10 @@ export function checkFacts(chapter: Chapter): FactProblem[] {
         const his = op.kind !== "say" || op.who === hero;
         if (!his) return;
         check(op.text, k, op.src, "the line", learned);
-        if (op.trans) check(op.trans, k, op.src, "the line", learned);
+        // r26: what he makes of words in another language, at any level.
+        for (const t of op.levels ?? []) {
+          if (t) check(t, k, op.src, "the line", learned);
+        }
       } else if (op.op === "figure" && op.who) {
         check(
           nameOf(op.who),
@@ -459,8 +462,12 @@ export function checkFacts(chapter: Chapter): FactProblem[] {
       } else if (op.op === "boost") {
         check(op.why, k, op.src, "the reason");
       } else if (op.op === "news" && op.text) {
-        // The television's ticker: on the screen, so on the page.
+        // The television's ticker: on the screen, so on the page (and,
+        // r26, what he makes of it when he reads it).
         check(op.text, k, op.src, "the news", learnedAt(scene, i));
+        for (const t of op.levels ?? []) {
+          if (t) check(t, k, op.src, "the news", learnedAt(scene, i));
+        }
       } else if (op.op === "card") {
         check(op.title, k, op.src, "the card");
         if (op.sub) check(op.sub, k, op.src, "the card");

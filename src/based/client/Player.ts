@@ -128,7 +128,7 @@ interface Entry {
   id: number;
   /** r22 BPLAY: the story's clock when it was said ("22:14"). */
   at?: string;
-  kind: "narr" | "say" | "think" | "voice" | "roll" | "card" | "pick";
+  kind: "narr" | "say" | "think" | "read" | "voice" | "roll" | "card" | "pick";
   who?: string;
   how?: string;
   text: string;
@@ -2013,19 +2013,26 @@ export class BasedPlayer extends LitElement {
     </div>`;
   }
 
-  /** Words in another language: what it means, or what was said. */
+  /**
+   * Words in another language (r26): at 0 points the words he can't
+   * follow; at 1 what he half follows; at 2 and 3 what they mean (the
+   * original on hover).
+   */
   private langTag(l: NonNullable<Entry["lang"]>): TemplateResult {
     if (!l.understood) {
-      return html`<span class="mb-e-lang lost" title="He doesn't speak it"
-        >${l.name}</span
+      return html`<span
+        class="mb-e-lang lost"
+        title="He has no ${l.name}: these are the words as they are"
+        >${l.name} he can't follow</span
       >`;
     }
+    const poor = l.level <= 1;
     return html`<span
-      class="mb-e-lang"
-      title=${l.via === "skill"
-        ? `Languages – ${l.tier ?? ""}: he caught the gist. Said: “${l.original}”`
+      class="mb-e-lang ${poor ? "poor" : ""}"
+      title=${poor
+        ? `His ${l.name} is poor: this is what he made of “${l.original}”`
         : `In ${l.name}: “${l.original}”`}
-      >${l.via === "skill" ? `${l.name}, the gist` : l.name}</span
+      >${poor ? `${l.name}, half followed` : l.name}</span
     >`;
   }
 
@@ -2071,6 +2078,20 @@ export class BasedPlayer extends LitElement {
         return html`<div class="mb-e think">
           ${t}
           <p>${text}</p>
+        </div>`;
+      case "read":
+        // r26: words in another language he reads or overhears: the words
+        // themselves, then what he makes of them.
+        return html`<div
+          class="mb-e read ${e.lang && !e.lang.understood ? "foreign" : ""}"
+        >
+          ${t}
+          <p>
+            ${e.lang ? this.langTag(e.lang) : nothing}${e.lang?.understood
+              ? html`<span class="mb-e-orig">${e.lang.original}</span>`
+              : nothing}
+            <span class="mb-e-words">${text}</span>
+          </p>
         </div>`;
       case "card":
         return html`<div class="mb-e card">

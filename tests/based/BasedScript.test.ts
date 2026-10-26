@@ -286,7 +286,7 @@ describe("chapter one's script", () => {
         if (op.op === "line") {
           count++;
           want(op.text, at);
-          want(op.trans, at);
+          for (const t of op.levels ?? []) want(t, at);
         } else if (op.op === "card") {
           want(op.title, at);
           want(op.sub, at);
@@ -330,10 +330,15 @@ describe("chapter one's script", () => {
     const builds = ch.archetypes.map(buildOf);
     for (let seed = 1; seed <= 60; seed++) {
       const pick = rng(seed);
+      // r26: at every level of French, 0 to 3.
+      const fr = seed % 4;
       const r = new StoryRun(
         ch,
         chapterStart(ch, undefined, {
-          build: builds[seed % builds.length],
+          build: {
+            ...builds[seed % builds.length],
+            langPts: { fr, ru: Math.min(3, 4 - fr) },
+          },
           seed,
         }),
       );
@@ -425,7 +430,21 @@ describe("chapter one's script", () => {
     );
     expect(page).toContain("only if he has Le Vauban matches");
     expect(page).toContain("only if he doesn't have Le Vauban matches");
-    expect(exp.cond({ k: "lang", code: "ru" })).toBe("he speaks Russian");
+    expect(exp.cond({ k: "lang", code: "ru" })).toBe(
+      "he has some Russian (1 or more)",
+    );
+    // r26: the language system's levels: none, poor, decent, perfect.
+    const fr = (op: string, v: number) =>
+      exp.cond({
+        k: "cmp",
+        op: op as ">=",
+        a: { k: "lang", code: "fr" },
+        b: { k: "num", v },
+      });
+    expect(fr(">=", 3)).toBe("his French is perfect (3)");
+    expect(fr("<", 2)).toBe("his French is below decent (under 2)");
+    expect(fr("<", 1)).toBe("he has no French");
+    expect(fr("==", 1)).toBe("his French is poor (1)");
     expect(
       exp.cond({
         k: "cmp",
@@ -433,7 +452,7 @@ describe("chapter one's script", () => {
         a: { k: "lang", code: "ru" },
         b: { k: "num", v: 2 },
       }),
-    ).toBe("his Russian is fluent or better (2 or more)");
+    ).toBe("his Russian is decent or better (2 or more)");
     expect(exp.neg({ k: "has", item: "umbrella" })).toBe(
       "he doesn't have the black umbrella",
     );

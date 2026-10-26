@@ -282,16 +282,27 @@ describe("@fact and the validator (r25)", () => {
  * each thing he can look at, the television's ticker, and at the end what
  * he carries on with.
  */
-function wander(chapter: Chapter, seed: number, problems: Set<string>) {
+function wander(
+  chapter: Chapter,
+  seed: number,
+  problems: Set<string>,
+  fr?: number,
+) {
   const pick = rng(seed);
   const builds = chapter.archetypes.map(buildOf);
+  const build = builds[seed % builds.length];
   const r = new StoryRun(
     chapter,
     chapterStart(chapter, undefined, {
-      build: builds[seed % builds.length],
+      // r26: his French at 0, 1, 2 or 3 points (and Russian with the rest).
+      build:
+        fr === undefined
+          ? build
+          : { ...build, langPts: { fr, ru: Math.min(3, 4 - fr) } },
       seed,
     }),
   );
+  if (fr !== undefined) expect(r.languages().fr).toBe(fr);
   // What a thing he can look at is called (the first scene that looks at it).
   const labelOf = new Map<string, string>();
   for (const id of chapter.order) {
@@ -433,13 +444,19 @@ describe("chapter one: nothing he can't know (r25)", () => {
     );
   });
 
-  test("random paths never show him a fact before he's learned it", () => {
-    const problems = new Set<string>();
-    let ended = 0;
-    for (let seed = 1; seed <= 200; seed++) {
-      if (wander(chapter, seed, problems)) ended++;
-    }
-    expect([...problems]).toEqual([]);
-    expect(ended).toBe(200);
-  }, 60_000);
+  // r26: at every level of French (the language system): 0 none, 1 poor,
+  // 2 decent, 3 perfect. What he can't follow can't tell him anything.
+  test.each([0, 1, 2, 3])(
+    "random paths never show him a fact before he's learned it (French %i)",
+    (fr) => {
+      const problems = new Set<string>();
+      let ended = 0;
+      for (let seed = 1; seed <= 60; seed++) {
+        if (wander(chapter, seed * 4 + fr, problems, fr)) ended++;
+      }
+      expect([...problems]).toEqual([]);
+      expect(ended).toBe(60);
+    },
+    60_000,
+  );
 });

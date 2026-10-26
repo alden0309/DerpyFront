@@ -63,7 +63,7 @@ const CHAPTER_1: Record<string, FlagWords> = {
     no: "the regulars aren't in the bar yet (a save from before they came)",
   },
   curfew: {
-    yes: "he read the Préfecture's notice in the pharmacy window",
+    yes: "he read the Préfecture's notice in the pharmacy window (with some French)",
     no: "he hasn't read the notice in the pharmacy window",
   },
   delorme_41: {
@@ -100,10 +100,6 @@ const CHAPTER_1: Record<string, FlagWords> = {
     yes: "he gave the man in grey his name",
     no: "he didn't give the man in grey his name",
   },
-  general_car: {
-    yes: "the clerk told him, in Russian, that it's a general's car",
-    no: "the clerk hasn't told him it's a general's car",
-  },
   has_light: {
     yes: "he has a light (matches)",
     no: "he hasn't got a light",
@@ -115,6 +111,10 @@ const CHAPTER_1: Record<string, FlagWords> = {
   heard_41: {
     yes: "he has heard about room forty-one from the clerk",
     no: "he hasn't heard about room forty-one from the clerk",
+  },
+  heard_alone: {
+    yes: "he understood the man under the awning wants to be alone",
+    no: "he didn't follow what the man under the awning wanted",
   },
   heard_anselme: {
     yes: "he heard the man in grey call the barman Anselme",
@@ -149,8 +149,8 @@ const CHAPTER_1: Record<string, FlagWords> = {
     no: "Penhallow hasn't told him what the army is doing",
   },
   knows_car: {
-    yes: "he knows about forty-one's car to Satory at six",
-    no: "he doesn't know about the car to Satory",
+    yes: "he knows forty-one has a car at six",
+    no: "he doesn't know about forty-one's car at six",
   },
   knows_clovis: {
     yes: "Penhallow told him about CLOVIS",
@@ -167,6 +167,10 @@ const CHAPTER_1: Record<string, FlagWords> = {
   knows_oak: {
     yes: "Anselme told him about his grandson's oak-leaf pin",
     no: "Anselme hasn't told him about his grandson's pin",
+  },
+  knows_satory: {
+    yes: "he knows the car at six goes to Satory",
+    no: "he doesn't know where the car at six goes",
   },
   knows_room: {
     yes: "he knows about room forty-one",
@@ -268,6 +272,10 @@ const CHAPTER_1: Record<string, FlagWords> = {
   saw_morris: {
     yes: "he looked at the Morris column",
     no: "he hasn't looked at the Morris column",
+  },
+  saw_oak_emblem: {
+    yes: "he noticed the party's oak leaf on the posters",
+    no: "he didn't notice the oak leaf on the posters",
   },
   saw_photo: {
     yes: "he looked at the old photograph of the bar",

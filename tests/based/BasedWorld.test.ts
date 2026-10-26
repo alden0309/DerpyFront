@@ -129,8 +129,14 @@ The thing again.
 
 == hello "Hello"
 @on talk BARMAN once
-BARMAN [fr]: Bonsoir. | Good evening.
-BARMAN [ru medium]: Dobryy vecher. | Good evening, in Russian.
+BARMAN [fr]: Bonsoir.
+| 1: Good night?
+| 2: Evening.
+| 3: Good evening.
+BARMAN [ru]: Dobryy vecher.
+| 1: Good... something.
+| 2: Good evening, in Russian.
+| 3: Good evening to you, in Russian.
 JULES: I'm Jules.
 set met
 task meet done
@@ -206,9 +212,9 @@ describe("the open world's format", () => {
       who: "BARMAN",
       lang: "fr",
       text: "Bonsoir.",
-      trans: "Good evening.",
+      levels: ["Good night?", "Evening.", "Good evening."],
     });
-    expect(hello[1]).toMatchObject({ lang: "ru", langDiff: 9 });
+    expect(hello[1]).toMatchObject({ lang: "ru", text: "Dobryy vecher." });
   });
 
   test("mistakes in the new directions are reported", () => {
@@ -220,8 +226,12 @@ describe("the open world's format", () => {
 @weather sleet
 @time 25:00
 task x
-HERO [fr]: Bonjour.
+HERO [fr medium]: Bonjour. | Hello.
+| 4: Hi.
+| 2: Hello.
+| 2: Hello again.
 -> FREE
+| 1: Nothing above it.
 `);
     const m = errors.map((e) => `${e.line}: ${e.message}`);
     expect(m.some((x) => x.startsWith("4: @checkpoint is gone"))).toBe(true);
@@ -229,7 +239,60 @@ HERO [fr]: Bonjour.
     expect(m.some((x) => x.startsWith("6: @weather"))).toBe(true);
     expect(m.some((x) => x.startsWith("7: @time"))).toBe(true);
     expect(m.some((x) => x.startsWith("8: task id"))).toBe(true);
-    expect(m.some((x) => x.startsWith("9: a line in [fr] needs"))).toBe(true);
+    // r26: a foreign line takes no difficulty and no " | meaning"; its
+    // versions go under it, 1 to 3, once each, and under nothing else.
+    expect(
+      m.some((x) =>
+        x.startsWith(
+          "9: [fr medium]: a line in another language takes no difficulty",
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      m.some((x) =>
+        x.startsWith(
+          "9: a line in [fr] gives its meaning on the lines under it",
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      m.some((x) => x.startsWith('10: "| 4:": the levels are 1 (poor)')),
+    ).toBe(true);
+    expect(m.some((x) => x.startsWith('12: "| 2:" twice'))).toBe(true);
+    expect(
+      m.some((x) =>
+        x.startsWith('14: "| 1:" belongs under a line in another language'),
+      ),
+    ).toBe(true);
+  });
+
+  test("r26: a foreign line needs all three versions (the validator)", () => {
+    const { chapter, errors } = parseChapter(`@chapter 1 "T"
+@cast HERO "Hero"
+@language fr "French"
+== a
+HERO [fr]: Bonjour.
+| 1: Good day?
+| 3: Hello.
+[fr]: RELÂCHE
+@news [fr] "Le président parle."
+| 1: The president parts.
+| 2: The president speaks.
+| 3: The President is speaking.
+@read news
+-> END
+`);
+    expect(errors).toEqual([]);
+    const ms = errorsOf(validateChapter(chapter)).map((p) => p.message);
+    expect(ms).toContainEqual(
+      '[fr] "Bonjour.": it needs all three versions under it; "| 2:" is missing',
+    );
+    expect(ms).toContainEqual(
+      '[fr] "RELÂCHE": it needs all three versions under it; "| 1:", "| 2:", "| 3:" are missing',
+    );
+    expect(ms.filter((x) => x.includes("Le président"))).toEqual([]);
+    const read = chapter.scenes.a.ops.find((o) => o.op === "line" && o.news);
+    expect(read).toMatchObject({ kind: "read", news: true });
   });
 });
 
@@ -497,37 +560,38 @@ describe("languages (r22 BPLAY: points under Languages)", () => {
     return [first, second];
   }
 
-  test("a tongue he has a point in is translated; one at 0 isn't", () => {
+  test("r26: what he makes of a line is his points in its language", () => {
     const [fr] = lines({ fr: 1 }, 1);
     expect(fr).toMatchObject({
-      text: "Good evening.",
+      text: "Good night?",
       lang: {
         code: "fr",
         name: "French",
+        level: 1,
         understood: true,
         original: "Bonsoir.",
       },
     });
-    const [notFr] = lines({ ru: 1 }, 1);
+    // 0: the words alone, whatever his Languages skill (no gist).
+    const [notFr, notRu] = lines({ fr: 0 }, 0);
     expect(notFr).toMatchObject({
       text: "Bonsoir.",
-      lang: { code: "fr", understood: false },
+      lang: { code: "fr", level: 0, understood: false },
     });
-  });
-
-  test("a hard line reads his Languages plus his rating in it", () => {
-    // The Talker, Languages 5, no Russian: 5 + 0 + 6 reaches medium (9):
-    // the gist, by his Languages.
-    const [, ru] = lines({ fr: 3, en_gb: 2 });
-    expect(ru).toMatchObject({
+    expect(notRu).toMatchObject({ text: "Dobryy vecher.", lang: { level: 0 } });
+    // 1 poor, 2 decent, 3 perfect.
+    expect(lines({ ru: 1 }, 1)[1]).toMatchObject({
+      text: "Good... something.",
+      lang: { level: 1 },
+    });
+    expect(lines({ fr: 2, ru: 2 })[0]).toMatchObject({ text: "Evening." });
+    expect(lines({ fr: 2, ru: 2 })[1]).toMatchObject({
       text: "Good evening, in Russian.",
-      lang: { understood: true, via: "skill", tier: "Medium" },
+      lang: { level: 2 },
     });
-    // The Doer, Languages 1: getting by in Russian isn't enough (1 + 1 + 6).
-    const [, ru2] = lines({ ru: 1 }, 1);
-    expect(ru2).toMatchObject({
-      text: "Dobryy vecher.",
-      lang: { understood: false },
+    expect(lines({ fr: 3, ru: 3 })[0]).toMatchObject({
+      text: "Good evening.",
+      lang: { level: 3 },
     });
   });
 

@@ -50,7 +50,7 @@ const text = (id: string) =>
   chapter.scenes[id].ops
     .flatMap((o) =>
       o.op === "line"
-        ? [o.text, o.trans ?? ""]
+        ? [o.text, ...(o.levels ?? [])]
         : o.op === "choose"
           ? [o.prompt, ...o.options.map((x) => x.label)]
           : [],
@@ -104,10 +104,14 @@ function readOn(
 }
 
 /** A new game, free in the street, with the Analyst. */
-function street(seed = 7): StoryRun {
+function street(seed = 7, fr = 3): StoryRun {
   const r = new StoryRun(
     chapter,
-    chapterStart(chapter, undefined, { build: analyst, seed }),
+    chapterStart(chapter, undefined, {
+      // r26: his French (the language system), perfect unless said.
+      build: { ...analyst, langPts: { fr, ru: 4 - fr } },
+      seed,
+    }),
   );
   readOn(r);
   return r;
@@ -184,6 +188,40 @@ describe("the opening, reshaped (r25)", () => {
     expect(offer).toMatch(/BASED: Need a light\?/);
     expect(m.flag("saw_watcher")).toBe(0);
     expect(m.flag("met_watcher")).toBe(1);
+    expect(m.flag("heard_alone")).toBe(1);
+  });
+
+  test("r26: what the smoker says is his French; with less than decent, he can ask in English", () => {
+    for (const fr of [0, 1, 2, 3]) {
+      const r = street(9, fr);
+      getMatches(r);
+      r.talk("WATCHER");
+      const said: string[] = [];
+      for (let i = 0; i < 40 && r.beat.kind !== "free"; i++) {
+        const b = r.beat;
+        if (b.kind === "line") said.push(b.text);
+        if (b.kind === "choice") {
+          // Only below decent French, and the English way through is there.
+          expect(fr).toBeLessThan(2);
+          const ask = b.options.find((o) => /English/.test(o.label));
+          expect(ask, `French ${fr}`).toBeTruthy();
+          r.choose(ask!.id);
+          continue;
+        }
+        r.advance();
+      }
+      const text = said.join("\n");
+      expect(text).toMatch(
+        [
+          /Non, merci\. Je veux juste être seul\./,
+          /I just want to be single/,
+          /I just want to be on my own/,
+          /I just want to be alone/,
+        ][fr],
+      );
+      // Whatever his French, asked in English he knows what the man wants.
+      expect(r.flag("heard_alone"), `French ${fr}`).toBe(1);
+    }
   });
 
   test("the offer is gated: the validator refuses it without a light", () => {
@@ -497,7 +535,7 @@ describe("London's contact, both ways (r25)", () => {
       const m = p.run.flag("missed_watch");
       expect(k + m, `seed ${seed}`).toBe(1);
     }
-  });
+  }, 60_000);
 });
 
 describe("the lobby (r25)", () => {
