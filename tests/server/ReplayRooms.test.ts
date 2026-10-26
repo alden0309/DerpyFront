@@ -3,6 +3,7 @@
 // and the HTTP routes against Postgres (DERPY_TEST_DATABASE_URL), which
 // make a room only for a game that's saved.
 
+import { CloseCode } from "@openfront/shared/CloseCodes";
 import express from "express";
 import http from "http";
 import { AddressInfo } from "net";
@@ -142,7 +143,7 @@ describe("watch-together rooms", () => {
   test("a bad room is refused and the socket closed", async () => {
     const { conn } = await join("NoSuchRoom");
     expect(conn.last("error")?.code).toBe("no_such_room");
-    expect(conn.closed?.code).toBe(4004);
+    expect(conn.closed?.code).toBe(CloseCode.GameNotFound);
     // Malformed ids never reach a lookup.
     const c2 = new FakeConn();
     rooms.connect(c2).message(JSON.stringify({ t: "join", room: "../x" }));
@@ -467,7 +468,7 @@ describe("watch-together rooms", () => {
     now += 5000;
     for (let i = 0; i <= WATCH_LIMITS.floodPerSecond; i++)
       say(a.s, { t: "ping" });
-    expect(a.conn.closed?.code).toBe(4008);
+    expect(a.conn.closed?.code).toBe(CloseCode.TryAgainLater);
 
     // Seats in a room, and rooms in all.
     const small = new ReplayRooms(() => now, {
@@ -492,7 +493,7 @@ describe("watch-together rooms", () => {
       const conn = new FakeConn();
       rooms.connect(conn);
       vi.advanceTimersByTime(WATCH_LIMITS.joinTimeoutMs + 1);
-      expect(conn.closed?.code).toBe(4000);
+      expect(conn.closed?.code).toBe(CloseCode.BadRequest);
     } finally {
       vi.useRealTimers();
     }

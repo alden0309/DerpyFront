@@ -2735,7 +2735,6 @@
   "scenario_goal": {
     "coin_line": "Goal met: +{coins}",
     "collected": "Goal met (collected before)",
-    "goal": "Goal",
     "help": "An optional goal: meet it in a game on Hard or Impossible for {coins} bonus Derp Coins, once per goal (signed in). It never decides the war.",
     "holding": "Holding",
     "met": "Met",

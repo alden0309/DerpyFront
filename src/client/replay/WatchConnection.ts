@@ -5,6 +5,7 @@
  * the room is there.
  */
 
+import { CloseCode } from "@openfront/shared/CloseCodes";
 import {
   WATCH_WS_PATH,
   type WatchClientMessage,
@@ -117,7 +118,7 @@ export class WatchConnection {
       this.pinger = null;
       if (this.stopped || this.state === "closed") return;
       // The server said the room isn't there.
-      if (e.code === 4004) {
+      if (e.code === CloseCode.GameNotFound) {
         this.finish("no_such_room");
         return;
       }

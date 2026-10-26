@@ -11,6 +11,7 @@
 // to a new one.
 
 import { GAME_ID_REGEX } from "@openfront/engine-api/Schemas";
+import { CloseCode } from "@openfront/shared/CloseCodes";
 import { randomBytes, timingSafeEqual } from "crypto";
 import express, { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
@@ -259,7 +260,7 @@ export class ReplayRooms {
     let windowStart = this.now();
     let inWindow = 0;
     const timer = setTimeout(() => {
-      if (!member && !closed) conn.close(4000, "no room");
+      if (!member && !closed) conn.close(CloseCode.BadRequest, "no room");
     }, this.limits.joinTimeoutMs);
     timer.unref?.();
 
@@ -275,7 +276,8 @@ export class ReplayRooms {
           inWindow = 0;
         }
         if (++inWindow > this.limits.floodPerSecond) {
-          conn.close(4008, "too many messages");
+          // Retryable: the page reconnects (WatchConnection), after a pause.
+          conn.close(CloseCode.TryAgainLater, "too many messages");
           return;
         }
         let parsed: z.infer<typeof ClientMessage>;
@@ -303,7 +305,7 @@ export class ReplayRooms {
               return;
             }
             if (m === null) {
-              conn.close(4004, "no such room");
+              conn.close(CloseCode.GameNotFound, "no such room");
               return;
             }
             room = m.room;

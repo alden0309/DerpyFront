@@ -34,6 +34,9 @@ const DYNAMIC_KEY_PATTERNS: RegExp[] = [
   /^scenario_nation\.[^.]+$/,
   /^scenarios\.[^.]+\.(title|date|description|neutral)$/,
   /^scenarios\.win\.[^.]+$/,
+  // DFX (r26): a nation's Scenario goal, keyed by scenario and nation id
+  // (engine-lib/scenario/ScenarioGoals.ts goalTextKey, read by ScenarioGoalText).
+  /^scenario_goal_text\.[^.]+\.[^.]+$/,
   // Built-in graphics preset names/descriptions are referenced from
   // src/client/render/gl/graphics-presets.json, not translateText literals.
   /^graphics_setting\.preset_(default|night|evans_pick|colorblind)(_desc)?$/,
