@@ -688,6 +688,24 @@ export class TutRing extends LitElement {
   }
 }
 
+/** The boxes round an element that scroll or clip it (looked up once an element). */
+const clippers = new WeakMap<HTMLElement, HTMLElement[]>();
+function clippersOf(el: HTMLElement): HTMLElement[] {
+  let list = clippers.get(el);
+  if (list) return list;
+  list = [];
+  for (
+    let p = el.parentElement;
+    p && p !== document.body;
+    p = p.parentElement
+  ) {
+    const st = getComputedStyle(p);
+    if (st.overflowY !== "visible" || st.overflowX !== "visible") list.push(p);
+  }
+  clippers.set(el, list);
+  return list;
+}
+
 /**
  * The part of an element that can be seen: cut to the boxes that scroll or
  * clip it, and to the window; null if too little of it shows.
@@ -697,13 +715,7 @@ function inSight(el: HTMLElement, r: DOMRect): DOMRect | null {
   let left = Math.max(r.left, 0);
   let bottom = Math.min(r.bottom, innerHeight);
   let right = Math.min(r.right, innerWidth);
-  for (
-    let p = el.parentElement;
-    p && p !== document.body;
-    p = p.parentElement
-  ) {
-    const st = getComputedStyle(p);
-    if (st.overflowY === "visible" && st.overflowX === "visible") continue;
+  for (const p of clippersOf(el)) {
     const b = p.getBoundingClientRect();
     top = Math.max(top, b.top);
     left = Math.max(left, b.left);

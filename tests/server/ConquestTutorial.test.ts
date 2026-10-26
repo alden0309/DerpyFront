@@ -36,7 +36,7 @@ const { attachConquest, ConquestRooms } =
 
 type Msg = ServerMessage;
 
-let clock = 1_900_000_000_000;
+const clock = 1_900_000_000_000;
 
 class Client {
   readonly messages: Msg[] = [];
