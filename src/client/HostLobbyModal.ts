@@ -1061,6 +1061,7 @@ export class HostLobbyModal extends BaseModal {
           ) => seat(e.detail.nation, e.detail.target)}
         ></scenario-nation-board>
       </div>`,
+      this.compactMap, // DFX (r26): the goal's minutes for the map
     );
   }
 

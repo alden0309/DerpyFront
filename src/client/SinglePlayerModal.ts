@@ -14,7 +14,7 @@ import { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { generateID } from "@openfront/shared/SharedUtil";
 import { PlayerCosmetics } from "@openfront/shared/WireSchemas";
-import { html, TemplateResult } from "lit";
+import { html, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { translateText } from "../client/Utils";
 import { responseHasLinkedIdentity } from "./AccountIdentity";
@@ -535,10 +535,15 @@ export class SinglePlayerModal extends BaseModal {
               // SCEN (r25)
               ...(this.scenario !== null
                 ? {
-                    scenario: renderScenarioPanel(this.scenario, () => {
-                      this.close();
-                      window.showPage?.("page-scenarios");
-                    }),
+                    scenario: renderScenarioPanel(
+                      this.scenario,
+                      () => {
+                        this.close();
+                        window.showPage?.("page-scenarios");
+                      },
+                      nothing,
+                      this.compactMap, // DFX (r26): the goal's minutes
+                    ),
                   }
                 : {}),
               gameMode: {

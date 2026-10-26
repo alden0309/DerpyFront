@@ -1,5 +1,6 @@
 import {
   GOAL_COINS,
+  goalMinute,
   goalTextKey,
   scenarioGoal,
 } from "@openfront/engine-lib/scenario/ScenarioGoals";
@@ -10,12 +11,19 @@ import { translateText } from "../Utils";
 /**
  * DFX (r26): a Scenario nation's optional goal, in words ("Hold Warsaw past
  * minute 20"), or null when it has none. From en.json's
- * scenario_goal_text.<scenario>.<nation>.
+ * scenario_goal_text.<scenario>.<nation>, with its minute for the map (a
+ * Compact map's is half: goalDueMinute).
  */
-export function goalText(scenarioId: string, nation: string): string | null {
-  if (scenarioGoal(scenarioId, nation) === null) return null;
+export function goalText(
+  scenarioId: string,
+  nation: string,
+  compact = false,
+): string | null {
+  const goal = scenarioGoal(scenarioId, nation);
+  if (goal === null) return null;
   const key = goalTextKey(scenarioId, nation);
-  const t = translateText(key);
+  const minute = goalMinute(goal, compact);
+  const t = translateText(key, minute === null ? {} : { minute });
   return t === key ? null : t;
 }
 
@@ -44,9 +52,10 @@ export function goalIcon(cls = "size-4"): TemplateResult {
 export function renderGoalLine(
   scenarioId: string,
   nation: string | null,
+  compact = false,
 ): TemplateResult | typeof nothing {
   if (nation === null) return nothing;
-  const text = goalText(scenarioId, nation);
+  const text = goalText(scenarioId, nation, compact);
   if (text === null) return nothing;
   return html`<div
     class="flex items-start gap-2 rounded-lg border border-cyber-yellow/25 bg-cyber-yellow/[0.06] px-2.5 py-1.5 text-left"

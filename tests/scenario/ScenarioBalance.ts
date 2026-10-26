@@ -164,7 +164,7 @@ async function main() {
       if (
         goalMetAt(
           goal,
-          { elapsed, holds, team, won },
+          { elapsed, holds, team, won, compact: sc.scale === 2 },
           final,
           GOAL_CHECK_INTERVAL,
         )

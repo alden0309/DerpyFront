@@ -45,6 +45,24 @@ export type GoalPlace =
   | { capitalOf: string }
   | { name: string; at: [number, number]; of: string };
 
+/**
+ * The minute a goal is due on this game's map: its own on a Normal map; on
+ * a Compact one, where the war moves about twice as fast, half (rounded
+ * up). Undefined for a goal without one.
+ */
+export function goalDueMinute(
+  goal: { minute?: number },
+  compact: boolean,
+): number | undefined {
+  if (goal.minute === undefined) return undefined;
+  return compact ? Math.ceil(goal.minute / 2) : goal.minute;
+}
+
+function dueTicks(goal: ScenarioGoal, compact: boolean): number {
+  const m = goalDueMinute(goal, compact);
+  return m === undefined ? Infinity : m * TICKS_PER_MINUTE;
+}
+
 export interface ScenarioGoal {
   /**
    * hold: hold the place at `minute` (or when the war ends, if sooner and
@@ -155,6 +173,8 @@ export interface GoalCheck {
   team: string | null;
   /** At the war's end: you (or your side) won it. */
   won?: boolean;
+  /** A Compact map's game (its minutes are halved: goalDueMinute). */
+  compact?: boolean;
 }
 
 function onSideOk(goal: ScenarioGoal, team: string | null): boolean {
@@ -174,8 +194,7 @@ export function goalMetAt(
   final: boolean,
   interval: number,
 ): boolean {
-  const due =
-    goal.minute === undefined ? Infinity : goal.minute * TICKS_PER_MINUTE;
+  const due = dueTicks(goal, c.compact === true);
   switch (goal.kind) {
     case "take":
       return c.holds && c.elapsed < due && onSideOk(goal, c.team);
@@ -197,10 +216,10 @@ export function goalMissed(
   elapsed: number,
   ended: boolean,
   interval: number,
+  compact = false,
 ): boolean {
   if (ended) return true;
-  const due =
-    goal.minute === undefined ? Infinity : goal.minute * TICKS_PER_MINUTE;
+  const due = dueTicks(goal, compact);
   switch (goal.kind) {
     case "take":
       return elapsed >= due;
@@ -212,9 +231,12 @@ export function goalMissed(
 }
 
 /**
- * The minute a goal is about (its deadline or its moment), for the line
- * under the timer's countdown; null for "to the end" and "ever".
+ * The minute a goal is about on this map (its deadline or its moment), for
+ * its words ("minute {minute}"); null for "to the end" and "ever".
  */
-export function goalMinute(goal: ScenarioGoal): number | null {
-  return goal.kind === "keep" ? null : (goal.minute ?? null);
+export function goalMinute(
+  goal: ScenarioGoal,
+  compact = false,
+): number | null {
+  return goal.kind === "keep" ? null : (goalDueMinute(goal, compact) ?? null);
 }

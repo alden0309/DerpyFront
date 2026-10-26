@@ -1,5 +1,9 @@
 import { GAME_ID_REGEX, GameConfig } from "@openfront/engine-api/Schemas";
-import { GameMode, GameType } from "@openfront/engine-api/game/GameTypes";
+import {
+  GameMapSize,
+  GameMode,
+  GameType,
+} from "@openfront/engine-api/game/GameTypes";
 import { scenarioReplayable } from "@openfront/engine-api/game/Scenarios"; // SCEN (r25)
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
@@ -734,6 +738,8 @@ export class JoinLobbyModal extends BaseModal {
               this.eventBus?.emit(new SendScenarioSeatIntentEvent(e.detail))}
           ></scenario-nation-board>
         </div>`,
+        // DFX (r26): the goal's minutes for the map
+        this.gameConfig?.gameMapSize === GameMapSize.Compact,
       )}
     </div>`;
   }

@@ -1,6 +1,7 @@
 import { GameMapSize } from "@openfront/engine-api/game/GameTypes";
 import type { AllPlayersStats } from "@openfront/engine-api/Schemas";
 import {
+  goalDueMinute,
   goalPaysOn,
   goalTileXY,
   scenarioGoal,
@@ -58,14 +59,15 @@ export class ScenarioGoalPanel extends LitElement {
     return null;
   }
 
+  /** A Compact map's game (a goal's minutes are halved there). */
+  private compact(): boolean {
+    return this.game.config().gameConfig().gameMapSize === GameMapSize.Compact;
+  }
+
   /** Whether you (or your side, for a side goal) hold the goal's place. */
   private holds(goal: ScenarioGoal, scenario: string, nation: string): boolean {
     if (this.tile === undefined) {
-      const xy = goalTileXY(
-        scenario,
-        nation,
-        this.game.config().gameConfig().gameMapSize === GameMapSize.Compact,
-      );
+      const xy = goalTileXY(scenario, nation, this.compact());
       this.tile =
         xy !== null && this.game.isValidCoord(xy[0], xy[1])
           ? this.game.ref(xy[0], xy[1])
@@ -92,8 +94,8 @@ export class ScenarioGoalPanel extends LitElement {
     }
     if (this.state !== "open" || this.game.inSpawnPhase()) return;
     const elapsed = Math.floor(this.game.elapsedGameSeconds() * 10);
-    const due =
-      goal.minute === undefined ? Infinity : goal.minute * TICKS_PER_MINUTE;
+    const minute = goalDueMinute(goal, this.compact());
+    const due = minute === undefined ? Infinity : minute * TICKS_PER_MINUTE;
     const team = me.team();
     const sideOk =
       goal.onSide === undefined ||
@@ -116,7 +118,9 @@ export class ScenarioGoalPanel extends LitElement {
 
   render() {
     const mine = this.game ? this.mine() : null;
-    const text = mine ? goalText(mine.scenario, mine.nation) : null;
+    const text = mine
+      ? goalText(mine.scenario, mine.nation, this.compact())
+      : null;
     this.style.display = mine && text ? "block" : "none";
     if (!mine || !text) return nothing;
     this.follow(mine.goal, mine.scenario, mine.nation);

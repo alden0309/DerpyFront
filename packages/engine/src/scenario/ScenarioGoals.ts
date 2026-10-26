@@ -72,6 +72,7 @@ export function checkScenarioGoals(game: Game, final: boolean): void {
         holds: holds(game, p, goal, tile),
         team: p.team(),
         won: final && won(game, p),
+        compact: scenario.scale === 2,
       },
       final,
       GOAL_CHECK_INTERVAL,
