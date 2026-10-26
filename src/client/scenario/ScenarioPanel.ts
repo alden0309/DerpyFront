@@ -5,8 +5,8 @@ import {
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { html, nothing, TemplateResult } from "lit";
 import { translateText } from "../Utils";
-import "./ScenarioPreview";
 import { renderGoalLine } from "./ScenarioGoalText"; // DFX (r26)
+import "./ScenarioPreview";
 import {
   nationName,
   scenarioDate,

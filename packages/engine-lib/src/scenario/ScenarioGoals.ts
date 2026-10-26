@@ -234,9 +234,6 @@ export function goalMissed(
  * The minute a goal is about on this map (its deadline or its moment), for
  * its words ("minute {minute}"); null for "to the end" and "ever".
  */
-export function goalMinute(
-  goal: ScenarioGoal,
-  compact = false,
-): number | null {
+export function goalMinute(goal: ScenarioGoal, compact = false): number | null {
   return goal.kind === "keep" ? null : (goalDueMinute(goal, compact) ?? null);
 }

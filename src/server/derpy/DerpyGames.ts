@@ -28,7 +28,6 @@ import { logger } from "../Logger";
 import { getMapLandTilesForSize } from "../MapLandTiles";
 import { accountsForPlayIds } from "./DerpyAuth";
 import { recordFrontChallenges } from "./DerpyChallenges"; // CHAL (r25)
-import { type GoalLine, payGoal } from "./DerpyGoals"; // DFX (r26)
 import {
   ConquestGameSummary,
   conquestProfile,
@@ -36,6 +35,7 @@ import {
   type ProfileAchievement, // MAP (r12)
 } from "./DerpyConquest";
 import { db, derpyDbConfigured, inTransaction } from "./DerpyDb";
+import { type GoalLine, payGoal } from "./DerpyGoals"; // DFX (r26)
 import { heldSince, labelFor, namesOf } from "./DerpyNames"; // NAMES (r20)
 
 const log = logger.child({ component: "DerpyGames" });

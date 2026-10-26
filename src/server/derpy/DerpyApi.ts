@@ -52,12 +52,12 @@ import {
   recordDerpyGame,
   savedGameRecord,
 } from "./DerpyGames";
+import { goalsRouter } from "./DerpyGoals"; // DFX (r26)
 import { checkName, nameStatus, renameAccount } from "./DerpyNames"; // NAMES (r20)
 import { loadNews, newsRouter } from "./DerpyNews"; // NEWS (r25)
 import { socialRenamed, socialRouter, socialSignedOut } from "./DerpySocial"; // FRIENDS (r25)
 import { liveGames } from "./LiveGames"; // SITE (r19)
 import { watchRouter } from "./ReplayRooms"; // DFX (r26)
-import { goalsRouter } from "./DerpyGoals"; // DFX (r26)
 
 const log = logger.child({ component: "DerpyApi" });
 
