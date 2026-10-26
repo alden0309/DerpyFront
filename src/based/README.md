@@ -579,7 +579,7 @@ to you.", "… will remember that.") call someone by the body they are until
 he knows the name (`@cast ANSELME "Anselme" body=BARMAN`: "The barman warms
 to you."), and the script may make them speak (`ANSELME: ...`) or put them
 under a portrait (`@figure ANSELME`) by that name only where he learns it,
-or after.
+or after. His dossier's people (`peopleKnown`) go by the same names.
 
 The validator (`engine/Facts.ts`) checks every one of them;
 `tests/based/BasedFacts.test.ts` also plays chapter one down 200 random

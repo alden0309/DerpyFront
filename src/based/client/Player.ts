@@ -29,6 +29,7 @@ import {
 import { customElement, property, state } from "lit/decorators.js";
 import { rollDice, tierName } from "../engine/Dice";
 import { evalExpr } from "../engine/Expr";
+import { peopleKnown } from "../engine/Facts";
 import { neighbours, PlaceDef } from "../engine/Place";
 import {
   Available,
@@ -1069,27 +1070,22 @@ export class BasedPlayer extends LitElement {
     const t = (sec: number) => clockText(sec).time;
     const clock = clockText(run.clock);
     const art = (k?: string) => (k ? mediaNow("art", k) : null);
-    // People, one entry per person (a name learned later is the same body).
-    const rels = run.values().rels;
-    const groups = new Map<string, string[]>();
-    for (const c of ch.cast) {
-      if (c.id === hero?.id) continue;
-      const body = c.body ?? c.id;
-      groups.set(body, [...(groups.get(body) ?? []), c.id]);
-    }
+    // People, one entry per person (a name learned later is the same body),
+    // r26: each by the name he knows them by now (Facts.peopleKnown).
+    const vals = run.values();
+    const rels = vals.rels;
     const people: (DossierView["people"][number] & { at: number })[] = [];
-    for (const [body, ids] of groups) {
+    for (const p of peopleKnown(ch, rec.met, vals.flags)) {
+      const ids = p.ids;
       const met = ids.filter((id) => rec.met[id] !== undefined);
-      if (met.length === 0) continue;
-      const named = met.find((id) => id !== body);
-      const who = ch.cast.find((c) => c.id === (named ?? body))!;
-      const first = ch.cast.find((c) => c.id === body)!;
+      const who = ch.cast.find((c) => c.name === p.name && ids.includes(c.id));
+      const first = ch.cast.find((c) => c.id === p.body)!;
       const rel = ids.reduce((a, id) => a + (rels[id] ?? 0), 0);
       const at = Math.min(...met.map((id) => rec.met[id]));
       people.push({
-        name: who.name,
-        first: named ? first.name.replace(/^The /, "the ") : undefined,
-        portrait: art(who.portrait ?? first.portrait),
+        name: p.name,
+        first: p.first?.replace(/^The /, "the "),
+        portrait: art(who?.portrait ?? first.portrait),
         met: `at ${t(at)}`,
         stand: this.standing(Math.max(-3, Math.min(3, rel))),
         warmth: Math.max(-3, Math.min(3, rel)),

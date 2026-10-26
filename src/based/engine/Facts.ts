@@ -97,6 +97,51 @@ export function knownNameAt(chapter: Chapter, who: string, k: Known): string {
   return nameBy(chapter, who, (f) => satisfied(f, k));
 }
 
+/** One person in the story so far: their body, and what the page calls them. */
+export interface PersonKnown {
+  body: string;
+  /** The cast ids that are this person (the body first). */
+  ids: string[];
+  /** As he knows them now (knownName). */
+  name: string;
+  /** What they were before he learned the name ("the barman"), if it differs. */
+  first?: string;
+}
+
+/**
+ * r26: the people he's met (anyone who has spoken to him: `met`), one entry
+ * per person however many names they go by, each called by the name he
+ * knows them by now. The dossier lists them.
+ */
+export function peopleKnown(
+  chapter: Chapter,
+  met: Record<string, number>,
+  flags: Record<string, number>,
+): PersonKnown[] {
+  const hero = chapter.cast[0]?.id;
+  const groups = new Map<string, string[]>();
+  for (const c of chapter.cast) {
+    if (c.id === hero) continue;
+    const body = c.body ?? c.id;
+    groups.set(body, [...(groups.get(body) ?? []), c.id]);
+  }
+  const out: PersonKnown[] = [];
+  for (const [body, ids] of groups) {
+    if (!ids.some((id) => met[id] !== undefined)) continue;
+    // The latest name they've spoken under, else the body's own.
+    const named = ids.find((id) => id !== body && met[id] !== undefined);
+    const name = knownName(chapter, named ?? body, flags);
+    const bodyName = chapter.cast.find((c) => c.id === body)?.name ?? body;
+    out.push({
+      body,
+      ids: [body, ...ids.filter((id) => id !== body)],
+      name,
+      first: name !== bodyName ? bodyName : undefined,
+    });
+  }
+  return out;
+}
+
 /** The clauses a condition makes certain when it holds. */
 export function clausesOf(e: Expr | undefined): string[][] {
   if (!e) return [];

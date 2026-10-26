@@ -8,7 +8,12 @@ import fs from "fs";
 import path from "path";
 import { describe, expect, test } from "vitest";
 import { evalExpr } from "../../src/based/engine/Expr";
-import { factsIn, knownName, knowsFact } from "../../src/based/engine/Facts";
+import {
+  factsIn,
+  knownName,
+  knowsFact,
+  peopleKnown,
+} from "../../src/based/engine/Facts";
 import { PlaceDef } from "../../src/based/engine/Place";
 import { chapterStart, StoryRun } from "../../src/based/engine/Runtime";
 import { parseChapter } from "../../src/based/engine/Script";
@@ -212,6 +217,22 @@ describe("@fact and the validator (r25)", () => {
     expect(knownName(chapter, "ANSELME", {})).toBe("The barman");
     expect(knownName(chapter, "ANSELME", { knows_name: 1 })).toBe("Anselme");
     expect(knownName(chapter, "BAR", { knows_name: 1 })).toBe("The barman");
+    // The dossier's people: one entry a person, by the name he knows now.
+    expect(peopleKnown(chapter, { BAR: 1 }, {})).toEqual([
+      { body: "BAR", ids: ["BAR", "ANSELME"], name: "The barman" },
+    ]);
+    expect(
+      peopleKnown(chapter, { BAR: 1, ANSELME: 2 }, { knows_name: 1 }),
+    ).toEqual([
+      {
+        body: "BAR",
+        ids: ["BAR", "ANSELME"],
+        name: "Anselme",
+        first: "The barman",
+      },
+    ]);
+    // Spoken to under the name, but not yet known by it: still the barman.
+    expect(peopleKnown(chapter, { ANSELME: 2 }, {})[0].name).toBe("The barman");
   });
 
   test("a @fact flag nobody sets is an error", () => {
@@ -303,6 +324,10 @@ function wander(chapter: Chapter, seed: number, problems: Set<string>) {
     // r26: the pop-ups, named as he knows them.
     for (const e of r.drain()) {
       if (e.type === "rel" || e.type === "remember") shown.push(e.name);
+    }
+    // r26: and the people in his dossier, as it names them now.
+    for (const p of peopleKnown(chapter, r.record.met, flags)) {
+      shown.push(p.name);
     }
     // r26: who's speaking, and the name under the portrait (where he learns
     // it, it can say it).
