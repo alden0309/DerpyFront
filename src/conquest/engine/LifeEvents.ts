@@ -3693,6 +3693,7 @@ import { SEASON_EVENTS } from "./SeasonLife"; // MAP (r12)
 import { shipEvents, shipQuiet } from "./ShipEvents"; // SHIPS (r21)
 import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
 import { TALES } from "./Tales";
+import { tutorialEvents } from "./TutorialEvents"; // CQTUT (r26)
 import { workR21Events, workR21Quiet } from "./WorkR21"; // WORK (r21)
 import { worldRng } from "./WorldRng";
 
@@ -3798,6 +3799,12 @@ function byKey(key: string): LifeEventDef | undefined {
       }
     // DLC (r21): the 1776 campaign's scenes; Legends' rumours and trails.
     for (const d of [...r76Events(), ...legendEvents()])
+      if (!BY_KEY.has(d.key)) {
+        LIFE_EVENTS.push(d);
+        BY_KEY.set(d.key, d);
+      }
+    // CQTUT (r26): the first life's own letters, raised by its lessons.
+    for (const d of tutorialEvents())
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);

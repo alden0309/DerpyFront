@@ -88,6 +88,7 @@ import { endYearOf } from "./Starts"; // DLC (r21)
 import "./Towns"; // TOWNS (r17): newcomers, ruins, the towns' public works
 import { takeTownsDelta } from "./TownsCore"; // TOWNS (r17)
 import { dealsMonthly, tradeCommand } from "./Trade";
+import "./Tutorial"; // CQTUT (r26): the first life's lessons
 import {
   Army,
   BattleReport,
