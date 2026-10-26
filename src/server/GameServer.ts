@@ -1776,7 +1776,9 @@ export class GameServer {
     // Only a started game has a record to archive: gameStartInfo is built by
     // start(), so a game that ends during prestart has nothing to upload.
     if (this.stage !== "started") {
-      this.log.info(`game not started, not archiving game`);
+      // DFX (r26): debug, not info: every public lobby nobody joined ends
+      // here, one every 2 s on Derp Land (WorkerLobbyService's createGame).
+      this.log.debug(`game not started, not archiving game`);
       this.telemetry.matchFinished(this.turns.length);
       return;
     }

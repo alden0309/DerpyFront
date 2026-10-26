@@ -61,7 +61,11 @@ describe("GameLifecycle", () => {
 
     expect(archive).not.toHaveBeenCalled();
     expect(log.error).not.toHaveBeenCalled();
-    expect(log.info).toHaveBeenCalledWith(
+    // DFX (r26): at debug, as public lobbies nobody joined all end here.
+    expect(log.debug).toHaveBeenCalledWith(
+      "game not started, not archiving game",
+    );
+    expect(log.info).not.toHaveBeenCalledWith(
       "game not started, not archiving game",
     );
     // The lobby-info broadcast the join armed is gone too.

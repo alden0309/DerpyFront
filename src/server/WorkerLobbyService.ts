@@ -145,7 +145,10 @@ export class WorkerLobbyService {
           this.log.warn(`Game ${msg.gameID} already exists, skipping create`);
           return;
         }
-        this.log.info(`Creating public game ${msg.gameID} from master`);
+        // DFX (r26): debug, not info. Derp Land runs in dev mode (5 s
+        // countdowns), so upstream's rotation makes one of these every 2 s
+        // with nobody on; see GameServer.end().
+        this.log.debug(`Creating public game ${msg.gameID} from master`);
         const game = this.gm.createGame(
           msg.gameID,
           msg.gameConfig,
