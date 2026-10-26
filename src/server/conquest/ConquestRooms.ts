@@ -463,6 +463,24 @@ interface Room {
   password: LobbyLock;
 }
 
+/** ADMIN (r26): a room as the owner's admin page lists it. */
+export interface AdminConquestRoom {
+  code: string;
+  title: string;
+  solo: boolean;
+  open: boolean;
+  locked: boolean;
+  started: boolean;
+  over: boolean;
+  year: number | null;
+  startedAt: number | null;
+  paused: boolean;
+  saveId: string | null;
+  watchers: number;
+  watchId: string | null;
+  seats: { name: string; accountId: number | null; online: boolean }[];
+}
+
 /** LEGACY (r21): after someone pauses in company, only they may start the clock for this long. */
 export const PAUSE_LOCK_MS = 10_000;
 
@@ -1315,6 +1333,87 @@ export class ConquestRooms {
           out.set(w.accountId, { k: "cq-watch" });
     }
     return out;
+  }
+
+  // ---- ADMIN (r26): the owner's admin page ----
+
+  /** Every room here, for the owner's admin page (never sent to anyone else). */
+  adminRooms(): AdminConquestRoom[] {
+    return [...this.rooms.values()].map((r) => ({
+      code: r.code,
+      title: titleOf(r),
+      solo: r.solo,
+      open: r.open,
+      locked: r.password.locked,
+      started: r.game !== null,
+      over: r.overAt !== null || !!r.game?.state.over,
+      year: r.game ? dateOf(r.game.state.day).year : null,
+      startedAt: r.startedAt > 0 ? r.startedAt : null,
+      paused: r.paused,
+      saveId: r.saveId,
+      watchers: r.watchers.size,
+      watchId: r.game && this.watchable(r) ? r.watchId : null,
+      seats: r.seats.map((x) => ({
+        name: x.name,
+        accountId: x.accountId,
+        online: x.conn !== null,
+      })),
+    }));
+  }
+
+  /** An account (suspended or deleted) leaves every table: its seats and its watching. */
+  adminDrop(accountId: number, why: string): number {
+    let n = 0;
+    for (const room of [...this.rooms.values()]) {
+      for (const seat of room.seats) {
+        const conn = seat.conn;
+        if (!conn || seat.accountId !== accountId) continue;
+        this.send(conn, { t: "err", msg: "That game has ended or closed." });
+        this.send(conn, { t: "watchend", why });
+        conn.accountId = null;
+        conn.username = null;
+        this.disconnect(conn);
+        n++;
+      }
+      for (const w of [...room.watchers]) {
+        if (w.accountId !== accountId) continue;
+        this.send(w, { t: "watchend", why });
+        w.accountId = null;
+        w.username = null;
+        this.disconnect(w);
+        n++;
+      }
+    }
+    return n;
+  }
+
+  /**
+   * The owner closes a room: a game under way is saved first (it can be
+   * picked up again from the saved games), each player is told why and
+   * sent back to the front screen, and its watchers too.
+   */
+  async adminClose(code: string, reason: string): Promise<boolean> {
+    const room = this.rooms.get(code);
+    if (!room) return false;
+    const why = `Derp Land closed this game: ${reason}`;
+    for (const seat of room.seats) {
+      const conn = seat.conn;
+      if (!conn) continue;
+      // "ended or closed" lets the page forget its ticket back in.
+      this.send(conn, { t: "err", msg: "That game has ended or closed." });
+      this.send(conn, { t: "watchend", why });
+      conn.room = null;
+      conn.seat = null;
+      seat.conn = null;
+      void this.pay.settle(room, seat, true);
+    }
+    if (room.game && room.overAt === null && !room.game.state.over)
+      await this.save(room).catch((err: unknown) =>
+        log.warn(`couldn't save room ${code} on closing: ${err}`),
+      );
+    this.closeRoom(room, why);
+    log.info("room closed from the admin page", { code });
+    return true;
   }
 
   /** Watch a game being played: no seat, no say, and nobody's secrets. */

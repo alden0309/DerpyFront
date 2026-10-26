@@ -2,7 +2,9 @@
 // parties, as /derpy/api/social serves them (types only: the server and the
 // pages share them).
 
+import type { SiteBanner } from "./BannerTypes"; // ADMIN (r26)
 import type { NewsBeat } from "./NewsTypes"; // NEWS (r25)
+import type { Look } from "./Pictures"; // PROFILE (r26)
 
 /** What kind of DerpyFront lobby (or game) someone is in. */
 export type FrontLobby = "solo" | "private" | "public" | "matched";
@@ -154,6 +156,13 @@ export interface SocialState {
   partyInvites: PartyInviteRow[];
   /** NEWS (r25): on a beat, how much of What's New is new (News.ts). */
   news?: NewsBeat;
+  /** ADMIN (r26): on a beat, the site banner (null: none). */
+  banner?: SiteBanner | null;
+  /**
+   * PROFILE (r26): the picture and pinned badges of everyone in this state
+   * (you too), by account id; anyone left out shows their monogram.
+   */
+  looks?: Record<string, Look>;
 }
 
 /** What the social actions answer when they can't. */

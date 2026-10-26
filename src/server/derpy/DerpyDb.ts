@@ -9,6 +9,7 @@
 
 import pg from "pg";
 import { logger } from "../Logger";
+import { ADMIN_SCHEMA } from "./admin/AdminSchema"; // ADMIN (r26)
 import { grantBasedByName } from "./BasedAccess"; // NAMES (r20)
 import { grantPersonalitiesToPackOwners } from "./PersonalityGrants"; // AIP (r23)
 import { refundRetiredItems } from "./RetiredRefunds"; // CQ24 (r24)
@@ -405,6 +406,60 @@ CREATE INDEX IF NOT EXISTS derpy_invites_to
 -- (none yet). Null until the account first looks, when it becomes the
 -- newest entry then, so old news is never new to a new account.
 ALTER TABLE derpy_accounts ADD COLUMN IF NOT EXISTS news_seen TEXT;
+
+-- PROFILE (r26): badges and profile pictures (DerpyBadges.ts,
+-- DerpyPictures.ts). Each badge an account has earned, once and for good
+-- (seen: shown to them in a toast already), and the ones it pins beside its
+-- name. New tables and columns: nothing else moves.
+CREATE TABLE IF NOT EXISTS derpy_badges (
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  earned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  seen BOOLEAN NOT NULL DEFAULT false,
+  PRIMARY KEY (account_id, key)
+);
+ALTER TABLE derpy_accounts
+  ADD COLUMN IF NOT EXISTS pinned_badges TEXT[] NOT NULL DEFAULT '{}';
+-- A DerpyFront game's difficulty, and whether AI personalities were dealt,
+-- for the badges (null: not read from its record yet; '' when it couldn't be).
+ALTER TABLE derpy_games ADD COLUMN IF NOT EXISTS difficulty TEXT;
+ALTER TABLE derpy_games ADD COLUMN IF NOT EXISTS ai_personalities BOOLEAN;
+-- The account's picture (src/derpland/Pictures.ts: p:<preset>, m:<colour>,
+-- u:<account>:<version>; null: the default monogram), and whether the owner
+-- has stopped it uploading.
+ALTER TABLE derpy_accounts ADD COLUMN IF NOT EXISTS picture TEXT;
+ALTER TABLE derpy_accounts
+  ADD COLUMN IF NOT EXISTS picture_blocked BOOLEAN NOT NULL DEFAULT false;
+-- Each account's uploaded picture: the small JPEG the server drew again from
+-- it (never the file sent), one per account, replaced by the next upload.
+-- Kept here, not on the server's disk, which every deploy wipes.
+CREATE TABLE IF NOT EXISTS derpy_pictures (
+  account_id BIGINT PRIMARY KEY REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  version TEXT NOT NULL,
+  data BYTEA NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS derpy_pictures_recent
+  ON derpy_pictures (created_at DESC);
+-- Every change of picture (upload, preset, removed), for the day's limit.
+CREATE TABLE IF NOT EXISTS derpy_picture_log (
+  id BIGSERIAL PRIMARY KEY,
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  version TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS derpy_picture_log_account
+  ON derpy_picture_log (account_id, created_at);
+-- An uploaded picture reported, once per reporter per version.
+CREATE TABLE IF NOT EXISTS derpy_picture_reports (
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  version TEXT NOT NULL,
+  reporter_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (account_id, version, reporter_id)
+);
+-- /PROFILE (r26)
 -- DFX (r26): Scenario goals (DerpyGoals.ts). Each goal an account has met,
 -- paid once ("europe1939:poland"): the game it was met in, the tick, and
 -- the coins it paid.
@@ -428,6 +483,8 @@ async function migrate(p: pg.Pool): Promise<void> {
   try {
     await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK]);
     await client.query(SCHEMA);
+    // ADMIN (r26): the admin page's tables and columns (additive only).
+    await client.query(ADMIN_SCHEMA);
     // NAMES (r20): Mr. Based's players marked by account, from their names
     // in BASED_PLAYERS, once each (the owner's "Alden" on the first start).
     const marked = await grantBasedByName(client);

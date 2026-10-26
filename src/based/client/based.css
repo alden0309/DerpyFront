@@ -1430,6 +1430,24 @@ kbd {
 .mb-e-lang.lost {
   border-style: dashed;
 }
+.mb-e-lang.poor {
+  border-style: dotted;
+}
+/* r26: words in another language, read or overheard: the words as they
+   are (typed, as on paper), then what he makes of them. */
+.mb-e.read > p {
+  color: var(--mb-light);
+}
+.mb-e-orig {
+  display: block;
+  margin: 2px 0 3px;
+  font-family: var(--mb-type);
+  font-size: 13.5px;
+  color: var(--mb-light-2);
+}
+.mb-e.read .mb-e-words {
+  font-style: italic;
+}
 .mb-e.foreign .mb-e-words {
   font-style: italic;
   color: var(--mb-light-2);

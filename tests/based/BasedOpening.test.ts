@@ -50,7 +50,7 @@ const text = (id: string) =>
   chapter.scenes[id].ops
     .flatMap((o) =>
       o.op === "line"
-        ? [o.text, o.trans ?? ""]
+        ? [o.text, ...(o.levels ?? [])]
         : o.op === "choose"
           ? [o.prompt, ...o.options.map((x) => x.label)]
           : [],
@@ -104,10 +104,14 @@ function readOn(
 }
 
 /** A new game, free in the street, with the Analyst. */
-function street(seed = 7): StoryRun {
+function street(seed = 7, fr = 3): StoryRun {
   const r = new StoryRun(
     chapter,
-    chapterStart(chapter, undefined, { build: analyst, seed }),
+    chapterStart(chapter, undefined, {
+      // r26: his French (the language system), perfect unless said.
+      build: { ...analyst, langPts: { fr, ru: 4 - fr } },
+      seed,
+    }),
   );
   readOn(r);
   return r;
@@ -184,6 +188,99 @@ describe("the opening, reshaped (r25)", () => {
     expect(offer).toMatch(/BASED: Need a light\?/);
     expect(m.flag("saw_watcher")).toBe(0);
     expect(m.flag("met_watcher")).toBe(1);
+    expect(m.flag("heard_alone")).toBe(1);
+  });
+
+  test("r26: what the smoker says is his French; with less than decent, he can ask in English", () => {
+    for (const fr of [0, 1, 2, 3]) {
+      const r = street(9, fr);
+      getMatches(r);
+      r.talk("WATCHER");
+      const said: string[] = [];
+      for (let i = 0; i < 40 && r.beat.kind !== "free"; i++) {
+        const b = r.beat;
+        if (b.kind === "line") said.push(b.text);
+        if (b.kind === "choice") {
+          // Only below decent French, and the English way through is there.
+          expect(fr).toBeLessThan(2);
+          const ask = b.options.find((o) => /English/.test(o.label));
+          expect(ask, `French ${fr}`).toBeTruthy();
+          r.choose(ask!.id);
+          continue;
+        }
+        r.advance();
+      }
+      const text = said.join("\n");
+      expect(text).toMatch(
+        [
+          /Non, merci\. Je veux juste être seul\./,
+          /I just want to be single/,
+          /I just want to be on my own/,
+          /I just want to be alone/,
+        ][fr],
+      );
+      // Whatever his French, asked in English he knows what the man wants.
+      expect(r.flag("heard_alone"), `French ${fr}`).toBe(1);
+    }
+  });
+
+  test("r26: he stands under the awning, clear of the pharmacy from the game camera", () => {
+    // The owner: "Move the guy standing outside as it's hard to click him
+    // instead of the pharmacy." Seen down the camera (World.ts: azimuth and
+    // elevation, orthographic), his click column (0.32 m round, 1.75 m tall)
+    // overlaps no hotspot's sphere, and the pharmacy's least of all.
+    const street = PLACES.street;
+    const az = (street.camera.azimuth * Math.PI) / 180;
+    const el = (street.camera.elevation * Math.PI) / 180;
+    const d = [
+      Math.sin(az) * Math.cos(el),
+      Math.sin(el),
+      Math.cos(az) * Math.cos(el),
+    ];
+    const n = Math.hypot(d[2], d[0]);
+    const right = [d[2] / n, 0, -d[0] / n];
+    const up = [
+      d[1] * right[2] - d[2] * right[1],
+      d[2] * right[0] - d[0] * right[2],
+      d[0] * right[1] - d[1] * right[0],
+    ];
+    const dot = (a: number[], b: number[]) =>
+      a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const screen = (p: number[]) => [dot(p, right), dot(p, up)];
+    const [x, z] = street.marks.watcher_spot.at;
+    const [fx, fy] = screen([x, 0, z]);
+    const [, hy] = screen([x, 1.75, z]);
+    const box = { l: fx - 0.32, r: fx + 0.32, lo: fy - 0.19, hi: hy + 0.19 };
+    const clear = (id: string) => {
+      const h = street.hotspots[id];
+      const [cx, cy] = screen(h.at);
+      const dx = Math.max(box.l - cx, 0, cx - box.r);
+      const dy = Math.max(box.lo - cy, 0, cy - box.hi);
+      return Math.hypot(dx, dy) - (h.r ?? 0.35);
+    };
+    for (const id of Object.keys(street.hotspots)) {
+      expect(clear(id), id).toBeGreaterThan(0.2);
+    }
+    expect(clear("pharmacy")).toBeGreaterThan(0.5);
+    // Under the pharmacy's awning, out of the rain.
+    const shop = street.items.find(
+      (i) => i.kind === "shopfront" && (i as { cross?: boolean }).cross,
+    ) as unknown as {
+      at: number[];
+      w: number;
+      h: number;
+      awning: { depth: number };
+    };
+    expect(Math.abs(x - shop.at[0])).toBeLessThan(shop.w / 2);
+    expect(z).toBeGreaterThan(shop.at[2] - shop.awning.depth);
+    expect(z).toBeLessThan(shop.at[2]);
+    // And the awning doesn't hide him: the camera looks from the wall's side,
+    // so from the top of his head the way to it passes under the awning's
+    // back edge (Kit.ts: its middle at h - 0.95, tilted 0.28, a box of the
+    // awning's depth), not through it.
+    const back = shop.h - 0.95 + Math.sin(0.28) * (shop.awning.depth / 2);
+    const rise = (shop.at[2] - z) * (d[1] / d[2]);
+    expect(1.8 + rise).toBeLessThan(back);
   });
 
   test("the offer is gated: the validator refuses it without a light", () => {
@@ -295,13 +392,24 @@ describe("the opening, reshaped (r25)", () => {
 });
 
 describe("the barman's grandson's pin (r26)", () => {
+  const handler = buildOf(chapter.archetypes[1]);
   /**
    * Through the bar to the end of the man in grey, by option labels where
    * `want` names one, looking at his lapel; every text he's shown (lines,
    * options, the reasons on checks, deductions) collected.
    */
-  function playBar(want: string[]): { r: StoryRun; shown: string[] } {
-    const r = street(13);
+  function playBar(
+    want: string[],
+    seed = 13,
+  ): { r: StoryRun; shown: string[] } {
+    const r = new StoryRun(
+      chapter,
+      chapterStart(chapter, undefined, {
+        build: { ...handler, langPts: { fr: 3 } },
+        seed,
+      }),
+    );
+    readOn(r);
     r.enterPlace("vauban", "vauban_door_in");
     readOn(r);
     r.talk("BARMAN");
@@ -346,40 +454,79 @@ describe("the barman's grandson's pin (r26)", () => {
     return { r, shown };
   }
 
-  test("asked about the television but not the boy: no pin, and no link to the man in grey's", () => {
-    const { r, shown } = playBar(["Ask about the television", "Let it go"]);
+  /** The first seed whose Empathy check on the barman passes. */
+  function passing(want: string[]): { r: StoryRun; shown: string[] } {
+    for (let seed = 1; seed <= 40; seed++) {
+      const p = playBar(want, seed);
+      if (p.r.flag("heard_grandson")) return p;
+    }
+    throw new Error("the check never passed");
+  }
+
+  test("the barman doesn't just say it: a check on him, and he lets it out", () => {
+    const tv = chapter.scenes.tv_talk.ops;
+    // No line of his says it straight off any more.
+    const said = tv
+      .filter((o) => o.op === "line" && o.who === "BARMAN")
+      .map((o) => (o.op === "line" ? o.text : ""));
+    expect(said).not.toContain(
+      "My grandson joined his Volunteers in the spring.",
+    );
+    const check = tv
+      .filter((o) => o.op === "choose")
+      .flatMap((o) => (o.op === "choose" ? o.options : []))
+      .find((o) => o.check);
+    expect(check?.check?.skill).toBe("EMPATHY");
+    // Passed and asked: the grandson, reluctantly, then the pin if he asks
+    // about the boy, and the man in grey's is the same.
+    const { r, shown } = passing([
+      "Ask about the television",
+      "Watch him, not the screen",
+      "Ask who he's looking for",
+      "Ask about the boy",
+    ]);
     const all = shown.join("\n");
-    expect(all).toMatch(/My grandson joined his Volunteers in the spring\./);
+    expect(all).toMatch(/Up there\? No, monsieur\. Nobody\./);
+    expect(all).toMatch(/My grandson\. He joined them in the spring/);
+    expect(all).toMatch(/They give them a little pin/);
+    expect(r.flag("knows_oak")).toBe(1);
+    expect(all).toMatch(/The barman's grandson wears one of those/);
+  });
+
+  test("passed, asked, and let go: the grandson, but no pin, and no link to the man in grey's", () => {
+    const { r, shown } = passing([
+      "Ask about the television",
+      "Watch him, not the screen",
+      "Ask who he's looking for",
+      "Let it go",
+    ]);
     expect(r.flag("heard_grandson")).toBe(1);
     expect(r.flag("knows_oak")).toBe(0);
     expect(r.flag("lapel")).toBe(1);
-    // The barman never said what the boy wears, so nothing of his says it:
-    // that there's a grandson, yes; his pin, or that the man's is the same, no.
     const his = shown.filter(
       (t) => !/^(BARMAN|ANSELME|STRANGER|DELORME|PENHALLOW):/.test(t),
     );
     expect(his.join("\n")).not.toMatch(
       /grandson's pin|grandson wears|grandmother|inside of the lapel/i,
     );
-    expect(all).not.toMatch(/little pin|inside of his lapel/);
+    expect(shown.join("\n")).not.toMatch(/little pin|inside of his lapel/);
   });
 
-  test("asked about the boy: the pin, and then the man in grey's is the same", () => {
-    const { r, shown } = playBar([
-      "Ask about the television",
-      "Ask about his grandson",
-    ]);
-    const all = shown.join("\n");
-    expect(all).toMatch(/They give them a little pin/);
-    expect(r.flag("knows_oak")).toBe(1);
-    expect(all).toMatch(/The barman's grandson wears one of those/);
-  });
-
-  test("let him watch: nothing of the boy at all", () => {
-    const { r, shown } = playBar(["Let him watch"]);
-    expect(r.flag("heard_grandson")).toBe(0);
-    expect(r.flag("knows_oak")).toBe(0);
-    expect(shown.join("\n")).not.toMatch(/grandson|grandmother/i);
+  test("without the check (or watching the screen), nothing of the boy at all", () => {
+    for (const want of [
+      ["Ask about the television", "Watch the screen"],
+      ["Let him watch"],
+    ]) {
+      const { r, shown } = playBar(want);
+      expect(r.flag("heard_grandson")).toBe(0);
+      expect(r.flag("knows_oak")).toBe(0);
+      expect(shown.join("\n")).not.toMatch(/grandson|grandmother/i);
+    }
+    // And the photograph no longer tells him (the owner: S96.22, S96.24).
+    const photo = chapter.scenes.anselme_after.ops
+      .filter((o) => o.op === "line")
+      .map((o) => (o.op === "line" ? o.text : ""));
+    expect(photo.join(" ")).not.toMatch(/grandson|oak leaf/);
   });
 });
 
@@ -497,7 +644,7 @@ describe("London's contact, both ways (r25)", () => {
       const m = p.run.flag("missed_watch");
       expect(k + m, `seed ${seed}`).toBe(1);
     }
-  });
+  }, 60_000);
 });
 
 describe("the lobby (r25)", () => {
@@ -543,11 +690,17 @@ describe("the lobby (r25)", () => {
     expect(g).toMatch(/turned to face the clerk/);
     expect(g).not.toMatch(/\d|Delorme|forty|M\. /);
     expect(chapter.scenes.register).toBeUndefined();
-    // Asking to see it is turned down.
+    // r26 (the owner, S103.31): asking to see it is gone; the clerk never
+    // talks about another guest (S103.6), by policy, with no check.
     const ask = chapter.scenes.clerk_ask.ops.find((o) => o.op === "choose");
     if (ask?.op !== "choose") throw new Error("no choice");
-    expect(ask.options.map((o) => o.id)).toContain("ask-to-see-the-guest-book");
-    expect(text("clerk_ask")).toMatch(/closed the guest book on his finger/);
+    expect(ask.options.map((o) => o.id)).not.toContain(
+      "ask-to-see-the-guest-book",
+    );
+    const forty = ask.options.find((o) => o.id === "ask-about-room-forty-one");
+    expect(forty?.check).toBeUndefined();
+    expect(text("clerk_ask")).toMatch(/Our guests' habits are their own/);
+    expect(text("clerk_ask")).not.toMatch(/Satory/);
     // And nothing anywhere turns it round for him.
     for (const id of chapter.order) {
       expect(text(id), id).not.toMatch(

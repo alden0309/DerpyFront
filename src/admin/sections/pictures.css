@@ -1,0 +1,136 @@
+/* PROFILE (r26): the admin page's profile pictures (PicturesView.ts), in
+   the hub's panels and buttons. */
+
+.adm-pics + .adm-pics {
+  margin-top: 18px;
+}
+.adm-pics .dl-h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.adm-pics-count {
+  font-size: 14px;
+  color: var(--text-3);
+}
+.adm-pics-note {
+  margin: -4px 0 14px;
+  max-width: 64ch;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.adm-pic-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 10px;
+}
+.adm-pic,
+.adm-acct-pic {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-areas:
+    "img text"
+    "img acts";
+  gap: 6px 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.adm-acct-pic {
+  border: 0;
+  padding: 0;
+  background: none;
+}
+.adm-pic-img {
+  grid-area: img;
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--token);
+  color: #fff;
+  font-weight: 700;
+  font-size: 28px;
+  box-shadow: 0 0 0 1px var(--line-2);
+}
+.adm-pic-text {
+  grid-area: text;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.adm-pic-name {
+  font-weight: 700;
+  font-size: 15.5px;
+  color: var(--text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.adm-pic-name:hover {
+  text-decoration: underline;
+}
+.adm-pic-meta {
+  font-size: 13px;
+  color: var(--text-3);
+}
+.adm-pic-reports {
+  font-size: 13px;
+  color: #fcd34d;
+}
+.adm-pic-tag {
+  justify-self: start;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  font-weight: 650;
+}
+.adm-pic-tag.bad {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fca5a5;
+}
+.adm-pic-acts {
+  grid-area: acts;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px;
+}
+.adm-danger {
+  color: #fca5a5;
+}
+.adm-blocked {
+  display: grid;
+  gap: 6px;
+}
+.adm-blocked li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+}
+.adm-blocked li:last-child {
+  border-bottom: 0;
+}
+@media (max-width: 560px) {
+  .adm-pic-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .adm-pic,
+  .adm-acct-pic {
+    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-areas:
+      "img text"
+      "acts acts";
+  }
+  .adm-pic-img {
+    width: 56px;
+    height: 56px;
+    font-size: 22px;
+  }
+}

@@ -11,6 +11,8 @@ import type { RenameError } from "../../derpland/Names"; // NAMES (r20)
 import { finalizeGameRecord } from "../Archive";
 import { logger } from "../Logger";
 import { setNoStoreHeaders } from "../NoStoreHeaders";
+import { keepAdminKey } from "./admin/AdminAccess"; // ADMIN (r26)
+import { adminRouter } from "./admin/AdminRouter"; // ADMIN (r26)
 import { dynastyFor } from "./ConquestDynasties"; // TREE (r25)
 import {
   Account,
@@ -57,6 +59,11 @@ import { checkName, nameStatus, renameAccount } from "./DerpyNames"; // NAMES (r
 import { loadNews, newsRouter } from "./DerpyNews"; // NEWS (r25)
 import { socialRenamed, socialRouter, socialSignedOut } from "./DerpySocial"; // FRIENDS (r25)
 import { liveGames } from "./LiveGames"; // SITE (r19)
+import { passwordRouter } from "./PasswordReset"; // ADMIN (r26)
+// PROFILE (r26): badges and profile pictures
+import { badgesRouter } from "./DerpyBadges";
+import { withLooks } from "./DerpyLooks";
+import { meExtras, picturesRouter, profileExtras } from "./DerpyPictures";
 import { watchRouter } from "./ReplayRooms"; // DFX (r26)
 
 const log = logger.child({ component: "DerpyApi" });
@@ -73,6 +80,7 @@ const AUTH_ERROR_STATUS: Record<AuthError, number> = {
   invalid_password: 400,
   username_taken: 409,
   wrong_password: 401,
+  suspended: 403, // ADMIN (r26)
 };
 
 // NAMES (r20)
@@ -205,9 +213,15 @@ export function derpyApiRouter(): express.Router {
     "/me",
     requireAccount(async (req, res) => {
       const { account } = req.derpy!;
+      // ADMIN (r26): the owner's browser gets (or keeps) the admin page's
+      // cookie; nobody else's answer changes.
+      await keepAdminKey(req, res, req.derpy!.token, account.id).catch(
+        (err: unknown) => log.warn(`admin key: ${err}`),
+      );
       res.json({
         account: { username: account.username, coins: account.coins },
         owned: await ownedItems(account.id),
+        ...(await meExtras(account.id)), // PROFILE (r26)
       });
     }),
   );
@@ -276,12 +290,22 @@ export function derpyApiRouter(): express.Router {
     "/leaderboard",
     handle(async (req, res) => {
       const game = String(req.query.game ?? "derpyfront");
+      // PROFILE (r26): each with their picture and pinned badges.
       if (game === "conquest") {
-        res.json({ game, players: await conquestLeaderboard() });
+        res.json({
+          game,
+          players: await withLooks(await conquestLeaderboard()),
+        });
       } else if (game === "overall") {
-        res.json({ game, players: await overallLeaderboard() });
+        res.json({
+          game,
+          players: await withLooks(await overallLeaderboard()),
+        });
       } else {
-        res.json({ game: "derpyfront", players: await leaderboard() });
+        res.json({
+          game: "derpyfront",
+          players: await withLooks(await leaderboard()),
+        });
       }
     }),
   );
@@ -290,7 +314,7 @@ export function derpyApiRouter(): express.Router {
   router.get(
     "/recent",
     handle(async (_req, res) => {
-      res.json({ results: await recentResults() });
+      res.json({ results: await withLooks(await recentResults()) }); // PROFILE (r26)
     }),
   );
 
@@ -302,7 +326,8 @@ export function derpyApiRouter(): express.Router {
         res.status(404).json({ error: "not_found" });
         return;
       }
-      res.json(p);
+      // PROFILE (r26): their picture and badges (checked as the page opens).
+      res.json({ ...p, ...(await profileExtras(p.username)) });
     }),
   );
 
@@ -511,6 +536,10 @@ export function derpyApiRouter(): express.Router {
   // pictures and sound; everyone else gets Coming Soon.
   router.use("/based", basedRouter({ handle }));
 
+  // PROFILE (r26): badges, and profile pictures (uploads served from here).
+  router.use("/badges", badgesRouter({ requireAccount }));
+  router.use("/pictures", picturesRouter({ handle, requireAccount }));
+
   // FRIENDS (r25): who's online and where, friends, game invites, parties.
   router.use("/social", socialRouter({ requireAccount }));
 
@@ -518,6 +547,12 @@ export function derpyApiRouter(): express.Router {
   loadNews();
   router.use("/news", newsRouter({ handle, requireAccount }));
 
+  // ADMIN (r26): one-time password reset links (made on the admin page).
+  router.use("/password", passwordRouter({ handle }));
+
+  // ADMIN (r26): the owner's admin page's API. For anyone else, every path
+  // under it answers exactly as the 404 below does.
+  router.use("/admin", adminRouter());
   // DFX (r26): watch a saved game's replay together (rooms: ReplayRooms).
   router.use("/watch", watchRouter({ handle }));
   // DFX (r26): Scenario goals met.

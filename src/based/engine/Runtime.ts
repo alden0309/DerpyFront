@@ -24,9 +24,11 @@
 
 import { chance, passes, passive, percent, rollDice, tierName } from "./Dice";
 import { evalExpr, Values } from "./Expr";
+import { knownName } from "./Facts";
 import {
   Boost,
   defaultBuild,
+  followLevel,
   langOf,
   LANGUAGES_SKILL,
   skillValues,
@@ -135,8 +137,12 @@ export interface Snapshot {
 export type StoryEvent =
   | { type: "scene"; scene: string; label: string }
   | { type: "free" }
-  | { type: "rel"; who: string; delta: number }
-  | { type: "remember"; who: string }
+  /**
+   * r26: `name` is what the pop-up calls them: as he knows them then (by
+   * the body they are, until he's learned their own name).
+   */
+  | { type: "rel"; who: string; delta: number; name: string }
+  | { type: "remember"; who: string; name: string }
   | { type: "actor"; who: string; state: ActorState | null; walk: boolean }
   | { type: "prop"; key: string; on: boolean }
   | { type: "gesture"; who: string; name: string }
@@ -180,18 +186,17 @@ export interface LineBeat {
   /** r21: spoken by one of his skills; `diff` when it was a passive check. */
   voice?: { skill: string; diff?: number; tier?: string };
   /**
-   * r22: said in another language. `understood` when he speaks it (or his
-   * Languages got the gist: `via` "skill"); then `text` is the meaning and
-   * `original` what was said. Otherwise `text` is what was said.
+   * r22: said (or, r26, written) in another language. r26: `level` is how
+   * well he follows it, his points in it (0 none, 1 poor, 2 decent, 3
+   * perfect); `text` is what he makes of it at that level, or at 0 the
+   * words themselves (`original`), and `understood` is level 1 or more.
    */
   lang?: {
     code: string;
     name: string;
+    level: number;
     understood: boolean;
     original: string;
-    via?: "skill";
-    tier?: string;
-    diff?: number;
   };
   src: number;
 }
@@ -1323,30 +1328,31 @@ export class StoryRun {
     this.pending.push({ type: "scene", scene: id, label: scene.label });
   }
 
-  private langLine(op: Extract<Op, { op: "line" }>, beat: LineBeat): void {
-    const code = op.lang!;
-    // r22 BPLAY: his rating in it; 1 or more and he follows plain speech.
-    const rating = this.languages()[code] ?? 0;
-    const speaks = rating > 0;
+  /**
+   * r26: words in another language, as he follows them: at his points in
+   * it (0 to 3), the version for that level, or at 0 only the words.
+   */
+  private langLine(
+    code: string,
+    text: string,
+    levels: string[] | undefined,
+    beat: LineBeat,
+  ): void {
+    const level = followLevel(this.languages()[code] ?? 0);
     const name =
       this.chapter.languages.find((l) => l.code === code)?.name ?? code;
-    let understood = speaks;
-    let via: "skill" | undefined;
-    if (op.langDiff !== undefined) {
-      // Hard for anyone: his Languages plus his rating in it. At 0, his
-      // Languages alone may still get the gist.
-      const skill = this.skills()[LANGUAGES_SKILL] ?? 0;
-      understood = passive(skill + rating, op.langDiff);
-      if (understood && !speaks) via = "skill";
-      this.heardNow = understood ? 1 : 0;
+    beat.text = level > 0 ? (levels?.[level - 1] ?? text) : text;
+    beat.lang = { code, name, level, understood: level > 0, original: text };
+  }
+
+  /** r26: the ticker's op for what's on the screen now (its versions). */
+  private newsOp(text: string): Extract<Op, { op: "news" }> | undefined {
+    for (const id of this.chapter.order) {
+      for (const op of this.chapter.scenes[id].ops) {
+        if (op.op === "news" && op.text === text) return op;
+      }
     }
-    beat.text = understood ? (op.trans ?? op.text) : op.text;
-    beat.lang = { code, name, understood, original: op.text };
-    if (via) beat.lang.via = via;
-    if (op.langDiff !== undefined) {
-      beat.lang.diff = op.langDiff;
-      beat.lang.tier = tierName(op.langDiff);
-    }
+    return undefined;
   }
 
   private run(): Beat {
@@ -1357,6 +1363,11 @@ export class StoryRun {
       }
       switch (op.op) {
         case "line": {
+          // r26: `@read news`: the ticker, if the television has any.
+          if (op.news && !this.stageNow.news) {
+            this.ip++;
+            break;
+          }
           if (op.skill !== undefined && op.diff !== undefined) {
             // A passive check: the voice speaks only if the skill is up to it.
             if (!passive(this.skillNow(op.skill), op.diff)) {
@@ -1381,7 +1392,14 @@ export class StoryRun {
               beat.voice.tier = tierName(op.diff);
             }
           }
-          if (op.lang !== undefined) this.langLine(op, beat);
+          if (op.news) {
+            const text = this.stageNow.news ?? "";
+            const n = this.newsOp(text);
+            beat.text = text;
+            if (n?.lang) this.langLine(n.lang, text, n.levels, beat);
+          } else if (op.lang !== undefined) {
+            this.langLine(op.lang, op.text, op.levels, beat);
+          }
           // r22 BPLAY: whoever speaks to him, he's met.
           if (op.kind === "say" && op.who && op.who !== this.hero) {
             this.met[op.who] ??= this.clockNow;
@@ -1505,11 +1523,20 @@ export class StoryRun {
           break;
         case "rel":
           this.rels[op.who] = (this.rels[op.who] ?? 0) + op.delta;
-          this.pending.push({ type: "rel", who: op.who, delta: op.delta });
+          this.pending.push({
+            type: "rel",
+            who: op.who,
+            delta: op.delta,
+            name: knownName(this.chapter, op.who, this.flags),
+          });
           this.ip++;
           break;
         case "remember":
-          this.pending.push({ type: "remember", who: op.who });
+          this.pending.push({
+            type: "remember",
+            who: op.who,
+            name: knownName(this.chapter, op.who, this.flags),
+          });
           if (!this.remembers.includes(op.who)) this.remembers.push(op.who);
           this.ip++;
           break;

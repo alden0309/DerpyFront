@@ -309,6 +309,7 @@ export function validateChapter(
           readExpr(op.cond, id, op.src);
           break;
         case "line":
+        case "news":
           if (op.lang !== undefined && !langs.has(op.lang)) {
             add(
               "warning",
@@ -316,6 +317,21 @@ export function validateChapter(
               op.src,
               `[${op.lang}] isn't a @language: nobody can be given it`,
             );
+          }
+          // r26: every foreign line has what he makes of it at 1, 2 and 3
+          // points (poor, decent, perfect).
+          if (op.lang !== undefined) {
+            const missing = [1, 2, 3].filter(
+              (lv) => !op.levels?.[lv - 1]?.trim(),
+            );
+            if (missing.length > 0) {
+              add(
+                "error",
+                id,
+                op.src,
+                `[${op.lang}] "${(op.text ?? "").slice(0, 40)}": it needs all three versions under it; ${missing.map((lv) => `"| ${lv}:"`).join(", ")} ${missing.length === 1 ? "is" : "are"} missing`,
+              );
+            }
           }
           break;
         case "backdrop":

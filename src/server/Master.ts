@@ -15,6 +15,8 @@ import {
   sendCheckin,
 } from "./ClusterCheckin";
 import { attachConquest } from "./conquest/ConquestRooms";
+import { adminPage } from "./derpy/admin/AdminPage"; // ADMIN (r26)
+import { setAdminSources } from "./derpy/admin/AdminSources"; // ADMIN (r26)
 import { derpyApiRouter } from "./derpy/DerpyApi";
 import { setLiveSources } from "./derpy/LiveGames";
 import { ensurePassSecret, setFrontLocks } from "./derpy/LobbyLock"; // FRIENDS (r25)
@@ -66,6 +68,8 @@ const PAGES: Record<string, string> = {
   // NEWS (r25): What's New. The same page for everyone; its entries only
   // come from /derpy/api/news.
   "/whats-new": "derpland.html",
+  // ADMIN (r26): a one-time password reset link (the owner makes them).
+  "/reset-password": "derpland.html",
   "/conquest": "conquest.html",
   "/conquest/": "conquest.html",
   // BASED (r19): Mr. Based. The page is the same for everyone; its story
@@ -186,6 +190,12 @@ app.use("/api", (_req, res, next) => {
   next();
 });
 
+// ADMIN (r26): the owner's admin page, /admin. Served only to the browser
+// carrying the owner's admin cookie (AdminAccess.ts); for anyone else this
+// passes straight on to the same answer as any address the site doesn't
+// have (the fallback below), after the same rate limit.
+app.use(adminPage());
+
 // Start the master process
 export async function startMaster() {
   if (!cluster.isPrimary) {
@@ -288,6 +298,15 @@ export async function startMaster() {
   setLiveSources({ conquest: () => conquestRooms.live() }); // SITE (r19)
   // FRIENDS (r25): who's at a Conquest table, for who's online.
   presence.setDerived(() => conquestRooms.presence());
+  // ADMIN (r26): the admin page's view of every game, and its buttons.
+  setAdminSources({
+    front: {
+      list: () => lobbyService.adminList(),
+      end: (id, reason) => lobbyService.adminEnd(id, reason),
+      kick: (playIds) => lobbyService.adminKick(playIds),
+    },
+    conquest: conquestRooms,
+  });
   // DFX (r26): watching a replay together (rooms in memory, on /derpy/watch/ws).
   attachReplayRooms(server);
 

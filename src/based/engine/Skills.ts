@@ -7,12 +7,15 @@
 //
 // r22 BPLAY: languages are small points under Languages. His Languages
 // skill at the start (its attribute, +1 if it's his signature) is a pool
-// of points the player spends on the chapter's languages, 0 to 3 each: 0
-// he doesn't speak it, 1 he gets by, 2 fluent, 3 like a native. A line in
-// a tongue he has at 1 or more is understood; a hard one, or a check in a
-// tongue ("LANGUAGES.fr"), reads his Languages skill plus that rating.
-// Boosts ("boost LANGUAGES.fr +1") and items ("bonus=LANGUAGES.ru+1") add
-// to a rating later.
+// of points the player spends on the chapter's languages, 0 to 3 each. A
+// check in a tongue ("LANGUAGES.fr") reads his Languages skill plus that
+// rating. Boosts ("boost LANGUAGES.fr +1") and items
+// ("bonus=LANGUAGES.ru+1") add to a rating later.
+//
+// r26 (the owner's language system): the rating is how well he follows
+// everything in that language, said or written: 0 none (he sees only the
+// words), 1 poor (a poor translation, the gist half right), 2 decent, 3
+// perfect. Each foreign line carries its three versions.
 
 import { Archetype, Build, Chapter } from "./Types";
 
@@ -28,15 +31,18 @@ export const LANGUAGES_SKILL = "LANGUAGES";
 /** The most points one language can take at the start. */
 export const LANG_MAX = 3;
 
-/** What a rating means, from 0 up. */
-export const LANG_LEVELS = [
-  "doesn't speak it",
-  "gets by",
-  "fluent",
-  "like a native",
-] as const;
+/** What a rating means, from 0 up (r26: how well he follows it). */
+export const LANG_LEVELS = ["none", "poor", "decent", "perfect"] as const;
 
-/** A rating in words (above 3 is still "like a native"). */
+/**
+ * r26: the level he follows a language at, 0 to LANG_MAX, from his rating
+ * in it (a rating above the most is still perfect).
+ */
+export function followLevel(rating: number): number {
+  return Math.max(0, Math.min(LANG_MAX, Math.floor(rating)));
+}
+
+/** A rating in words (above 3 is still "perfect"). */
 export function langLevel(n: number): string {
   return LANG_LEVELS[Math.max(0, Math.min(LANG_LEVELS.length - 1, n))];
 }

@@ -265,8 +265,8 @@ describe("playing a chapter", () => {
     expect(run.flag("rude")).toBe(1);
     expect(run.rel("BARMAN")).toBe(-2);
     expect(run.drain()).toEqual([
-      { type: "rel", who: "BARMAN", delta: -2 },
-      { type: "remember", who: "BARMAN" },
+      { type: "rel", who: "BARMAN", delta: -2, name: "The barman" },
+      { type: "remember", who: "BARMAN", name: "The barman" },
     ]);
   });
 

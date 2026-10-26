@@ -3,6 +3,8 @@ node_modules
 .worktrees/
 out/
 static/
+# ADMIN (r26): the admin page's script, built by build-prod (scripts/buildAdmin.ts)
+dist-admin/
 coverage/
 TODO.txt
 resources/images/.DS_Store

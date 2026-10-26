@@ -314,9 +314,38 @@ export function parseChapter(text: string): ParseResult {
   let beats = 0;
 
   const err = (line: number, message: string) => errors.push({ line, message });
+  // r26: the foreign line or ticker just written, for its "| 1:" lines.
+  const last: { foreign: Extract<Op, { op: "line" } | { op: "news" }> | null } =
+    { foreign: null };
   const emit = (op: Op): number => {
+    last.foreign = null;
     scene!.ops.push(op);
     return scene!.ops.length - 1;
+  };
+  const emitForeign = (op: Extract<Op, { op: "line" } | { op: "news" }>) => {
+    emit(op);
+    op.levels = [];
+    last.foreign = op;
+  };
+  /** r26: a foreign line's words: no meaning after " | ", no difficulty. */
+  const foreignText = (
+    op: Extract<Op, { op: "line" }>,
+    line: number,
+    diff: string | undefined,
+  ) => {
+    if (diff !== undefined) {
+      err(
+        line,
+        `[${op.lang} ${diff}]: a line in another language takes no difficulty now; how hard it is to follow goes into its "| 1:", "| 2:" and "| 3:" versions`,
+      );
+    }
+    if (op.text.includes(" | ")) {
+      err(
+        line,
+        `a line in [${op.lang}] gives its meaning on the lines under it, "| 1: (poor)", "| 2: (decent)", "| 3: (perfect)", not after " | "`,
+      );
+      op.text = op.text.slice(0, op.text.indexOf(" | ")).trim();
+    }
   };
   const cond = (src: string, line: number): Expr | undefined => {
     try {
@@ -402,6 +431,7 @@ export function parseChapter(text: string): ParseResult {
       }
       if (chapter.scenes[id]) err(n, `there are two scenes called "${id}"`);
       scene = { id, label: ws[1] ?? id, ops: [], src: n };
+      last.foreign = null;
       chapter.scenes[id] = scene;
       chapter.order.push(id);
       chooseCount = 0;
@@ -613,6 +643,33 @@ export function parseChapter(text: string): ParseResult {
     const f = top();
     const first = line.split(/\s+/, 1)[0];
     const rest = line.slice(first.length).trim();
+
+    // r26: what he makes of the foreign line above at 1, 2 or 3 points.
+    if (line.startsWith("|")) {
+      const m = /^\|\s*([0-9]+)\s*:\s+(.+)$/.exec(line);
+      const foreign = last.foreign;
+      if (!m) {
+        err(
+          n,
+          `"| 1: ...": what he makes of the line above at 1, 2 or 3 points`,
+        );
+      } else if (!foreign) {
+        err(n, `"| ${m[1]}:" belongs under a line in another language`);
+      } else {
+        const lv = Number(m[1]);
+        if (lv < 1 || lv > 3) {
+          err(
+            n,
+            `"| ${m[1]}:": the levels are 1 (poor), 2 (decent) and 3 (perfect)`,
+          );
+        } else if (foreign.levels![lv - 1] !== undefined) {
+          err(n, `"| ${lv}:" twice under one line`);
+        } else {
+          foreign.levels![lv - 1] = m[2].trim();
+        }
+      }
+      continue;
+    }
 
     if (line.startsWith("->")) {
       const target = line.slice(2).trim();
@@ -920,12 +977,28 @@ export function parseChapter(text: string): ParseResult {
         continue;
       }
       case "@news": {
-        const ws = words(rest);
-        emit({
-          op: "news",
-          text: rest === "none" ? null : (ws[0] ?? ""),
-          src: n,
-        });
+        // r26: "@news [fr] "..."" is in a language, with its "| N:" lines.
+        const tagged = /^\[([a-z][a-z_]*)\]\s+(.*)$/.exec(rest);
+        const ws = words(tagged ? tagged[2] : rest);
+        if (rest === "none") {
+          emit({ op: "news", text: null, src: n });
+        } else if (tagged) {
+          emitForeign({
+            op: "news",
+            text: ws[0] ?? "",
+            lang: tagged[1],
+            src: n,
+          });
+        } else {
+          emit({ op: "news", text: ws[0] ?? "", src: n });
+        }
+        continue;
+      }
+      case "@read": {
+        // r26: the television's ticker, as he reads it now.
+        if (rest !== "news") err(n, `@read news (the ticker as it is now)`);
+        emit({ op: "line", kind: "read", text: "", news: true, src: n });
+        beats++;
         continue;
       }
       case "boost": {
@@ -1283,21 +1356,28 @@ export function parseChapter(text: string): ParseResult {
         src: n,
       };
       if (say[3] !== undefined) {
-        // r22: in another language, with what it means after " | ".
+        // r22: in another language. r26: what he makes of it goes on the
+        // "| 1:", "| 2:", "| 3:" lines under it.
         op.lang = say[3];
-        const bar = op.text.indexOf(" | ");
-        if (bar < 0) {
-          err(
-            n,
-            `a line in [${say[3]}] needs its meaning: "... | In English."`,
-          );
-        } else {
-          op.trans = op.text.slice(bar + 3).trim();
-          op.text = op.text.slice(0, bar).trim();
-        }
-        if (say[4] !== undefined) op.langDiff = difficulty(say[4], n);
-      }
-      emit(op);
+        foreignText(op, n, say[4]);
+        emitForeign(op);
+      } else emit(op);
+      beats++;
+      continue;
+    }
+    // r26: words in another language nobody in the cast says to him: a
+    // sign, a poster, the radio ("[fr]: RELÂCHE").
+    const read = /^\[([a-z][a-z_]*)(?:\s+([a-z]+|\d+))?\]:\s+(.+)$/.exec(line);
+    if (read) {
+      const op: Extract<Op, { op: "line" }> = {
+        op: "line",
+        kind: "read",
+        text: read[3].trim(),
+        lang: read[1],
+        src: n,
+      };
+      foreignText(op, n, read[2]);
+      emitForeign(op);
       beats++;
       continue;
     }

@@ -33,6 +33,7 @@ import {
   validateChapter,
   validatePlaces,
 } from "../../based/engine/Validate";
+import { noteBased } from "./admin/AdminSources"; // ADMIN (r26)
 import { hasBasedAccess } from "./BasedAccess";
 import { noteEntry } from "./BasedNotes";
 import { Account, accountForToken } from "./DerpyAuth";
@@ -463,6 +464,7 @@ export function basedRouter({ handle }: BasedRouterDeps): express.Router {
         return;
       }
       req.based = found.account;
+      noteBased(found.account.id); // ADMIN (r26): for the owner's Overview
       await fn(req, res);
     });
 

@@ -26,6 +26,11 @@ import {
   signIn,
   signOut,
 } from "./Account";
+import { avatar, AVATAR_CSS } from "./Avatar"; // PROFILE (r26)
+import { badgeEmblem } from "./BadgeArt"; // PROFILE (r26)
+import { BADGE_BY_KEY } from "./Badges"; // PROFILE (r26)
+import { banner, BANNER_EVENT } from "./Banner"; // ADMIN (r26)
+import type { SiteBanner } from "./BannerTypes"; // ADMIN (r26)
 import {
   bananaMark,
   caretIcon,
@@ -41,10 +46,10 @@ import {
   podiumIcon,
   signOutIcon,
   stallIcon,
-  tokenColor,
 } from "./Icons";
 import { news, NEWS_EVENT } from "./News"; // NEWS (r25)
 import { englishNews, type NewsTranslate } from "./NewsText";
+import { markBadgesSeen, myBadges } from "./ProfileApi"; // PROFILE (r26)
 import { social, SOCIAL_EVENT } from "./Social"; // FRIENDS (r25)
 import "./SocialBar";
 import { BAR_MENU_EVENT, OPEN_PEOPLE_EVENT } from "./SocialBar";
@@ -88,6 +93,10 @@ export interface BarLabels {
   rules: string;
   close: string;
   errors: Record<AuthError, string>;
+  /** PROFILE (r26): the toast when a badge is earned ({n}: how many). */
+  badgeEarned: string;
+  badgesEarned: string;
+  seeBadges: string;
 }
 
 export const BAR_LABELS: BarLabels = {
@@ -118,7 +127,15 @@ export const BAR_LABELS: BarLabels = {
     "3 to 20 letters, numbers or underscores. Passwords need 6 characters or more.",
   close: "Close",
   errors: AUTH_ERROR_TEXT,
+  // PROFILE (r26)
+  badgeEarned: "Badge earned",
+  badgesEarned: "{n} badges earned",
+  seeBadges: "See your badges",
 };
+
+/** PROFILE (r26): a player's new badges are asked for at most this often per page. */
+const BADGE_CHECK_MS = 45_000;
+const BADGE_TOAST_MS = 14_000;
 
 /** Open the sign-in dialog in this page's bar. */
 export function openSignIn(mode: "signin" | "create" = "signin"): void {
@@ -184,6 +201,13 @@ export class DerpBar extends LitElement {
   @state() private notices = social.notices().length;
   /** NEWS (r25) */
   @state() private newsDot = news.unseen > 0;
+  /** ADMIN (r26): the site banner, while there is one to show here. */
+  @state() private siteBanner: SiteBanner | null = banner.visible();
+  /** PROFILE (r26): your picture, and the badges a toast is showing. */
+  @state() private picture: string | null = null;
+  @state() private badgeToast: string[] | null = null;
+  private lastBadgeCheck = 0;
+  private badgeTimer: ReturnType<typeof setTimeout> | null = null;
 
   @query("dialog") private dialog!: HTMLDialogElement;
 
@@ -197,8 +221,11 @@ export class DerpBar extends LitElement {
     window.addEventListener(SOCIAL_EVENT, this.onSocial); // FRIENDS (r25)
     window.addEventListener(BAR_MENU_EVENT, this.onBarMenu);
     window.addEventListener(NEWS_EVENT, this.onNews); // NEWS (r25)
+    window.addEventListener(BANNER_EVENT, this.onBanner); // ADMIN (r26)
     void this.refresh();
     news.start();
+    banner.start(); // ADMIN (r26)
+    this.onBanner();
   }
 
   disconnectedCallback(): void {
@@ -210,8 +237,15 @@ export class DerpBar extends LitElement {
     window.removeEventListener(SOCIAL_EVENT, this.onSocial);
     window.removeEventListener(BAR_MENU_EVENT, this.onBarMenu);
     window.removeEventListener(NEWS_EVENT, this.onNews);
+    window.removeEventListener(BANNER_EVENT, this.onBanner); // ADMIN (r26)
+    if (this.badgeTimer) clearTimeout(this.badgeTimer); // PROFILE (r26)
     super.disconnectedCallback();
   }
+
+  // ADMIN (r26)
+  private onBanner = () => {
+    this.siteBanner = banner.visible();
+  };
 
   // NEWS (r25): the card shows in this page's words too.
   protected willUpdate(changed: Map<PropertyKey, unknown>): void {
@@ -256,6 +290,30 @@ export class DerpBar extends LitElement {
     const m = await me();
     this.username = m?.username ?? derpyUsername();
     this.coins = m?.coins ?? null;
+    this.picture = m?.picture ?? null; // PROFILE (r26)
+    if (m) void this.checkBadges();
+  }
+
+  /**
+   * PROFILE (r26): badges you've newly earned (the server checks them as it
+   * answers), each shown once in a toast, on whichever page you're on.
+   */
+  private async checkBadges(): Promise<void> {
+    if (Date.now() - this.lastBadgeCheck < BADGE_CHECK_MS) return;
+    this.lastBadgeCheck = Date.now();
+    try {
+      const b = await myBadges();
+      const fresh = b.fresh.filter((k) => BADGE_BY_KEY.has(k));
+      if (fresh.length === 0) return;
+      void markBadgesSeen(fresh).catch(() => {});
+      this.badgeToast = fresh;
+      if (this.badgeTimer) clearTimeout(this.badgeTimer);
+      this.badgeTimer = setTimeout(() => {
+        this.badgeToast = null;
+      }, BADGE_TOAST_MS);
+    } catch {
+      // no badges shown this time
+    }
   }
 
   private showSignIn(mode: "signin" | "create"): void {
@@ -346,8 +404,81 @@ export class DerpBar extends LitElement {
           </div>
         </div>
       </header>
-      ${this.renderDialog()}
+      ${this.renderBanner()} ${this.renderDialog()}
+      ${this.renderBadgeToast() /* PROFILE (r26) */}
     `;
+  }
+
+  /** PROFILE (r26): "Badge earned", with its emblem and how it was earned. */
+  private renderBadgeToast(): TemplateResult | typeof nothing {
+    const keys = this.badgeToast;
+    if (!keys?.length) return nothing;
+    const t = this.t;
+    const one = keys.length === 1 ? BADGE_BY_KEY.get(keys[0])! : null;
+    const names = keys
+      .slice(0, 3)
+      .map((k) => BADGE_BY_KEY.get(k)!.name)
+      .join(", ");
+    return html`<div class="btoast" role="status" aria-live="polite">
+      <span class="btoast-art"
+        >${keys.slice(0, 3).map((k) => badgeEmblem(k, "btoast-emblem"))}</span
+      >
+      <span class="btoast-text">
+        <b class="btoast-title"
+          >${one
+            ? t.badgeEarned
+            : t.badgesEarned.replace("{n}", String(keys.length))}</b
+        >
+        ${one
+          ? html`<span class="btoast-name">${one.name}</span
+              ><span class="btoast-how">${one.how}</span>`
+          : html`<span class="btoast-how"
+              >${names}${keys.length > 3 ? "…" : ""}</span
+            >`}
+        <a class="btoast-link" href="/account#badges">${t.seeBadges}</a>
+      </span>
+      <button
+        class="x btoast-x"
+        aria-label=${t.close}
+        @click=${() => (this.badgeToast = null)}
+      >
+        ${closeIcon()}
+      </button>
+    </div>`;
+  }
+
+  /**
+   * ADMIN (r26): the owner's announcement under the bar, with its link and
+   * a cross to dismiss it (remembered in this browser for this banner).
+   */
+  private renderBanner(): TemplateResult | typeof nothing {
+    const b = this.siteBanner;
+    if (!b) return nothing;
+    const outside = b.link?.startsWith("https://") ?? false;
+    return html`<div class="site-banner" role="status">
+      <div class="sb-inner">
+        <p class="sb-text">
+          ${b.text}
+          ${b.link
+            ? html`<a
+                class="sb-link"
+                href=${b.link}
+                target=${outside ? "_blank" : "_self"}
+                rel=${outside ? "noopener noreferrer" : ""}
+                >${b.linkText ?? "Take a look"}</a
+              >`
+            : nothing}
+        </p>
+        <button
+          class="sb-x"
+          aria-label=${this.t.close}
+          title=${this.t.close}
+          @click=${() => banner.dismiss()}
+        >
+          ${closeIcon()}
+        </button>
+      </div>
+    </div>`;
   }
 
   /**
@@ -403,10 +534,8 @@ export class DerpBar extends LitElement {
   private renderSignedIn(): TemplateResult {
     const name = this.username!;
     const t = this.t;
-    const token = (cls: string) =>
-      html`<span class=${cls} style="--token:${tokenColor(name)}"
-        >${name.slice(0, 1).toUpperCase()}</span
-      >`;
+    // PROFILE (r26): your picture, over your monogram.
+    const token = (cls: string) => avatar(name, this.picture, cls);
     return html`
       <!-- FRIENDS (r25): who's online, the party, invites -->
       <derp-social
@@ -576,6 +705,7 @@ export class DerpBar extends LitElement {
   }
 
   static styles = css`
+    ${AVATAR_CSS} /* PROFILE (r26): pictures in tokens */
     :host {
       --bar: #18181b;
       --panel: #202024;
@@ -607,6 +737,60 @@ export class DerpBar extends LitElement {
     }
     a {
       color: inherit;
+    }
+    /* ADMIN (r26): the site banner, a slim strip under the bar. */
+    .site-banner {
+      background: color-mix(in srgb, var(--accent) 14%, #16161a);
+      border-bottom: 1px solid
+        color-mix(in srgb, var(--accent) 35%, transparent);
+      color: var(--text);
+    }
+    .sb-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 7px 8px 7px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sb-text {
+      flex: 1;
+      min-width: 0;
+      margin: 0;
+      font-size: 14px;
+      font-weight: 560;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .sb-link {
+      margin-left: 8px;
+      font-weight: 700;
+      color: var(--text);
+      text-decoration: underline;
+      text-decoration-color: var(--accent);
+      text-underline-offset: 3px;
+      white-space: nowrap;
+    }
+    .sb-x {
+      flex: none;
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 0;
+      border-radius: 7px;
+      background: none;
+      color: var(--text-2);
+      cursor: pointer;
+    }
+    .sb-x:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+    .sb-x svg {
+      width: 16px;
+      height: 16px;
     }
     .bar {
       background: rgba(24, 24, 27, 0.94);
@@ -1256,6 +1440,93 @@ export class DerpBar extends LitElement {
     @media (prefers-reduced-motion: reduce) {
       * {
         transition: none !important;
+      }
+    }
+
+    /* PROFILE (r26): a badge earned, at the foot of the screen. */
+    .btoast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 90;
+      width: min(360px, calc(100vw - 32px));
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 40px 12px 12px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--gold);
+      border-radius: 12px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+      animation: btoast-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+    }
+    .btoast-art {
+      display: flex;
+      flex: none;
+    }
+    .btoast-emblem {
+      width: 44px;
+      height: 44px;
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+    }
+    .btoast-emblem + .btoast-emblem {
+      margin-left: -18px;
+    }
+    .btoast-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .btoast-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+    .btoast-name {
+      font-size: 16px;
+      font-weight: 750;
+    }
+    .btoast-how {
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--text-2);
+    }
+    .btoast-link {
+      margin-top: 4px;
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--text);
+      text-decoration: underline;
+      text-decoration-color: var(--accent);
+      text-underline-offset: 3px;
+    }
+    .btoast-x {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      margin: 0;
+    }
+    @keyframes btoast-in {
+      from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.97);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .btoast {
+        animation: none;
+      }
+    }
+    @media (max-width: 560px) {
+      .btoast {
+        right: 8px;
+        left: 8px;
+        bottom: 10px;
+        width: auto;
       }
     }
   `;

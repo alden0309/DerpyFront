@@ -40,9 +40,14 @@ function barLabels(): Partial<BarLabels> {
       invalid_password: t("derpy.error_invalid_password"),
       username_taken: t("derpy.error_username_taken"),
       wrong_password: t("derpy.error_wrong_password"),
+      suspended: t("derpy.error_suspended"), // ADMIN (r26)
       accounts_unavailable: t("derpy.error_accounts_unavailable"),
       server_error: t("derpy.error_server_error"),
     },
+    // PROFILE (r26): the toast when a badge is earned.
+    badgeEarned: t("derp_bar.badge_earned"),
+    badgesEarned: translateText("derp_bar.badges_earned", { n: "{n}" }),
+    seeBadges: t("derp_bar.see_badges"),
   };
 }
 

@@ -411,7 +411,9 @@ describe("chapter one's opening (r22)", () => {
   /** Every line said or narrated in a scene, as written. */
   const said = (c: Chapter, id: string) =>
     c.scenes[id].ops.flatMap((o) =>
-      o.op === "line" ? [`${o.who ?? ""}: ${o.text} ${o.trans ?? ""}`] : [],
+      o.op === "line"
+        ? [`${o.who ?? ""}: ${o.text} ${(o.levels ?? []).join(" ")}`]
+        : [],
     );
 
   test("it starts on the street and lets him walk in himself", () => {
@@ -696,18 +698,28 @@ describe("languages in chapter one (r22 BPLAY)", () => {
     expect(r.languages()).toEqual({ fr: 3, ru: 1 });
   });
 
-  test("the clerk's call is in Russian, with a check in Russian", () => {
+  test("r26: the clerk's call is in French, all of it only at 3 points", () => {
     const ops = chapter.scenes.clerk_first.ops;
-    expect(ops.find((o) => o.op === "line" && o.lang)).toMatchObject({
-      who: "PORTER",
-      lang: "ru",
-    });
-    // r25: what he can ask the clerk is its own scene, after the call.
-    const choice = chapter.scenes.clerk_ask.ops.find((o) => o.op === "choose");
-    if (choice?.op !== "choose") throw new Error("no choice");
-    expect(
-      choice.options.find((o) => o.check?.skill === "LANGUAGES.ru"),
-    ).toBeTruthy();
+    const call = ops.find((o) => o.op === "line" && o.lang);
+    expect(call).toMatchObject({ who: "PORTER", lang: "fr" });
+    if (call?.op !== "line") throw new Error("no call");
+    // Where the car goes, only in the perfect version.
+    expect(call.levels?.[2]).toMatch(/Satory/);
+    expect(call.levels?.slice(0, 2).join(" ")).not.toMatch(/Satory/);
+    // The car at six from 2 points; at 1 a muddle (six people).
+    expect(call.levels?.[1]).toMatch(/six o'clock/);
+    expect(call.levels?.[0]).toMatch(/six people/);
+    // Nothing in the chapter is in Russian now, and no check in it.
+    for (const id of chapter.order) {
+      for (const o of chapter.scenes[id].ops) {
+        if (o.op === "line") expect(o.lang, id).not.toBe("ru");
+        if (o.op === "choose") {
+          expect(o.options.some((x) => x.check?.skill === "LANGUAGES.ru")).toBe(
+            false,
+          );
+        }
+      }
+    }
     // r26: the lost-property box (and its phrasebook) is gone.
     expect(chapter.items.phrasebook).toBeUndefined();
   });

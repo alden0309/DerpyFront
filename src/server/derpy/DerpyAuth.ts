@@ -13,6 +13,7 @@ import {
 } from "crypto";
 import { promisify } from "util";
 import { USERNAME_RE } from "../../derpland/Names";
+import { SUSPENDED_SQL } from "./admin/AdminSql"; // ADMIN (r26)
 import { grantBasedByName } from "./BasedAccess";
 import { db, inTransaction } from "./DerpyDb";
 import { lockNames, nameProblem } from "./DerpyNames";
@@ -70,7 +71,10 @@ export type AuthError =
   | "invalid_username"
   | "invalid_password"
   | "username_taken"
-  | "wrong_password";
+  | "wrong_password"
+  // ADMIN (r26): the owner suspended this account (told only to whoever
+  // gives its right password).
+  | "suspended";
 
 function rowToAccount(row: {
   id: string | number;
@@ -133,7 +137,9 @@ export async function login(
   const res = await (
     await db()
   ).query(
-    "SELECT id, username, coins, password_hash FROM derpy_accounts WHERE username_key = $1",
+    // ADMIN (r26): and whether it's suspended.
+    `SELECT id, username, coins, password_hash, ${SUSPENDED_SQL("a")} AS suspended
+     FROM derpy_accounts a WHERE username_key = $1`,
     [username.toLowerCase()],
   );
   const row = res.rows[0];
@@ -143,7 +149,19 @@ export async function login(
     ? await verifyPassword(password, row.password_hash)
     : (await hashPassword(password), false);
   if (!row || !ok) return "wrong_password";
+  if (row.suspended === true) return "suspended"; // ADMIN (r26)
   const account = rowToAccount(row);
+  return { ...(await createSession(account.id)), account };
+}
+
+/** ADMIN (r26): a new session for an account (a password reset link signs in). */
+export async function startSession(accountId: number): Promise<Session> {
+  const r = await (
+    await db()
+  ).query("SELECT id, username, coins FROM derpy_accounts WHERE id = $1", [
+    accountId,
+  ]);
+  const account = rowToAccount(r.rows[0]);
   return { ...(await createSession(account.id)), account };
 }
 
@@ -161,6 +179,7 @@ export async function accountForToken(token: string): Promise<{
     `UPDATE derpy_sessions s SET last_seen = now()
      FROM derpy_accounts a
      WHERE s.token_hash = $1 AND a.id = s.account_id
+       AND NOT ${SUSPENDED_SQL("a")}
      RETURNING a.id, a.username, a.coins, s.play_id, a.appear_offline`,
     [hashToken(token)],
   );

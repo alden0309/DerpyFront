@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<defs><radialGradient id="bg-bear" cx="34%" cy="26%" r="85%"><stop offset="0" stop-color="#a8dfae"/><stop offset="1" stop-color="#3f9a5e"/></radialGradient></defs>
+<rect width="64" height="64" fill="url(#bg-bear)"/>
+<circle cx="18" cy="20" r="6.6" fill="#8a5a34" stroke="#2e2010" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="18" cy="20" r="3.4" fill="#c98e62"/>
+<circle cx="46" cy="20" r="6.6" fill="#8a5a34" stroke="#2e2010" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="46" cy="20" r="3.4" fill="#c98e62"/>
+<path d="M8 68 C10 54 20 50 32 50 S54 54 56 68 Z" fill="#7a4b2e" stroke="#2e2010" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="32" cy="34" r="17" fill="#8a5a34" stroke="#2e2010" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<ellipse cx="32" cy="41" rx="8" ry="6.4" fill="#e3c39a" stroke="#2e2010" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+<ellipse cx="32" cy="37.8" rx="3" ry="2.1" fill="#2e2010"/>
+<path d="M32 40 L32 42.6 M28.6 43.6 Q32 46 35.4 43.6" fill="none" stroke="#2e2010" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="25.6" cy="30.6" r="2.52" fill="#fff" stroke="#2e2010" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="26.125" cy="30.18" r="1.2075" fill="#2e2010"/>
+<circle cx="38.4" cy="29.8" r="3.1500000000000004" fill="#fff" stroke="#2e2010" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="37.769999999999996" cy="30.325" r="1.4175000000000002" fill="#2e2010"/>
+</svg>

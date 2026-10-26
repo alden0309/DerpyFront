@@ -17,6 +17,7 @@ import express, { NextFunction, Request, Response } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import type pg from "pg";
 import { z } from "zod";
+import type { Look } from "../../derpland/Pictures"; // PROFILE (r26)
 import type {
   FriendGame,
   FriendRequestRow,
@@ -28,7 +29,9 @@ import type {
   SocialState,
 } from "../../derpland/SocialTypes";
 import { type Account, accountForToken, hashToken } from "./DerpyAuth";
+import { grantBadgesSoon } from "./DerpyBadges"; // PROFILE (r26)
 import { db, DerpyDbUnavailable, inTransaction } from "./DerpyDb";
+import { isDefaultLook, looksOf } from "./DerpyLooks"; // PROFILE (r26)
 import { newsBeat } from "./DerpyNews"; // NEWS (r25)
 import { liveGames } from "./LiveGames";
 import { Limiter, mintPass } from "./LobbyLock"; // a password's pass
@@ -42,6 +45,7 @@ import {
   targetOf,
   watchHref,
 } from "./Presence";
+import { currentBanner } from "./SiteBanner"; // ADMIN (r26)
 
 /** Most in a party, its leader included. */
 export const PARTY_MAX = 8;
@@ -371,8 +375,22 @@ export async function socialState(me: Account): Promise<SocialState> {
     };
   }
 
+  // PROFILE (r26): everyone's picture and pins, from what's kept (read once
+  // for someone new; a change made here is seen at the next beat).
+  const ids = new Set<number>([me.id]);
+  for (const r of [...online, ...friends]) ids.add(r.id);
+  for (const r of [...s.incoming, ...s.outgoing]) ids.add(r.id);
+  for (const m of s.party?.members ?? []) ids.add(m.id);
+  for (const x of s.party?.invited ?? []) ids.add(x.id);
+  for (const x of invites) ids.add(x.fromId);
+  for (const x of s.partyInvites) ids.add(x.fromId);
+  const looks: Record<string, Look> = {};
+  for (const [id, look] of await looksOf(ids))
+    if (!isDefaultLook(look)) looks[id] = look;
+
   return {
     serverTime: Date.now(),
+    looks, // PROFILE (r26)
     me: {
       id: me.id,
       username: presence.username(me.id) ?? me.username,
@@ -733,10 +751,15 @@ export async function acceptParty(me: number, party: number): Promise<Result> {
       "DELETE FROM derpy_party_invites WHERE party_id = $1 AND to_id = $2",
       [party, me],
     );
-    return { ok: true as const, tell: [...told, ...target.members, me] };
+    return {
+      ok: true as const,
+      tell: [...told, ...target.members, me],
+      party: [...target.members, me], // PROFILE (r26)
+    };
   });
   if ("error" in result) return result;
   forget(result.tell);
+  grantBadgesSoon(result.party, ["dl-party"]); // PROFILE (r26): Party Up
   return { ok: true };
 }
 
@@ -920,6 +943,18 @@ export function socialSignedOut(token: string): void {
   if (token) sessions.delete(hashToken(token));
 }
 
+/**
+ * ADMIN (r26): an account signed out everywhere, suspended or deleted by
+ * the owner: its kept sessions stop beating at once, it's off who's online,
+ * and every list is read again.
+ */
+export function socialForgetAccount(id: number): void {
+  for (const [key, s] of sessions)
+    if (s.account.id === id) sessions.delete(key);
+  presence.leave(id);
+  forgetAllSocial();
+}
+
 /** A renamed account: its new name shows in everyone's lists at once. */
 export function socialRenamed(id: number, username: string): void {
   presence.learn(id, username);
@@ -1021,7 +1056,12 @@ export function socialRouter({
       // NEWS (r25): and how much of What's New is new to them (kept, so no
       // database either); without it the bar just shows no dot.
       const news = await newsBeat(account.id).catch(() => undefined);
-      res.json({ ...(await socialState(account)), news });
+      // ADMIN (r26): and the site banner (kept in memory: no query either).
+      res.json({
+        ...(await socialState(account)),
+        news,
+        banner: await currentBanner(),
+      });
     }),
   );
 

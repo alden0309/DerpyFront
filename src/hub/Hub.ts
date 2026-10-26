@@ -5,6 +5,7 @@
 import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { api } from "../derpland/Account";
+import { avatar } from "../derpland/Avatar"; // PROFILE (r26)
 import "../derpland/DerpBar";
 import { BarPage, openSignIn } from "../derpland/DerpBar";
 import {
@@ -27,6 +28,7 @@ import "./News"; // NEWS (r25): What's New
 // SITE (r19): games being played now, with Watch buttons.
 import "./Live";
 import "./Profile";
+import "./ResetPassword"; // ADMIN (r26): a one-time password reset link
 import "./Store";
 import "./Week"; // CHAL (r25): this week's challenges
 
@@ -55,6 +57,8 @@ type Route =
   | { page: "home" | "store" | "inventory" | "leaderboard" | "account" }
   // NEWS (r25): What's New.
   | { page: "news" }
+  // ADMIN (r26): a password reset link.
+  | { page: "reset" }
   | { page: "player"; name: string }
   // LEGACY (r21): a finished Derpy Conquest game: its lines and their chronicles.
   | { page: "chronicle"; id: string }
@@ -81,6 +85,8 @@ export function routeFor(path: string): Route {
       return { page: "account" };
     case "/whats-new": // NEWS (r25)
       return { page: "news" };
+    case "/reset-password": // ADMIN (r26)
+      return { page: "reset" };
     default:
       return { page: "home" };
   }
@@ -96,6 +102,7 @@ const TITLES: Record<Route["page"], string> = {
   chronicle: "Derpy Conquest · Derp Land", // LEGACY (r21)
   dynasty: "Dynasty · Derp Land", // TREE (r25)
   news: "What's New · Derp Land", // NEWS (r25)
+  reset: "New password · Derp Land", // ADMIN (r26)
 };
 
 @customElement("derp-land")
@@ -121,7 +128,9 @@ export class DerpLand extends LitElement {
         ? "leaderboard"
         : r.page === "news" // NEWS (r25)
           ? "whats-new"
-          : r.page;
+          : r.page === "reset" // ADMIN (r26)
+            ? "account"
+            : r.page;
     return html`
       <derp-bar page=${bar}></derp-bar>
       <main class="dl-main">${this.renderPage(r)}</main>
@@ -147,6 +156,8 @@ export class DerpLand extends LitElement {
         return html`<dl-dynasty .name=${r.name} .gameId=${r.id}></dl-dynasty>`;
       case "news": // NEWS (r25)
         return html`<dl-news></dl-news>`;
+      case "reset": // ADMIN (r26)
+        return html`<dl-reset-password></dl-reset-password>`;
       default:
         return html`<dl-home></dl-home>`;
     }
@@ -163,12 +174,16 @@ interface Recent {
   where: string;
   numPlayers: number;
   coins: number;
+  /** PROFILE (r26) */
+  pic?: string;
 }
 
 interface TopRow {
   username: string;
   wins: number;
   games: number;
+  /** PROFILE (r26) */
+  pic?: string;
 }
 
 @customElement("dl-home")
@@ -323,6 +338,7 @@ export class DerpHome extends HubPage {
         (r) =>
           html`<li class="${r.game} ${r.won ? "won" : ""}">
             <span class="dl-feed-text">
+              ${avatar(r.username, r.pic, "dl-feed-tok") /* PROFILE (r26) */}
               <a href="/player/${r.username}">${r.username}</a>
               ${r.playedAs
                 ? html`<span class="dl-feed-alias">(as ${r.playedAs})</span>`
@@ -356,6 +372,7 @@ export class DerpHome extends HubPage {
         (p, i) =>
           html`<li>
             <span class="dl-place p${i + 1}">${i + 1}</span>
+            ${avatar(p.username, p.pic, "dl-top-tok") /* PROFILE (r26) */}
             <a href="/player/${p.username}">${p.username}</a>
             <span class="dl-top-wins"
               >${p.wins} ${p.wins === 1 ? "win" : "wins"}</span

@@ -10,11 +10,14 @@ import {
 import { encodeLobbyMessage } from "@openfront/shared/ZbinWire";
 import http from "http";
 import { WebSocket, WebSocketServer } from "ws";
+import { recentErrors } from "./ErrorRing"; // ADMIN (r26)
 import { GameManager } from "./GameManager";
 import {
   InternalGameInfo,
   InternalPublicGames,
   MasterMessageSchema,
+  WorkerAdminEnded, // ADMIN (r26)
+  WorkerAdminGames, // ADMIN (r26)
   WorkerLobbyList,
   WorkerReady,
 } from "./IPCBridgeSchema";
@@ -172,6 +175,53 @@ export class WorkerLobbyService {
         game.setStartsAt(msg.startsAt);
         break;
       }
+      // ADMIN (r26): the owner's admin page: every game here, and this
+      // worker's health; or end one game for everyone.
+      case "adminList": {
+        const mem = process.memoryUsage();
+        this.sendToMaster({
+          type: "adminGames",
+          reqId: msg.reqId,
+          games: this.gm.adminGames(),
+          health: {
+            worker: ServerEnv.workerId() ?? 0,
+            uptimeS: Math.round(process.uptime()),
+            rss: mem.rss,
+            heapUsed: mem.heapUsed,
+            games: this.gm.activeGames(),
+            clients: this.gm.activeClients(),
+            errors: recentErrors().slice(0, 20),
+          },
+        });
+        break;
+      }
+      case "adminEnd": {
+        const game = this.gm.game(msg.gameID);
+        const ok = game !== null && !game.hasEnded();
+        if (ok) {
+          this.log.info("game ended from the admin page", {
+            gameID: msg.gameID,
+          });
+          game.adminEnd(msg.reason);
+        }
+        this.sendToMaster({ type: "adminEnded", reqId: msg.reqId, ok });
+        break;
+      }
+      case "adminKick": {
+        const ids = new Set(msg.playIds.map((p) => p.toLowerCase()));
+        let kicked = 0;
+        for (const game of this.gm.allGames()) kicked += game.adminKick(ids);
+        if (kicked > 0)
+          this.log.info("players taken out of games from the admin page", {
+            kicked,
+          });
+        this.sendToMaster({
+          type: "adminEnded",
+          reqId: msg.reqId,
+          ok: kicked > 0,
+        });
+        break;
+      }
     }
   }
 
@@ -179,7 +229,9 @@ export class WorkerLobbyService {
     this.sendToMaster({ type: "workerReady", workerId });
   }
 
-  private sendToMaster(msg: WorkerReady | WorkerLobbyList) {
+  private sendToMaster(
+    msg: WorkerReady | WorkerLobbyList | WorkerAdminGames | WorkerAdminEnded,
+  ) {
     process.send?.(msg);
   }
 
