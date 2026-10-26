@@ -116,15 +116,18 @@ const raiseWith = (
 const answered = (life: Life, t: TutorialState) =>
   !!t.wait && !life.events.some((e) => e.key === t.wait);
 
-/** Someone of Plymouth for the barrels: a merchant, or any grown townsman. */
+/** Who'd buy barrels in Plymouth, best first: a merchant, a ship's master, the innkeeper, a tradesman. */
+const BUYERS = ["merchant", "captain", "innkeeper", "master"];
+
+/** Someone of Plymouth for the barrels: a merchant if there is one, or any grown townsman. */
 function plymouthBuyer(g: ConquestGame): number {
   const p = provNamed(g, TUT_ERRAND);
   const ids = [...(g.s.locals[p] ?? [])].sort((a, b) => a - b);
   const of = (id: number) => g.s.chars[id];
-  const merchant = ids.find(
-    (id) => of(id)?.alive && of(id)?.role === "merchant",
-  );
-  if (merchant !== undefined) return merchant;
+  for (const role of BUYERS) {
+    const id = ids.find((x) => of(x)?.alive && of(x)?.role === role);
+    if (id !== undefined) return id;
+  }
   return ids.find((id) => of(id)?.alive) ?? -1;
 }
 

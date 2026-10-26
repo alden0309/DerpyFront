@@ -4,13 +4,22 @@
 // mother and a sister in town and two coopers next door: one to be a
 // friend, one a rival. The server makes the game with this; so do tests.
 
+import {
+  pickSitter,
+  plainLook,
+  sitterOf,
+  wantedFor,
+  type Wanted,
+} from "./Appearance";
 import { dayOf } from "./Calendar";
 import { makeCharacter } from "./Characters";
 import { ConquestGame } from "./Game";
 import { journal, meet, touchLife } from "./LifeCore";
 import { lifeOfSeat, meOf } from "./LifeQueries";
 import { FRAME_COLORS } from "./LifeRules";
+import { ageOf } from "./Queries";
 import { Rng } from "./Rng";
+import { HAIR_TONE_KEYS } from "./Sitters";
 import { workState } from "./Trades";
 import { provNamed } from "./Tutorial";
 import {
@@ -110,6 +119,10 @@ export function tutorialGame(
 export function setUpLessons(g: ConquestGame, seat: string): void {
   const s = g.s;
   const life = lifeOfSeat(s, seat)!;
+  const cast0 = (id: number | undefined) => {
+    const c = id === undefined ? undefined : s.chars[id];
+    return c ? g.touchChar(c) : undefined;
+  };
   const me = g.touchChar(meOf(s, life)!);
   const p = provNamed(g, TUT_HOME);
   // The lessons' own dice, so the town is the same every time.
@@ -189,6 +202,8 @@ export function setUpLessons(g: ConquestGame, seat: string): void {
   });
   rival.role = "master";
   rival.traits = ["greedy", "ambitious"];
+  // Three faces a newcomer can tell apart: the master, the friend, the rival.
+  distinctFaces(s, [cast0(life.job?.employer), friend, rival]);
   const locals = (s.locals[p] ??= []);
   for (const c of [mother, friend, rival])
     if (!locals.includes(c.id)) locals.push(c.id);
@@ -226,6 +241,36 @@ export function setUpLessons(g: ConquestGame, seat: string): void {
     life,
     `A journeyman cooper of Boston, twenty years old, at ${charNameOf(s, cast.master)}'s shop by the Town Dock. Your mother and your sister Patience keep house in Middle Street.`,
   );
+}
+
+/**
+ * Each of these given a picture of their own: one whose likeness falls on a
+ * picture already taken keeps a near one instead.
+ */
+function distinctFaces(s: GameState, who: (Character | undefined)[]): void {
+  const taken = new Set<string>();
+  for (const c of who) {
+    if (!c?.alive) continue;
+    const age = ageOf(s, c);
+    const want = wantedFor(c, age);
+    let pick = sitterOf(c, age);
+    // Another hair, a wig or a hat, a better coat, a Dutch face (Boston
+    // has a few): the gallery's next nearest.
+    const others: Partial<Wanted>[] = [
+      ...HAIR_TONE_KEYS.map((tone) => ({ tone })),
+      { wig: true },
+      { hat: true },
+      { cls: "merchant" },
+      { people: "dutch" },
+      { cls: "learned" },
+    ];
+    for (const o of others) {
+      if (!taken.has(pick.id)) break;
+      pick = pickSitter({ ...want, ...o });
+    }
+    if (pick.id !== sitterOf(c, age).id) c.look = plainLook(pick.id);
+    taken.add(pick.id);
+  }
 }
 
 function charNameOf(s: GameState, id: number): string {

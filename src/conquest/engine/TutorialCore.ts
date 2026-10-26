@@ -9,7 +9,8 @@
 // the heir. Each step moves on when the player does it (or skips it); the
 // lessons can be left at any time, and the life goes on as a normal game.
 
-import type { Life, TutorialState } from "./Types";
+import type { Present } from "./Areas";
+import type { GameState, Life, PlaceKind, TutorialState } from "./Types";
 
 /** The achievement for finishing the lessons, and what it pays the account (once). */
 export const FIRST_LIFE = "first-life";
@@ -44,7 +45,7 @@ export const TUTORIAL_STEPS = [
   "map", // set out for Plymouth on the map
   "road", // the clock runs; arrive; the barrels delivered
   "home", // home, and skip ahead to pay day
-  "family", // Sunday at your mother's
+  "family", // supper at your mother's
   "aim", // an ambition
   "birthday", // skip ahead to your birthday
   "heir", // the heir, on You › Family
@@ -84,3 +85,28 @@ export function tutStep(life: Life | null | undefined): TutStep | null {
 
 /** How many steps there are, and the one shown as "n of N" (1-based). */
 export const TUT_STEP_COUNT = TUTORIAL_STEPS.length;
+
+/**
+ * Who's about, as the lessons would have it: until you've spoken with him,
+ * your neighbour is at the next bench in your workplace (Areas.ts presence
+ * asks), so the newcomer who steps in finds him there.
+ */
+export function tutBench(
+  s: GameState,
+  p: number,
+  out: Map<PlaceKind, Present[]>,
+  life: Life,
+): void {
+  const t = life.tut;
+  if (!t || t.over || t.step > TUTORIAL_STEPS.indexOf("talk")) return;
+  const job = life.job;
+  const c = s.chars[t.cast.friend];
+  if (!job || job.prov !== p || !c?.alive || c.abroad) return;
+  const bench = out.get(job.place);
+  if (!bench) return;
+  for (const list of out.values()) {
+    const i = list.findIndex((x) => x.c === c.id);
+    if (i >= 0) list.splice(i, 1);
+  }
+  bench.push({ c: c.id, doing: "at the next bench", kind: "work" });
+}

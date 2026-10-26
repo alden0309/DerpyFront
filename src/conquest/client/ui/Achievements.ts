@@ -359,7 +359,9 @@ export function achievementToasts(
     const here =
       t.coins === null
         ? "Sign in to Derp Land to be paid Derp Coins for these."
-        : `+${t.game} Derp Coin${t.game === 1 ? "" : "s"} in this game`;
+        : def.account // CQTUT (r26): the account's alone, nothing in the game
+          ? null
+          : `+${t.game} Derp Coin${t.game === 1 ? "" : "s"} in this game`;
     const overall =
       t.coins === null
         ? null
@@ -384,7 +386,7 @@ export function achievementToasts(
         >
         <span class="cq-ach-name">${def.name}</span>
         <span class="cq-ach-how">${def.how}</span>
-        <span class="cq-ach-paid">${here}</span>
+        ${here ? html`<span class="cq-ach-paid">${here}</span>` : nothing}
         ${overall
           ? html`<span class="cq-ach-overall ${onAccount ? "on" : ""}"
               >${overall}</span
@@ -566,7 +568,9 @@ function card(
   const state =
     view === "game"
       ? earnedHere
-        ? `Earned ${formatDate(day)}: ${gameCoins(a)} Derp Coins in this game${acc ? "; on your account" : ""}`
+        ? a.account // CQTUT (r26): paid onto the account alone
+          ? `Earned ${formatDate(day)}${acc ? ": on your account" : ""}`
+          : `Earned ${formatDate(day)}: ${gameCoins(a)} Derp Coins in this game${acc ? "; on your account" : ""}`
         : acc
           ? "Not yet in this game (on your account)"
           : "Not yet"
@@ -575,7 +579,8 @@ function card(
         : earnedHere
           ? "Earned in this game, not on your account"
           : "Not yet";
-  const coins = view === "game" ? gameCoins(a) : a.coins;
+  // CQTUT (r26): the first life's lessons pay the account (once, any difficulty).
+  const coins = view === "game" && !a.account ? gameCoins(a) : a.coins;
   return html`<li class="cq-ach-card ${metal} ${secret ? "secret" : ""}">
     ${medal(a, metal)}
     <div class="cq-ach-body">
@@ -589,9 +594,11 @@ function card(
     </div>
     <span
       class="cq-ach-coins"
-      title=${view === "game"
-        ? "Derp Coins it pays in this game (any difficulty)"
-        : "Derp Coins it pays your account, once (on Hard)"}
+      title=${a.account
+        ? "Derp Coins it pays your account, once (any difficulty)"
+        : view === "game"
+          ? "Derp Coins it pays in this game (any difficulty)"
+          : "Derp Coins it pays your account, once (on Hard)"}
       >${coins}</span
     >
   </li>`;

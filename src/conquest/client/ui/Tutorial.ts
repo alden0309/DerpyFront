@@ -25,8 +25,13 @@ import { subOf } from "./Nav";
 
 // ---------------------------------------------------------------- what to point at
 
-/** Something on the screen: a selector, and (if many match) the words it holds; or a place on the map. */
-export type TutTarget = { sel: string; text?: RegExp } | { prov: number };
+/**
+ * Something on the screen: a selector, and (if many match) the words it
+ * holds, and (`pick`) the thing inside it to ring; or a place on the map.
+ */
+export type TutTarget =
+  | { sel: string; text?: RegExp; pick?: string }
+  | { prov: number };
 
 /** Where a province is on the screen (the game's map sets it), or null if it's not in view. */
 export const tutMap: {
@@ -83,6 +88,8 @@ function letterOf(
 }
 
 const TRAY: TutTarget = { sel: ".cq-tray-letter" };
+/** An outcome's "Next: …" (the letter after it). */
+const NEXT: TutTarget = { sel: ".cq-scene-actions .cq-btn", text: /^Next/ };
 const LETTERS: TutTarget = { sel: ".cq-letters.has" };
 const CHOICES: TutTarget = { sel: ".cq-scene-choices" };
 const SKIP: TutTarget = { sel: ".cq-skip-btn" };
@@ -101,12 +108,14 @@ function letterSay(
 ): Say | null {
   const l = letterOf(ui, life, t, ctx.modal);
   if (!l) return null;
+  // Over what came of the last one: this one is next.
+  const after = ctx.modal?.k === "outcome" || ctx.modal?.k === "interact";
   return {
     title,
     text,
-    at: l.open ? [CHOICES] : [TRAY, LETTERS],
+    at: l.open ? [CHOICES] : after ? [NEXT, TRAY] : [TRAY, LETTERS],
     show: () => ui.modal({ k: "event", id: l.id }),
-    over,
+    over: after ? "A letter has come: Next opens it." : over,
   };
 }
 
@@ -150,16 +159,19 @@ function stepSay(
           twenty, a journeyman cooper at ${master}'s shop. The world waits while
           you look about. <b>Step into the workshops</b>, where you work: Here
           lists the town's places.`,
-        at: [{ sel: ".cq-area-tile:has(.cq-area-work)" }, { sel: ".cq-tab", text: /^Here$/ }],
+        at: [
+          { sel: ".cq-area-tile:has(.cq-area-work)" },
+          { sel: ".cq-tab", text: /^Here$/ },
+        ],
         show: () => ui.open({ k: "tab", tab: "here" }),
       };
     }
     case "work":
       return {
         title: "Your work",
-        text: html`Your days at the bench are worked for you, and wages come
-          at the month's end. <b>Choose how hard you'll go at it</b>: hard work
-          brings promotion sooner, and more stress.`,
+        text: html`Your days at the bench are worked for you, and wages come at
+          the month's end. <b>Choose how hard you'll go at it</b> (Steady will
+          do): harder brings promotion sooner, and more stress.`,
         at: [{ sel: ".cq-lv-effort" }, { sel: ".cq-tab", text: /^Work$/ }],
         show: () => ui.open({ k: "tab", tab: "work", sub: "job" }),
       };
@@ -178,18 +190,25 @@ function stepSay(
       const talking = ctx.modal?.k === "interact" && ctx.modal.act === "talk";
       return {
         title: `A word with ${name}`,
-        text: html`${fullOf(ui, cast.friend, "Your neighbour")} keeps the
-          cooperage next to yours. Open his card (<b>Show me</b> finds him) to
-          see what he thinks of you, then <b>Talk</b> to pass the time of
-          day.`,
+        text: html`That's ${fullOf(ui, cast.friend, "your neighbour")} at the
+          next bench: he keeps the cooperage next to your master's.
+          <b>Click him</b> to see what he thinks of you, then <b>Talk</b> to
+          pass the time of day.`,
         at: talking
           ? [{ sel: ".cq-modal .cq-btn.primary" }]
           : [
               { sel: ".cq-interactions .cq-int", text: /^Talk/ },
               { sel: `li.cq-present-item[data-c="${cast.friend}"]` },
-              { sel: `.cq-folk-row` },
             ],
-        show: () => ui.open({ k: "char", c: cast.friend }),
+        // In the room (Here now): brought into view; elsewhere, his card.
+        show: () => {
+          if (
+            !document.querySelector(
+              `li.cq-present-item[data-c="${cast.friend}"]`,
+            )
+          )
+            ui.open({ k: "char", c: cast.friend });
+        },
         over: "Do it: a word costs nothing.",
       };
     }
@@ -231,7 +250,7 @@ function stepSay(
         ctx,
         "Barrels for Plymouth",
         "The barrels are delivered. Answer the letter: a price on a choice is what it costs (yours is the purse up top).",
-        "A coin on a choice is what it costs.",
+        "A coin on a choice is what it costs; your purse is up top.",
       );
       if (said) return said;
       const going = life.travel?.dest === errand;
@@ -245,9 +264,8 @@ function stepSay(
         };
       return {
         title: "Let the clock run",
-        text: html`On the road. The world runs a day every three seconds at
-          1×; 2×, 4× and 8× run faster. <b>Start the clock</b> with ▶ (or
-          Space).`,
+        text: html`On the road. The world runs a day every three seconds at 1×;
+          2×, 4× and 8× run faster. <b>Start the clock</b> with ▶ (or Space).`,
         at: [PLAY],
       };
     }
@@ -277,19 +295,19 @@ function stepSay(
         life,
         t,
         ctx,
-        "Sunday at your mother's",
-        "Your wages are in: point at your purse up top for the month's money, in and out. And your mother wants you at Sunday dinner.",
-        "Family matters too: a choice here changes what they think of you.",
+        "Supper at your mother's",
+        "Your wages are in: point at your purse up top for the month's money, in and out. And your mother wants you at supper.",
+        "Pay day: your wages are in the purse, up top. Family matters too: what you choose here changes what they think of you.",
       );
       if (said) return said;
       if (!atHome)
         return homeFirst(
           ui,
-          "Sunday at your mother's",
-          "Your mother wants you at Sunday dinner.",
+          "Supper at your mother's",
+          "Your mother wants you at supper.",
         );
       return {
-        title: "Sunday at your mother's",
+        title: "Supper at your mother's",
         text: "Your mother's letter is on its way.",
         at: [TRAY],
       };
@@ -297,12 +315,15 @@ function stepSay(
     case "aim":
       return {
         title: "Something to aim at",
-        text: html`An ambition gives the years a shape, and reaching it is
-          worth renown. <b>Choose one</b> on You › Ambition (Rise in your
-          trade would make you a master). What happens to you is kept in
-          Journal › Diary.`,
+        text: html`An ambition gives the years a shape, and reaching it is worth
+          renown. <b>Choose one</b> on You › Ambition (Rise in your trade would
+          make you a master). What happens to you is kept in Journal › Diary.`,
         at: [
-          { sel: ".cq-ambitions li", text: /^Rise in your trade/ },
+          {
+            sel: ".cq-ambitions li",
+            text: /^Rise in your trade/,
+            pick: "button",
+          },
           { sel: "details.cq-more > summary", text: /^Set your heart on/ },
           { sel: ".cq-subtab", text: /^Ambition/ },
           { sel: ".cq-tab", text: /^You$/ },
@@ -326,7 +347,7 @@ function stepSay(
         ctx,
         "Twenty-one",
         "Every year you age. From about forty-five the most your health can be starts to fall, and stress makes every hurt worse: keep it under 70.",
-        "A year older. Choose how to spend the day.",
+        "Every year you age: from about forty-five your health begins to fail, and stress makes every hurt worse. Choose how to spend the day.",
       );
       if (said) return said;
       return {
@@ -341,8 +362,8 @@ function stepSay(
         title: "When you die",
         text: html`Nobody lives for ever. When you die you carry on as your
           heir: your eldest child, unless you name another. No child yet, and
-          your line ends with you, so you'll want to marry. <b>Open You ›
-          Family</b> to see who's yours.`,
+          your line ends with you, so you'll want to marry.
+          <b>Open You › Family</b> to see who's yours.`,
         at: [
           { sel: ".cq-subtab", text: /^Family/ },
           { sel: ".cq-tab", text: /^You$/ },
@@ -377,7 +398,8 @@ export function tutorialLayer(ui: GameUi, ctx: TutContext): TemplateResult {
   const life = ui.life;
   const t = life?.tut;
   if (!life || !t || ui.watcher || life.watching) return html``;
-  if (t.over) return t.over.how === "done" && !t.closed ? endCard(ui, ctx) : html``;
+  if (t.over)
+    return t.over.how === "done" && !t.closed ? endCard(ui, ctx) : html``;
   const step = tutStep(life);
   if (!step) return html``;
   const say = stepSay(ui, life, t, step, ctx);
@@ -389,14 +411,18 @@ export function tutorialLayer(ui: GameUi, ctx: TutContext): TemplateResult {
     ctx.modal?.k === "interact";
   const other = !!ctx.modal && !letterOpen;
   if (other) return html``;
+  // What came of a letter, and nothing of the step's own to say over it
+  // (its next is on the page behind): stand aside until it's put away.
+  if (letterOpen && !say.over) return html``;
   if (letterOpen)
     return html`${say.over
         ? html`<div class="cq-tut-over" role="status">
-            <span class="cq-tut-kicker">First life · ${n} of ${TUT_STEP_COUNT}</span>
+            <span class="cq-tut-kicker"
+              >First life · ${n} of ${TUT_STEP_COUNT}</span
+            >
             ${say.over}
           </div>`
-        : nothing}
-      <cq-tut-ring .at=${say.at}></cq-tut-ring>`;
+        : nothing} <cq-tut-ring .at=${say.at}></cq-tut-ring>`;
   const skip = () => {
     asking = false;
     void ui.cmd({ k: "tut", act: "skip", step: t.step });
@@ -516,7 +542,8 @@ function endCard(ui: GameUi, ctx: TutContext): TemplateResult {
       ${ctx.signedIn
         ? html`<b>First life:</b> ${FIRST_LIFE_COINS} Derp Coins on your account
             (once).`
-        : html`Signed in, finishing it pays ${FIRST_LIFE_COINS} Derp Coins (once).`}
+        : html`Signed in, finishing it pays ${FIRST_LIFE_COINS} Derp Coins
+          (once).`}
     </p>
     <div class="cq-tut-acts end">
       <button class="cq-btn small primary" @click=${close}>
@@ -601,15 +628,24 @@ export class TutRing extends LitElement {
     for (const t of this.at) {
       if ("prov" in t) {
         const pt = tutMap.point?.(t.prov);
-        if (pt) return { el: null, r: new DOMRect(pt.x - 20, pt.y - 20, 40, 40) };
+        // Only where the map itself shows (not under a page, a sheet or the card).
+        const on = pt && document.elementFromPoint(pt.x, pt.y);
+        if (pt && on instanceof Element && on.closest(".cq-map-host"))
+          return { el: null, r: new DOMRect(pt.x - 20, pt.y - 20, 40, 40) };
         continue;
       }
-      for (const el of document.querySelectorAll<HTMLElement>(t.sel)) {
-        if (t.text && !t.text.test((el.textContent ?? "").trim())) continue;
-        const r = el.getBoundingClientRect();
-        if (r.width < 2 || r.height < 2) continue;
-        if (!anywhere && (r.bottom < 0 || r.top > innerHeight)) continue;
-        return { el, r };
+      for (const found of document.querySelectorAll<HTMLElement>(t.sel)) {
+        if (t.text && !t.text.test((found.textContent ?? "").trim())) continue;
+        const el = t.pick
+          ? found.querySelector<HTMLElement>(t.pick)
+          : (found as HTMLElement | null);
+        if (!el) continue;
+        const whole = el.getBoundingClientRect();
+        if (whole.width < 2 || whole.height < 2) continue;
+        if (anywhere) return { el, r: whole };
+        // Only the part that's in sight (a page scrolls, a window has edges).
+        const r = inSight(el, whole);
+        if (r) return { el, r };
       }
     }
     return null;
@@ -639,6 +675,32 @@ export class TutRing extends LitElement {
     b.style.width = `${r.width + pad * 2}px`;
     b.style.height = `${r.height + pad * 2}px`;
   }
+}
+
+/**
+ * The part of an element that can be seen: cut to the boxes that scroll or
+ * clip it, and to the window; null if too little of it shows.
+ */
+function inSight(el: HTMLElement, r: DOMRect): DOMRect | null {
+  let top = Math.max(r.top, 0);
+  let left = Math.max(r.left, 0);
+  let bottom = Math.min(r.bottom, innerHeight);
+  let right = Math.min(r.right, innerWidth);
+  for (
+    let p = el.parentElement;
+    p && p !== document.body;
+    p = p.parentElement
+  ) {
+    const st = getComputedStyle(p);
+    if (st.overflowY === "visible" && st.overflowX === "visible") continue;
+    const b = p.getBoundingClientRect();
+    top = Math.max(top, b.top);
+    left = Math.max(left, b.left);
+    bottom = Math.min(bottom, b.bottom);
+    right = Math.min(right, b.right);
+  }
+  if (bottom - top < 10 || right - left < 10) return null;
+  return new DOMRect(left, top, right - left, bottom - top);
 }
 
 declare global {

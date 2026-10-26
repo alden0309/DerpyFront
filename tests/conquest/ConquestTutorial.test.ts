@@ -12,6 +12,8 @@ import {
   gameCoins,
   paysOverall,
 } from "../../src/conquest/engine/Achievements";
+import { sitterOf } from "../../src/conquest/engine/Appearance";
+import { findIn, presence } from "../../src/conquest/engine/Areas";
 import { dateOf, dayOf } from "../../src/conquest/engine/Calendar";
 import { kill } from "../../src/conquest/engine/Characters";
 import { lifeCoins } from "../../src/conquest/engine/Coins";
@@ -160,6 +162,48 @@ describe("the first life begins (CQTUT r26)", () => {
     expect(life.tut?.step).toBe(0);
   });
 
+  test("the neighbour is at the next bench until you've spoken with him", () => {
+    for (const female of [false, true]) {
+      const { g, life } = fresh(female);
+      const t = life.tut!;
+      const friend = t.cast.friend;
+      const where = (l: Life | null) =>
+        findIn(g.s, g.w, BOSTON, friend, g.s.day, l);
+      // Day after day, wherever his own hours would have had him.
+      for (let d = 0; d < 10; d++) {
+        expect(where(life)).toEqual({
+          area: "workshop",
+          doing: "at the next bench",
+        });
+        const all = [...presence(g.s, g.w, BOSTON, g.s.day, life).values()];
+        expect(all.flat().filter((x) => x.c === friend)).toHaveLength(1);
+        g.tick();
+      }
+      // Once you've spoken, he keeps his own hours again.
+      cmd(g, { k: "enter", area: "workshop" });
+      cmd(g, { k: "effort", v: "steady" });
+      cmd(g, { k: "person", c: friend, act: "talk" });
+      answer(g, life, 0);
+      expect(step(life)).toBe("rival");
+      for (let d = 0; d < 10; d++) {
+        expect(where(life)).toEqual(where(null));
+        g.tick();
+      }
+    }
+  });
+
+  test("the master, the friend and the rival: three faces a newcomer can tell apart", () => {
+    for (const female of [false, true]) {
+      const { g, life } = fresh(female);
+      const t = life.tut!;
+      const faces = [t.cast.master, t.cast.friend, t.cast.rival].map((id) => {
+        const c = g.s.chars[id];
+        return sitterOf(c, ageOf(g.s, c)).id;
+      });
+      expect(new Set(faces).size).toBe(3);
+    }
+  });
+
   test("the world is made once, and each first life gets its own copy", () => {
     const a = tutorialWorld(map);
     a.day += 99;
@@ -242,7 +286,7 @@ describe("the steps move on when the player does what they ask", () => {
     expect(life.events.map((e) => e.key)).toContain("tut-family");
   });
 
-  test("Sunday at your mother's waits until you're home", () => {
+  test("supper at your mother's waits until you're home", () => {
     const { g, life } = fresh();
     for (let i = 0; i < 7; i++) cmd(g, { k: "tut", act: "skip", step: i });
     expect(step(life)).toBe("family");

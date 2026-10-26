@@ -2,7 +2,7 @@
 // (Tutorial.ts) at their steps and nowhere else. They're gentle: a check
 // that fails costs a little peace of mind, never health, and at most a coin
 // or two is spent, by choice. Boston and Plymouth in 1700 as they were: the
-// Town Dock and Middle Street, the dame school, Sunday meeting, coopers'
+// Town Dock and Middle Street, the dame school, supper at home, coopers'
 // marks cut in a barrel's head.
 
 import type { ConquestGame } from "./Game";
@@ -284,17 +284,17 @@ export function tutorialEvents(): LifeEventDef[] {
         },
       ],
     },
-    // ------------------------------------------------ step "family": Sunday dinner
+    // ------------------------------------------------ step "family": supper at your mother's
     {
       key: "tut-family",
       pool: "raised",
       cooldown: 0,
       scene: "home",
       where: {},
-      title: "Sunday at your mother's",
+      title: "Supper at your mother's",
       body: (g, life, ctx) => {
         const sis = who(g, ctx.k);
-        return `Sunday, after meeting. Your mother has a fowl on the spit and the good cloth on the table, and ${sis ? sis.first : "your sister"}, fourteen and all elbows, can hardly wait for the grace to be over. She wants to learn her letters properly: to read the Bible for herself and write a fair hand, like the girls at the dame school in Middle Street. Your mother looks at you. Money has been short since your father died.`;
+        return `Supper at your mother's in Middle Street. She has a fowl on the spit and the good cloth on the table, and ${sis ? sis.first : "your sister"}, fourteen and all elbows, can hardly wait for the grace to be over. She wants to learn her letters properly: to read the Bible for herself and write a fair hand, like the girls at the dame school round the corner. Your mother looks at you. Money has been short since your father died.`;
       },
       choices: [
         {
