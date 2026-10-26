@@ -12,9 +12,11 @@ import { formatDate } from "../../engine/Calendar";
 import { meOf } from "../../engine/LifeQueries";
 import {
   FIRST_LIFE_COINS,
+  TUT_EARN_DONE,
   TUT_ERRAND,
   TUT_HOME,
   TUT_STEP_COUNT,
+  tutEarned,
   TUTORIAL_STEPS,
   tutStep,
   type TutStep,
@@ -399,7 +401,7 @@ export function tutorialLayer(ui: GameUi, ctx: TutContext): TemplateResult {
   const t = life?.tut;
   if (!life || !t || ui.watcher || life.watching) return html``;
   if (t.over)
-    return t.over.how === "done" && !t.closed ? endCard(ui, ctx) : html``;
+    return t.over.how === "done" && !t.closed ? endCard(ui, t, ctx) : html``;
   const step = tutStep(life);
   if (!step) return html``;
   const say = stepSay(ui, life, t, step, ctx);
@@ -520,7 +522,11 @@ function me(ui: GameUi): string {
 }
 
 /** The end: First life, and where next. */
-function endCard(ui: GameUi, ctx: TutContext): TemplateResult {
+function endCard(
+  ui: GameUi,
+  t: TutorialState,
+  ctx: TutContext,
+): TemplateResult {
   const mine = ui.me;
   const name = mine?.first ?? "this life";
   const female = !!mine?.female;
@@ -539,11 +545,16 @@ function endCard(ui: GameUi, ctx: TutContext): TemplateResult {
       <b>I want to…</b> and the <b>?</b> on every page.
     </p>
     <p class="cq-tut-pay">
-      ${ctx.signedIn
-        ? html`<b>First life:</b> ${FIRST_LIFE_COINS} Derp Coins on your account
-            (once).`
-        : html`Signed in, finishing it pays ${FIRST_LIFE_COINS} Derp Coins
-          (once).`}
+      ${!tutEarned(t)
+        ? html`<b>First life</b> is for doing the lessons: you skipped
+            ${t.skipped.length} of ${TUT_STEP_COUNT}, and it allows
+            ${TUT_STEP_COUNT - TUT_EARN_DONE}. Play it again to earn it
+            (${FIRST_LIFE_COINS} Derp Coins, once).`
+        : ctx.signedIn
+          ? html`<b>First life:</b> ${FIRST_LIFE_COINS} Derp Coins on your
+              account (once).`
+          : html`Signed in, finishing it pays ${FIRST_LIFE_COINS} Derp Coins
+            (once).`}
     </p>
     <div class="cq-tut-acts end">
       <button class="cq-btn small primary" @click=${close}>

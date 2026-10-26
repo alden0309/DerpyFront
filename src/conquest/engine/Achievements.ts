@@ -34,7 +34,14 @@ import { ageOf } from "./Queries";
 import { isNorth } from "./Seasons";
 import { achievementText } from "./StoryCore"; // STORY (r17)
 import { LEVEL_POINTS, lifeTonguePoints, motherTongue } from "./Tongues";
-import { FIRST_LIFE, FIRST_LIFE_COINS } from "./TutorialCore"; // CQTUT (r26)
+// CQTUT (r26)
+import {
+  FIRST_LIFE,
+  FIRST_LIFE_COINS,
+  TUT_EARN_DONE,
+  TUT_STEP_COUNT,
+  tutEarned,
+} from "./TutorialCore";
 import type {
   Difficulty,
   JobKind,
@@ -719,11 +726,11 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   {
     key: FIRST_LIFE,
     name: "First life",
-    how: "Finish the first life's lessons.",
+    how: `Finish the first life's lessons, skipping no more than ${TUT_STEP_COUNT - TUT_EARN_DONE} of them.`,
     coins: FIRST_LIFE_COINS,
     group: "time",
     account: true,
-    check: (g, l) => l.tut?.over?.how === "done",
+    check: (g, l) => tutEarned(l.tut),
   },
 ];
 

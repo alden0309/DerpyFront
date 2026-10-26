@@ -13,12 +13,17 @@ import { AddressInfo } from "net";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { WebSocket } from "ws";
 import { lifeOfSeat } from "../../src/conquest/engine/LifeQueries";
+import { AMERICAS } from "../../src/conquest/engine/Map";
 import {
   FIRST_LIFE,
   FIRST_LIFE_COINS,
   TUTORIAL_STEPS,
 } from "../../src/conquest/engine/TutorialCore";
+import type { LifeCommand } from "../../src/conquest/engine/Types";
 import type { ServerMessage } from "../../src/conquest/Protocol";
+
+const P = (name: string) =>
+  AMERICAS.provinces.findIndex((p) => p.name === name);
 
 vi.mock("../../src/server/Logger", () => ({
   logger: {
@@ -135,11 +140,38 @@ describe.skipIf(!TEST_DB)("the first life on the server (CQTUT r26)", () => {
     return game;
   }
 
-  /** Every step but the last skipped on the server's own game, then the last by the socket. */
+  /**
+   * Every step but the last done on the server's own game (First life is
+   * for doing them), then the last by the socket.
+   */
   async function finish(c: Client, code: string, you: string, id: number) {
     const room = env.rooms.rooms.get(code)!;
-    for (let i = 0; i < TUTORIAL_STEPS.length - 1; i++)
-      room.game!.lifeCommand(you, { k: "tut", act: "skip", step: i });
+    const g = room.game!;
+    const life = () => lifeOfSeat(g.state, you)!;
+    const cmd = (x: LifeCommand) => g.lifeCommand(you, x);
+    const answer = (choice: number) => {
+      const ev = life().events.find((e) => e.key.startsWith("tut-"));
+      if (ev) cmd({ k: "event", id: ev.id, choice });
+    };
+    const run = (done: () => boolean) => {
+      for (let n = 0; n < 200 && !done(); n++) g.tick();
+    };
+    const step = () => TUTORIAL_STEPS[life().tut!.step];
+    cmd({ k: "enter", area: "workshop" });
+    cmd({ k: "effort", v: "steady" });
+    cmd({ k: "person", c: life().tut!.cast.friend, act: "talk" });
+    answer(0);
+    answer(2);
+    cmd({ k: "travel", to: P("Plymouth"), bySea: false });
+    run(() => !life().travel);
+    answer(2);
+    cmd({ k: "travel", to: P("Massachusetts Bay"), bySea: false });
+    run(() => step() !== "home");
+    answer(2);
+    cmd({ k: "ambition", key: "rise" });
+    run(() => !!life().tut!.wait);
+    answer(1);
+    expect(step()).toBe("heir");
     const told = c.next("achieved", (m) => m.key === FIRST_LIFE);
     c.send({
       t: "cmd",

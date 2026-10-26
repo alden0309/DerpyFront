@@ -87,6 +87,17 @@ export function tutStep(life: Life | null | undefined): TutStep | null {
 export const TUT_STEP_COUNT = TUTORIAL_STEPS.length;
 
 /**
+ * First life is earned by doing the lessons, not by skipping through them:
+ * at least this many of the steps done (a few may be skipped).
+ */
+export const TUT_EARN_DONE = 8;
+
+/** Whether these lessons, over, earned First life. */
+export function tutEarned(t: TutorialState | undefined): boolean {
+  return t?.over?.how === "done" && t.done.length >= TUT_EARN_DONE;
+}
+
+/**
  * Who's about, as the lessons would have it: until you've spoken with him,
  * your neighbour is at the next bench in your workplace (Areas.ts presence
  * asks), so the newcomer who steps in finds him there.

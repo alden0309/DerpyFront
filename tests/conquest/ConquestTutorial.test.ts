@@ -32,7 +32,9 @@ import { TUT_WAITS } from "../../src/conquest/engine/Tutorial";
 import {
   FIRST_LIFE,
   FIRST_LIFE_COINS,
+  TUT_EARN_DONE,
   TUT_FLOOR,
+  tutEarned,
   TUTORIAL_STEPS,
   tutRunning,
   tutStep,
@@ -337,14 +339,49 @@ describe("skipping a step, and leaving the lessons", () => {
     expect(life.tut!.skipped).toEqual(["places"]);
   });
 
-  test("every step skipped: the end, and First life all the same", () => {
+  test("every step skipped: the end, but no First life (it's for doing them)", () => {
     const { g, life } = fresh();
     for (let i = 0; i < TUTORIAL_STEPS.length; i++)
       cmd(g, { k: "tut", act: "skip", step: i });
     expect(life.tut!.over?.how).toBe("done");
     expect(life.tut!.skipped).toEqual([...TUTORIAL_STEPS]);
-    expect(life.achieved?.[FIRST_LIFE]).toBeDefined();
+    expect(tutEarned(life.tut)).toBe(false);
+    expect(life.achieved?.[FIRST_LIFE]).toBeUndefined();
     expect(cmd(g, { k: "tut", act: "skip" })).toBe("The lessons are over.");
+    // Nor in a month's time (the achievements' own rounds).
+    ticks(g, 40);
+    expect(life.achieved?.[FIRST_LIFE]).toBeUndefined();
+  });
+
+  test("a few skipped still earn First life; one more doesn't", () => {
+    const allowed = TUTORIAL_STEPS.length - TUT_EARN_DONE;
+    expect(allowed).toBe(3);
+    for (const skips of [allowed, allowed + 1]) {
+      const { g, life } = fresh();
+      // The first steps skipped, the rest done as asked.
+      for (let i = 0; i < skips; i++)
+        cmd(g, { k: "tut", act: "skip", step: i });
+      const t = life.tut!;
+      expect(t.skipped).toHaveLength(skips);
+      if (step(life) === "rival") answer(g, life, 2);
+      if (step(life) === "map")
+        cmd(g, { k: "travel", to: PLYMOUTH, bySea: false });
+      if (step(life) === "road") {
+        runUntil(g, () => !life.travel);
+        answer(g, life, 2);
+      }
+      cmd(g, { k: "travel", to: BOSTON, bySea: false });
+      runUntil(g, () => step(life) !== "home");
+      answer(g, life, 2);
+      cmd(g, { k: "ambition", key: "rise" });
+      runUntil(g, () => !!t.wait);
+      answer(g, life, 1);
+      cmd(g, { k: "tut", act: "saw", what: "heir" });
+      expect(t.over?.how).toBe("done");
+      expect(t.done.length + t.skipped.length).toBe(TUTORIAL_STEPS.length);
+      expect(tutEarned(t)).toBe(skips <= allowed);
+      expect(!!life.achieved?.[FIRST_LIFE]).toBe(skips <= allowed);
+    }
   });
 
   test("leaving the lessons: the life goes on as a normal game, without First life", () => {
