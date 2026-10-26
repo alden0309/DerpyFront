@@ -91,7 +91,7 @@
 @item boots "Black boots" kind=clothes slot=shoes icon=boots bonus=DEXTERITY+1 start=worn "Rubber soles that say nothing on wet tiles. He resoled them in Vienna and hasn't worn anything else since."
 @item gloves "Thin black gloves" kind=clothes slot=gloves icon=gloves bonus=INTIMIDATION+1,DEXTERITY-1 start=1 "In the jacket's inside pocket. A man in gloves indoors is a man with plans, and everybody knows it."
 @item phone "Phone" kind=small icon=phone start=1 "A cheap phone with one number in it. The number starts with a London code."
-@item passport "Passport" kind=document icon=passport start=1 "American, in his own name, which is either very brave or very lazy. London said a false one would only draw attention to him: his own name, then, and a buyer for a wine importer in Boston, over to taste the new vintages. The less he has to remember, the less he can forget. London says a lot of things."
+@item passport "Passport" kind=document icon=passport start=1 "American, in the name of John Locke: London's work, and good work, down to the worn corners and a visa stamp from a trip John Locke never took. His own face, a little tired. John Locke buys wine for an importer in San Diego and is over for the tastings. The less he has to remember, the less he can forget. London says a lot of things."
 
 @item matchbook "Le Vauban matches" kind=small icon=matchbook "A book of matches from the bowl on the bar: LE VAUBAN in gold on oxblood, and the hotel's number. Twenty matches, which is nineteen more than a man needs to start a conversation."
 @item cigarettes "Cigarettes" kind=small icon=cigarettes "A blue packet of Corsaires from the machine in the lobby. He quit in Vienna. He bought them anyway."
@@ -148,8 +148,9 @@
 @carry "You told Penhallow what the man in grey wanted." if told_penhallow
 @carry "You kept the man in grey to yourself." if kept_quiet
 @carry "You and Penhallow know the man in grey saw you together. After tonight, neither of you was ever at Le Vauban." if knew_seen
-@carry "The man in grey thinks you buy wine for an importer in Boston." if told_grey_wine
+@carry "The man in grey thinks you buy wine for an importer in San Diego." if told_grey_wine
 @carry "The man in grey knows your name." if gave_name
+@carry "The man in grey knows you as John Locke." if gave_alias
 @carry "Delorme has had room forty-one since the election." if delorme_41 and knows_room
 @carry "A car takes room forty-one to Satory at six." if knows_satory and (knows_room or heard_41)
 @carry "The barman has decided he likes you." if rel.anselme >= 2
@@ -186,8 +187,8 @@ set crowd
 It had rained every day since the results, as if the city were trying to wash something off and hadn't found the right soap.
 @focus none
 @actor BASED street_mid walk
-London had given him a bar, a time and a newspaper. Le Vauban, on the rue de Grenelle, at ten. A woman with The Times, open at the crossword. And a room upstairs at the hotel, booked by Lisle and Hart, wine shippers of the City of London, who had never heard of him and would swear, if anyone rang, that he bought their claret for an importer in Boston.
-task contact "Meet London's contact at Le Vauban, on the rue de Grenelle, at ten. She'll have The Times, open at the crossword. Ask her about seven down."
+London had given him the name of a hotel, a bar, a time and a contact: Le Vauban, on the rue de Grenelle, at ten. A woman with The Times, open at the crossword. And a room upstairs at the hotel, booked to a man named John Locke, Mr. Based's alias, a wine shipper from San Diego, California.
+task contact "Meet London's contact at Le Vauban, on the rue de Grenelle, at ten: a woman with The Times, open at the crossword. She'll come to you once the room is clear. Ask her about seven down. The room upstairs is booked to John Locke."
 ~ Twenty minutes early. Time to look at the street the way the street was looking at him.
 -> FREE
 
@@ -1040,7 +1041,7 @@ A red rope across the foot of the stairs, hooked between two brass posts, and a 
 if room_late
   ~ His key's on the board behind the clerk, and his room isn't made up yet. The clerk will unhook the rope when it is.
 else
-  ~ He has a room up there somewhere, under the name of a firm of wine shippers. The desk will know which.
+  ~ He has a room up there somewhere, booked to John Locke. The desk will know which.
 end
 -> FREE
 
@@ -1099,7 +1100,7 @@ choose "He's being friendly. He's also asking."
   * [First time] "First time. A friend said it was quiet."
     BARMAN: Your friend is right. Quiet is what we sell. The drinks are only so people have something to hold.
     rel ANSELME +1
-  * white DECEPTION easy [The cover] "I'm in wine. I buy it for an importer in Boston: buying, not drinking. Mostly."
+  * white DECEPTION easy [The cover] "I'm in wine. I buy it for an importer in San Diego: buying, not drinking. Mostly."
     The barman's eyebrows told him that was the best joke he'd heard since the election, and that he would remember it.
     BARMAN: Then you must try the Bordeaux. It is terrible. You will buy none of it and feel very professional.
     set wine_cover
@@ -1337,9 +1338,10 @@ STRANGER: Forgive me. I'm here most evenings, and I know every face at this bar.
 His English was very good. London good: a year or two at one of those schools that teach you to sound as if you'd never had to learn it.
 ~ LANGUAGES challenging: Westminster, then Sciences Po. The vowels of a man who learned his English from people who owned things.
 choose "He smiles at the mirror, not at him."
-  // r26: one cover, the same to everyone: his own name (his own American
-  // passport), a buyer for a wine importer in Boston, over for the tastings.
-  * [The cover] "I buy wine, for an importer in Boston. I'm over for the tastings."
+  // r26: one cover, the same to everyone: John Locke (the passport London
+  // made him), a buyer for a wine importer in San Diego, over for the
+  // tastings.
+  * [The cover] "I buy wine, for an importer in San Diego. I'm over for the tastings."
     STRANGER (amused): In this bar? Then you are either a very bad buyer or a very good one. I will decide later.
     set wine_cover
     set told_grey_wine
@@ -1403,7 +1405,13 @@ end
 @figure STRANGER
 STRANGER: We haven't been introduced. I like to know who I'm drinking next to.
 choose "He waits for a name."
-  * [Give him yours] "Based."
+  // r26: the owner: an option to give him the alias.
+  * [Give him your alias] "John Locke."
+    STRANGER (amused): John Locke. Like the philosopher. Then you believe in contracts, Monsieur Locke.
+    BASED: Only the ones that pay on time.
+    ~ INSTINCT: The name on the booking, on the passport, on the label of the bag upstairs. Let him check it. London made it to be checked.
+    set gave_alias
+  * [Give him your real name] {give-him-yours} "Based."
     STRANGER: Based. Like the wine region. Bah-zay.
     He said it the French way, which made it sound like somewhere you'd go for the weekend instead of something a man had to write on forms.
     ~ INSTINCT: Now he has it. Men like him don't ask for things they don't mean to keep.
@@ -1831,7 +1839,7 @@ end
 // The clerk keeps the guest book turned to himself and the stairs roped:
 // since the Préfecture's circular a hotel must know who goes up, so a guest
 // takes his key at the desk and the clerk unhooks the rope for him. London
-// booked Mr. Based a room through a firm of wine shippers, and he's early:
+// booked Mr. Based a room under his alias, John Locke, and he's early:
 // it isn't made up yet. After the bar (the man in grey, then London's
 // contact) it's ready, and the stairs are his.
 
@@ -1857,14 +1865,14 @@ if speaks.fr >= 3
 end
 He put the phone down and turned the smile on.
 PORTER: Monsieur? You have a reservation?
-BASED: There should be a room. Lisle and Hart booked it, from London. I buy their wine, for an importer in Boston.
-The clerk turned a page of the guest book with one finger, keeping it to himself, and found them without having to look for long.
-PORTER: The wine gentlemen. Yes, monsieur: twenty-three, on the second floor. But you are early, and it is not made up. Since the election the girl who does the rooms comes when the Métro lets her. An hour, a little more.
+BASED: There should be a room for John Locke. I buy wine, for an importer in San Diego.
+The clerk turned a page of the guest book with one finger, keeping it to himself, and found the name without having to look for long.
+PORTER: The wine gentleman. Yes, monsieur: twenty-three, on the second floor. But you are early, and it is not made up. Feel free to wait in the bar; it should only take about an hour.
 set room_late
 He tilted his head at the red rope across the foot of the stairs.
-PORTER: And until you have your key I cannot let you up, I am afraid. The Préfecture's circular: a hotel must know who goes up, so the stairs are for guests with a key. The bar is through there, monsieur. I will have your key when the room is ready.
+PORTER: And until you have your key I cannot let you up, I am afraid. The Préfecture's circular: a hotel must know who goes up, so the stairs are for guests with a key. I will have your key when the room is ready.
 ~ An hour in a bar he'd been sent to sit in anyway. London's arithmetic, for once.
-task room "His room, twenty-three, booked by Lisle and Hart, the wine shippers, isn't made up yet. The clerk has the key, and the rope across the stairs."
+task room "His room, twenty-three, booked to John Locke, isn't made up yet. The clerk has the key, and the rope across the stairs."
 @focus none
 -> clerk_ask
 
@@ -1873,12 +1881,12 @@ task room "His room, twenty-three, booked by Lisle and Hart, the wine shippers, 
 @actor BASED see_desk walk
 @focus desk
 if room_late
-  PORTER: Monsieur. Twenty-three is ready: the girl came, the Métro permitting.
+  PORTER: Monsieur. Twenty-three is ready.
 else
   PORTER: Monsieur? You have a reservation?
-  BASED: There should be a room. Lisle and Hart booked it, from London. I buy their wine, for an importer in Boston.
+  BASED: There should be a room for John Locke. I buy wine, for an importer in San Diego.
   The clerk turned a page of the guest book with one finger, keeping it to himself.
-  PORTER: The wine gentlemen. Twenty-three, monsieur, on the second floor. Made up an hour ago.
+  PORTER: The wine gentleman. Twenty-three, monsieur, on the second floor. Made up an hour ago.
 end
 @sound key
 He took a key on a heavy brass weight from the board behind him and laid it on the desk so that it didn't ring.
@@ -2115,8 +2123,8 @@ set read_paper
 
 == use_passport "The passport"
 @on use passport
-His own face, five years younger, in an American passport with his own name in it.
-~ MEMORY: The photographer at the post office in Arlington said "Don't smile", and he hadn't, and he hasn't much since.
+His own face, a little tired, in an American passport with John Locke's name in it. London's work, down to the worn corners.
+~ MEMORY: The man in the room off Pall Mall who took the picture said "Don't smile", and he hadn't, and he hasn't much since.
 -> FREE
 
 == use_card "Delorme's card"
@@ -2175,7 +2183,7 @@ set thought_vidal
 if knew_seen
   ~ Not out there. The man under the awning saw him come in. Better he never sees him go out.
 else
-  ~ ENDURANCE: The rain, the street, a walk to nowhere at this hour. No. There's a bed upstairs with a firm of wine shippers' name on it.
+  ~ ENDURANCE: The rain, the street, a walk to nowhere at this hour. No. There's a bed upstairs with John Locke's name on it.
 end
 -> FREE
 
@@ -2200,7 +2208,7 @@ task night "Get his key from the desk and go up to bed. The lift's out: the stai
 @focus room
 @news none
 Twenty-three: a bed, a wardrobe, a radiator that knocked once and thought better of it, and a window full of rain with the roofs of the seventh arrondissement behind it.
-His holdall was already on the floor at the foot of the bed, with the wine shippers' label on it. London had sent it on ahead, which was London all over: his bag knew where he was sleeping before he did.
+He already had luggage on the floor at the foot of the bed, with his alias's wine-shipping label on it. London had sent it on ahead.
 @actor BASED bed_side sit walk
 He sat on the edge of the bed with his boots still on.
 if knew_seen
@@ -2244,12 +2252,15 @@ if gave_name
   COLONEL: He gave his name. Based.
   A silence, of the kind that is only possible in very large rooms.
   PRESIDENT: Find out who that is.
+elif gave_alias
+  COLONEL: He gave a name. John Locke. The hotel has him down for the wine trade.
+  PRESIDENT: A philosopher who sells wine. Find out who he really is.
 else
   COLONEL: He didn't give a name.
   PRESIDENT: Then he's somebody. Find out who.
 end
 if told_grey_wine
-  COLONEL: He says he buys wine, for an importer in Boston.
+  COLONEL: He says he buys wine, for an importer in San Diego.
   PRESIDENT: Nobody comes to Le Vauban for the wine.
 end
 COLONEL: He has a room there. He went up to bed an hour ago.

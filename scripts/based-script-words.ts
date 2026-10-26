@@ -96,6 +96,10 @@ const CHAPTER_1: Record<string, FlagWords> = {
     yes: "he read the Volunteers' leaflet in the gutter",
     no: "he hasn't read the leaflet in the gutter",
   },
+  gave_alias: {
+    yes: "he gave the man in grey his alias, John Locke",
+    no: "he didn't give the man in grey his alias",
+  },
   gave_name: {
     yes: "he gave the man in grey his name",
     no: "he didn't give the man in grey his name",

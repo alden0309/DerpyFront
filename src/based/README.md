@@ -134,8 +134,8 @@ far). The same key closes the panel it opened.
   staircase up the back wall, closed by a red rope with a card (Guests:
   please ask at the desk); the lift, out of order all night, its button
   dead; armchairs, a chandelier, a standard lamp; the doorways to the bar
-  and the street. London booked his room through a firm of wine shippers
-  and he's early: it isn't made up, so the clerk keeps his key, and since
+  and the street. London booked his room to his alias, John Locke, and
+  he's early: it isn't made up, so the clerk keeps his key, and since
   the Préfecture's circular the stairs are for guests with one.
 - **The bar.** The barman's conversation as it was; then the man in grey
   sits beside him because his is a new face. Then London's contact: he can
@@ -151,13 +151,15 @@ far). The same key closes the panel it opened.
   twenty-three, and sleep; then the two men smoking at the palace window.
 - **The regulars.** Two at the bar, a couple at the window table, a man
   with a book: a line or two each, and lives of their own (`idle=`).
-- **His cover (r26).** Mr. Based is American (seventeen years at the
-  Agency), on his own American passport; London hired him because he isn't
-  one of theirs. What he tells people is one story, the same to everyone:
-  his own name, a buyer for a wine importer in Boston, over for the
-  tastings. Lisle and Hart, the London shippers he buys from, booked the
-  room. He gives it to the barman, the man in grey ("[The cover]", or
-  "[Keep it to the trade]" when asked his name) and the clerk; Penhallow
+- **His cover (r26, the owner's).** Mr. Based is American (seventeen years
+  at the Agency); London hired him because he isn't one of theirs. He is
+  **John Locke, in wine, from San Diego, California**, on an American
+  passport in that name that London made him, and the room is booked to
+  John Locke. What he tells people is that one story, the same to
+  everyone: a buyer for a wine importer in San Diego, over for the
+  tastings. He gives it to the barman, the man in grey ("[The cover]",
+  "[Give him your alias]", or "[Keep it to the trade]" when asked his name;
+  his real name is a slip the palace hears about) and the clerk; Penhallow
   tells him to be a wine buyer for a few days. There's no other name and
   no other home (`tests/based/BasedCover.test.ts`).
 - **The barman's grandson (r26).** Asked about the television, the barman
