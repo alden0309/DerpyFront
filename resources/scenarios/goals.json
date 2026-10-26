@@ -741,13 +741,14 @@
         "place": {
           "capitalOf": "bavaria"
         },
-        "minute": 30
+        "minute": 10
       },
       "sweden": {
         "kind": "take",
         "place": {
           "capitalOf": "denmark_norway"
-        }
+        },
+        "minute": 10
       },
       "portugal": {
         "kind": "take",
@@ -756,7 +757,7 @@
           "at": [946, 1128],
           "of": "french_empire"
         },
-        "minute": 35
+        "minute": 10
       },
       "spain": {
         "kind": "take",
@@ -839,7 +840,7 @@
           "at": [648, 191],
           "of": "austria"
         },
-        "minute": 30
+        "minute": 10
       },
       "france": {
         "kind": "take",
@@ -1058,9 +1059,9 @@
       "austria_hungary": {
         "kind": "take",
         "place": {
-          "name": "Niš",
-          "at": [1895, 1135],
-          "of": "serbia"
+          "name": "Warsaw",
+          "at": [1859, 774],
+          "of": "russia"
         },
         "minute": 20
       },
@@ -1074,11 +1075,11 @@
       "russia": {
         "kind": "take",
         "place": {
-          "name": "Kraków",
-          "at": [1815, 862],
+          "name": "Vienna",
+          "at": [1671, 937],
           "of": "austria_hungary"
         },
-        "minute": 25
+        "minute": 15
       },
       "united_kingdom": {
         "kind": "take",
