@@ -701,6 +701,8 @@
     "unsupport": "Unsupport"
   },
   "derp_bar": {
+    "badge_earned": "Badge earned",
+    "badges_earned": "{n} badges earned",
     "change_username": "Change username",
     "conquest_blurb": "Live one life in the colonial Americas. Make history, or be one of the many who kept it moving.",
     "dialog_blurb": "One account for DerpyFront and Derpy Conquest. Your Derp Coins and skins come with you.",
@@ -708,6 +710,7 @@
     "make_account": "Make an account",
     "make_my_account": "Make my account",
     "new_account": "New account",
+    "see_badges": "See your badges",
     "your_coins": "Your Derp Coins",
     "your_skins": "Your skins",
     "your_stats": "Your stats and replays"

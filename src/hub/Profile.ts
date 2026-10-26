@@ -5,6 +5,9 @@ import { html, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { DynastySummary } from "../conquest/engine/DynastyCore"; // TREE (r25)
 import { api, ApiError, signOut } from "../derpland/Account";
+// PROFILE (r26): pictures and badges
+import { avatar, pinnedBadges } from "../derpland/Avatar";
+import type { PlayerBadges } from "../derpland/Badges";
 import { openSignIn } from "../derpland/DerpBar";
 import {
   coinIcon,
@@ -13,8 +16,10 @@ import {
   replayIcon,
   scrollIcon, // LEGACY (r21)
   signOutIcon,
-  tokenColor,
 } from "../derpland/Icons";
+import { parsePic, PICTURE_ERROR_TEXT } from "../derpland/Pictures";
+import { reportPicture } from "../derpland/ProfileApi";
+import { PINS_EVENT } from "./Badges"; // PROFILE (r26)
 import { dynastyHref, treeIcon } from "./Dynasty"; // TREE (r25)
 import {
   AWARD_NAMES,
@@ -99,6 +104,10 @@ interface Profile {
   username: string;
   coins: number;
   createdAt: string;
+  /** PROFILE (r26): their account, picture and badges. */
+  accountId?: number;
+  picture?: string | null;
+  badges?: PlayerBadges;
   stats: FrontStats;
   games: FrontGame[];
   conquest: {
@@ -122,6 +131,9 @@ export class DerpProfile extends HubPage {
   @state() private profile: Profile | null = null;
   @state() private error: string | null = null;
   @state() private filter: Filter = "all";
+  /** PROFILE (r26): reporting their uploaded picture. */
+  @state() private reportAsk = false;
+  @state() private reportMsg: string | null = null;
 
   private who(): string | null {
     return this.self ? this.username : this.name;
@@ -130,11 +142,37 @@ export class DerpProfile extends HubPage {
   connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener("hashchange", this.onHash);
+    this.addEventListener(PINS_EVENT, this.onPins); // PROFILE (r26)
   }
 
   disconnectedCallback(): void {
     window.removeEventListener("hashchange", this.onHash);
+    this.removeEventListener(PINS_EVENT, this.onPins);
     super.disconnectedCallback();
+  }
+
+  /** PROFILE (r26): pins changed below: show them by the name at once. */
+  private onPins = (e: Event) => {
+    const pinned = (e as CustomEvent<string[]>).detail;
+    if (this.profile?.badges)
+      this.profile = {
+        ...this.profile,
+        badges: { ...this.profile.badges, pinned },
+      };
+  };
+
+  /** PROFILE (r26): report the uploaded picture they wear. */
+  private async report(p: Profile): Promise<void> {
+    const pic = parsePic(p.picture);
+    if (pic?.kind !== "upload") return;
+    const err = await reportPicture(pic.account, pic.version);
+    this.reportAsk = false;
+    this.reportMsg =
+      err === null
+        ? "Thanks. The site's owner will take a look."
+        : err === "not_found"
+          ? "That picture has changed already."
+          : PICTURE_ERROR_TEXT[err];
   }
 
   /** NAMES (r20): the account menu's "Change username" (#username) opens the form. */
@@ -156,6 +194,11 @@ export class DerpProfile extends HubPage {
       this.toDynasties = true;
       this.querySelector("#dynasties")?.scrollIntoView({ block: "start" });
     }
+    // PROFILE (r26): a badge's toast links to #badges.
+    if (this.profile?.badges && location.hash === "#badges" && !this.toBadges) {
+      this.toBadges = true;
+      this.querySelector("#badges")?.scrollIntoView({ block: "start" });
+    }
     if (!this.renameAsked || !this.profile) return;
     if (this.isMine(this.profile)) {
       this.renameAsked = false;
@@ -165,6 +208,8 @@ export class DerpProfile extends HubPage {
 
   /** TREE (r25): brought the Dynasties into view once. */
   private toDynasties = false;
+  /** PROFILE (r26): and the Badges. */
+  private toBadges = false;
 
   private isMine(p: Profile): boolean {
     return (
@@ -184,6 +229,8 @@ export class DerpProfile extends HubPage {
       const p = await api<Profile>(`/players/${encodeURIComponent(who)}`);
       if (this.who() === who) {
         this.profile = p;
+        this.reportAsk = false; // PROFILE (r26)
+        this.reportMsg = null;
         document.title = `${p.username} · Derp Land`;
         // NAMES (r20): a name given up lately still finds its player; the
         // address takes the name they have now.
@@ -233,11 +280,12 @@ export class DerpProfile extends HubPage {
     const mine = this.isMine(p);
     return html`
       <header class="dl-player">
-        <span class="dl-token huge" style="--token:${tokenColor(p.username)}"
-          >${p.username.slice(0, 1).toUpperCase()}</span
-        >
+        ${avatar(p.username, p.picture, "dl-token huge") /* PROFILE (r26) */}
         <div class="dl-player-text">
-          <h1 class="dl-h1">${p.username}</h1>
+          <div class="dl-player-name">
+            <h1 class="dl-h1">${p.username}</h1>
+            ${pinnedBadges(p.badges?.pinned)}
+          </div>
           <p class="dl-lede">
             Joined ${shortDate(p.createdAt)}.
             <span class="dl-inline-coins"
@@ -251,6 +299,7 @@ export class DerpProfile extends HubPage {
                 .username=${p.username}
               ></dl-friend-status>`
             : nothing}
+          ${!mine && this.username ? this.renderReport(p) : nothing}
         </div>
         ${mine
           ? html`<div class="dl-player-actions">
@@ -274,6 +323,14 @@ export class DerpProfile extends HubPage {
           html`<dl-rename></dl-rename>`
         : nothing}
       ${mine
+        ? // PROFILE (r26): your picture, and the badges you pin.
+          html`<dl-looks-panel
+            .username=${p.username}
+            .picture=${p.picture ?? null}
+            .pinned=${p.badges?.pinned ?? []}
+          ></dl-looks-panel>`
+        : nothing}
+      ${mine
         ? // FRIENDS (r25): your friends, and what they played lately.
           html`<dl-friends></dl-friends>`
         : nothing}
@@ -282,6 +339,8 @@ export class DerpProfile extends HubPage {
       </div>
       <!-- CHAL (r25): this week's challenges, and weeks gone by -->
       <dl-week-player .name=${p.username} ?mine=${mine}></dl-week-player>
+      <!-- PROFILE (r26): their badges -->
+      <dl-badges .badges=${p.badges ?? null} ?mine=${mine}></dl-badges>
       ${this.achievements(p)} ${this.dynasties(p) /* TREE (r25) */}
 
       <section class="dl-panel dl-history">
@@ -309,6 +368,28 @@ export class DerpProfile extends HubPage {
         ${this.renderGames(p)}
       </section>
     `;
+  }
+
+  /** PROFILE (r26): "Report picture", under someone else's uploaded one. */
+  private renderReport(p: Profile): TemplateResult | typeof nothing {
+    if (this.reportMsg)
+      return html`<p class="dl-report" role="status">${this.reportMsg}</p>`;
+    if (parsePic(p.picture)?.kind !== "upload") return nothing;
+    if (this.reportAsk)
+      return html`<p class="dl-report">
+        Report ${p.username}'s picture to the site's owner?
+        <button class="dl-btn small ghost" @click=${() => void this.report(p)}>
+          Report
+        </button>
+        <button class="dl-textbtn" @click=${() => (this.reportAsk = false)}>
+          Cancel
+        </button>
+      </p>`;
+    return html`<p class="dl-report">
+      <button class="dl-textbtn" @click=${() => (this.reportAsk = true)}>
+        Report picture
+      </button>
+    </p>`;
   }
 
   private frontStats(s: FrontStats): TemplateResult {

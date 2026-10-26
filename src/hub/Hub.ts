@@ -5,6 +5,7 @@
 import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { api } from "../derpland/Account";
+import { avatar } from "../derpland/Avatar"; // PROFILE (r26)
 import "../derpland/DerpBar";
 import { BarPage, openSignIn } from "../derpland/DerpBar";
 import {
@@ -173,12 +174,16 @@ interface Recent {
   where: string;
   numPlayers: number;
   coins: number;
+  /** PROFILE (r26) */
+  pic?: string;
 }
 
 interface TopRow {
   username: string;
   wins: number;
   games: number;
+  /** PROFILE (r26) */
+  pic?: string;
 }
 
 @customElement("dl-home")
@@ -333,6 +338,7 @@ export class DerpHome extends HubPage {
         (r) =>
           html`<li class="${r.game} ${r.won ? "won" : ""}">
             <span class="dl-feed-text">
+              ${avatar(r.username, r.pic, "dl-feed-tok") /* PROFILE (r26) */}
               <a href="/player/${r.username}">${r.username}</a>
               ${r.playedAs
                 ? html`<span class="dl-feed-alias">(as ${r.playedAs})</span>`
@@ -366,6 +372,7 @@ export class DerpHome extends HubPage {
         (p, i) =>
           html`<li>
             <span class="dl-place p${i + 1}">${i + 1}</span>
+            ${avatar(p.username, p.pic, "dl-top-tok") /* PROFILE (r26) */}
             <a href="/player/${p.username}">${p.username}</a>
             <span class="dl-top-wins"
               >${p.wins} ${p.wins === 1 ? "win" : "wins"}</span

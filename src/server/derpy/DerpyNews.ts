@@ -35,6 +35,7 @@ import {
 } from "../../derpland/NewsTypes";
 import { logger } from "../Logger";
 import { Account, accountForToken } from "./DerpyAuth";
+import { grantBadgesSoon } from "./DerpyBadges"; // PROFILE (r26)
 import { db, derpyDbConfigured } from "./DerpyDb";
 import { currentBanner } from "./SiteBanner"; // ADMIN (r26)
 
@@ -373,6 +374,7 @@ export function newsRouter({
         res.status(400).json({ error: "invalid" });
         return;
       }
+      grantBadgesSoon([req.derpy!.account.id], ["dl-news"]); // PROFILE (r26)
       res.json(view);
     }),
   );
