@@ -13,7 +13,8 @@
         "kind": "take",
         "place": {
           "name": "Alexandria",
-          "at": [2221, 1627]
+          "at": [2221, 1627],
+          "of": "united_kingdom"
         },
         "minute": 35
       },
@@ -21,7 +22,8 @@
         "kind": "take",
         "place": {
           "name": "Novi Sad",
-          "at": [1812, 1057]
+          "at": [1812, 1057],
+          "of": "yugoslavia"
         },
         "minute": 30
       },
@@ -29,7 +31,8 @@
         "kind": "take",
         "place": {
           "name": "Odessa",
-          "at": [2254, 1007]
+          "at": [2254, 1007],
+          "of": "soviet_union"
         },
         "minute": 35
       },
@@ -37,7 +40,8 @@
         "kind": "take",
         "place": {
           "name": "Skopje",
-          "at": [1876, 1189]
+          "at": [1876, 1189],
+          "of": "yugoslavia"
         },
         "minute": 30
       },
@@ -45,7 +49,8 @@
         "kind": "take",
         "place": {
           "name": "Zakopane",
-          "at": [1816, 893]
+          "at": [1816, 893],
+          "of": "poland"
         },
         "minute": 20
       },
@@ -60,7 +65,8 @@
         "kind": "take",
         "place": {
           "name": "Tripoli",
-          "at": [1542, 1558]
+          "at": [1542, 1558],
+          "of": "italy"
         },
         "minute": 40
       },
@@ -95,7 +101,8 @@
         "kind": "take",
         "place": {
           "name": "Korçë",
-          "at": [1850, 1245]
+          "at": [1850, 1245],
+          "of": "italy"
         },
         "minute": 30
       },
@@ -123,57 +130,65 @@
       "spain": {
         "kind": "take",
         "place": {
-          "name": "Gibraltar",
-          "at": [789, 1426]
+          "name": "Oran",
+          "at": [980, 1444],
+          "of": "france"
         }
       },
       "portugal": {
         "kind": "take",
         "place": {
           "name": "Olivenza",
-          "at": [718, 1323]
+          "at": [718, 1323],
+          "of": "spain"
         }
       },
       "ireland": {
         "kind": "take",
         "place": {
           "name": "Belfast",
-          "at": [765, 677]
+          "at": [765, 677],
+          "of": "united_kingdom"
         }
       },
       "switzerland": {
         "kind": "take",
         "place": {
           "name": "Bregenz",
-          "at": [1402, 966]
+          "at": [1402, 966],
+          "of": "germany"
         }
       },
       "sweden": {
         "kind": "take",
         "place": {
           "name": "Narvik",
-          "at": [1713, 116]
+          "at": [1713, 116],
+          "of": "norway"
         }
       },
       "turkey": {
         "kind": "take",
         "place": {
           "name": "Mosul",
-          "at": [2757, 1419]
+          "at": [2757, 1419],
+          "of": "united_kingdom"
         }
       },
       "denmark": {
         "kind": "take",
         "place": {
           "name": "Flensburg",
-          "at": [1389, 670]
+          "at": [1389, 670],
+          "of": "germany"
         }
       },
       "estonia": {
         "kind": "take",
         "place": {
           "name": "Pskov",
-          "at": [2156, 547]
+          "at": [2156, 547],
+          "of": "soviet_union"
         }
       },
       "latvia": {
@@ -188,35 +203,38 @@
         "kind": "take",
         "place": {
           "name": "Vilnius",
-          "at": [2032, 674]
+          "at": [2032, 674],
+          "of": "poland"
         }
       },
       "iceland": {
-        "kind": "take",
+        "kind": "keep",
         "place": {
-          "name": "Tórshavn",
-          "at": [731, 377]
+          "capitalOf": "iceland"
         }
       },
       "luxembourg": {
         "kind": "take",
         "place": {
           "name": "Arlon",
-          "at": [1242, 877]
+          "at": [1242, 877],
+          "of": "belgium"
         }
       },
       "iran": {
         "kind": "take",
         "place": {
           "name": "Nakhchivan",
-          "at": [2850, 1302]
+          "at": [2850, 1302],
+          "of": "soviet_union"
         }
       },
       "saudi_arabia": {
         "kind": "take",
         "place": {
           "name": "Ma'an",
-          "at": [2457, 1667]
+          "at": [2457, 1667],
+          "of": "united_kingdom"
         }
       }
     },
@@ -225,7 +243,8 @@
         "kind": "hold",
         "place": {
           "name": "New York",
-          "at": [932, 909]
+          "at": [932, 909],
+          "of": "new_york"
         },
         "minute": 40
       },
@@ -233,7 +252,8 @@
         "kind": "take",
         "place": {
           "name": "Trois-Rivières",
-          "at": [948, 220]
+          "at": [948, 220],
+          "of": "great_britain"
         },
         "minute": 30
       },
@@ -247,7 +267,8 @@
         "kind": "hold",
         "place": {
           "name": "Newport",
-          "at": [1156, 776]
+          "at": [1156, 776],
+          "of": "rhode_island"
         },
         "minute": 20
       },
@@ -261,7 +282,8 @@
         "kind": "take",
         "place": {
           "name": "Montreal",
-          "at": [880, 335]
+          "at": [880, 335],
+          "of": "great_britain"
         },
         "minute": 30
       },
@@ -269,7 +291,8 @@
         "kind": "take",
         "place": {
           "name": "Staten Island",
-          "at": [922, 927]
+          "at": [922, 927],
+          "of": "great_britain"
         },
         "minute": 25
       },
@@ -291,7 +314,8 @@
         "kind": "hold",
         "place": {
           "name": "New York",
-          "at": [932, 909]
+          "at": [932, 909],
+          "of": "new_york"
         },
         "minute": 20,
         "side": true
@@ -300,7 +324,8 @@
         "kind": "take",
         "place": {
           "name": "Detroit",
-          "at": [105, 801]
+          "at": [105, 801],
+          "of": "great_britain"
         }
       },
       "north_carolina": {
@@ -320,7 +345,8 @@
         "kind": "take",
         "place": {
           "name": "St. Augustine",
-          "at": [369, 2279]
+          "at": [369, 2279],
+          "of": "great_britain"
         },
         "minute": 35
       },
@@ -422,7 +448,8 @@
         "kind": "hold",
         "place": {
           "name": "New York",
-          "at": [932, 909]
+          "at": [932, 909],
+          "of": "united_colonies"
         },
         "minute": 40
       },
@@ -430,7 +457,8 @@
         "kind": "take",
         "place": {
           "name": "Montreal",
-          "at": [880, 335]
+          "at": [880, 335],
+          "of": "great_britain"
         },
         "minute": 30
       },
@@ -532,7 +560,8 @@
         "kind": "hold",
         "place": {
           "name": "Fancheng",
-          "at": [782, 935]
+          "at": [782, 935],
+          "of": "cao_cao"
         },
         "minute": 25
       },
@@ -540,7 +569,8 @@
         "kind": "take",
         "place": {
           "name": "Fancheng",
-          "at": [782, 935]
+          "at": [782, 935],
+          "of": "cao_cao"
         },
         "minute": 30
       },
@@ -548,7 +578,8 @@
         "kind": "take",
         "place": {
           "name": "Jiangling",
-          "at": [785, 1048]
+          "at": [785, 1048],
+          "of": "liu_bei"
         },
         "minute": 30
       },
@@ -574,14 +605,16 @@
         "kind": "take",
         "place": {
           "name": "Ji",
-          "at": [1003, 403]
+          "at": [1003, 403],
+          "of": "cao_cao"
         }
       },
       "qiang": {
         "kind": "take",
         "place": {
           "name": "Chang'an",
-          "at": [605, 783]
+          "at": [605, 783],
+          "of": "cao_cao"
         }
       },
       "nanzhong": {
@@ -606,7 +639,8 @@
         "kind": "take",
         "place": {
           "name": "Moscow",
-          "at": [2533, 631]
+          "at": [2533, 631],
+          "of": "russia"
         },
         "minute": 40
       },
@@ -614,7 +648,8 @@
         "kind": "take",
         "place": {
           "name": "Moscow",
-          "at": [2533, 631]
+          "at": [2533, 631],
+          "of": "russia"
         },
         "minute": 40,
         "side": true
@@ -636,7 +671,8 @@
         "kind": "take",
         "place": {
           "name": "Smolensk",
-          "at": [2307, 671]
+          "at": [2307, 671],
+          "of": "russia"
         },
         "minute": 35,
         "side": true
@@ -659,7 +695,8 @@
         "kind": "take",
         "place": {
           "name": "Vilnius",
-          "at": [2032, 674]
+          "at": [2032, 674],
+          "of": "russia"
         },
         "minute": 25
       },
@@ -667,7 +704,8 @@
         "kind": "hold",
         "place": {
           "name": "Christiania",
-          "at": [1442, 462]
+          "at": [1442, 462],
+          "of": "denmark_norway"
         },
         "minute": 30
       },
@@ -675,7 +713,8 @@
         "kind": "take",
         "place": {
           "name": "Bayonne",
-          "at": [946, 1128]
+          "at": [946, 1128],
+          "of": "french_empire"
         },
         "minute": 35
       },
@@ -689,7 +728,8 @@
         "kind": "take",
         "place": {
           "name": "Leipzig",
-          "at": [1508, 810]
+          "at": [1508, 810],
+          "of": "saxony"
         },
         "minute": 35
       },
@@ -697,7 +737,8 @@
         "kind": "take",
         "place": {
           "name": "Innsbruck",
-          "at": [1469, 975]
+          "at": [1469, 975],
+          "of": "bavaria"
         },
         "minute": 30
       },
@@ -705,14 +746,16 @@
         "kind": "take",
         "place": {
           "name": "Christiania",
-          "at": [1442, 462]
+          "at": [1442, 462],
+          "of": "denmark_norway"
         }
       },
       "portugal": {
         "kind": "take",
         "place": {
           "name": "Bayonne",
-          "at": [946, 1128]
+          "at": [946, 1128],
+          "of": "french_empire"
         },
         "minute": 35,
         "side": true
@@ -721,7 +764,8 @@
         "kind": "take",
         "place": {
           "name": "Barcelona",
-          "at": [1094, 1213]
+          "at": [1094, 1213],
+          "of": "french_empire"
         }
       },
       "sicily": {
@@ -734,49 +778,56 @@
         "kind": "take",
         "place": {
           "name": "Chișinău",
-          "at": [2178, 986]
+          "at": [2178, 986],
+          "of": "russia"
         }
       },
       "switzerland": {
         "kind": "take",
         "place": {
           "name": "Sondrio",
-          "at": [1407, 1020]
+          "at": [1407, 1020],
+          "of": "kingdom_of_italy"
         }
       },
       "morocco": {
         "kind": "take",
         "place": {
           "name": "Tlemcen",
-          "at": [953, 1477]
+          "at": [953, 1477],
+          "of": "ottoman"
         }
       },
       "persia": {
         "kind": "take",
         "place": {
           "name": "Tiflis",
-          "at": [2825, 1200]
+          "at": [2825, 1200],
+          "of": "russia"
         }
       },
       "serbia": {
         "kind": "take",
         "place": {
           "name": "Niš",
-          "at": [1895, 1135]
+          "at": [1895, 1135],
+          "of": "ottoman"
         }
       },
       "montenegro": {
         "kind": "take",
         "place": {
           "name": "Kotor",
-          "at": [1768, 1172]
+          "at": [1768, 1172],
+          "of": "french_empire"
         }
       },
       "sardinia": {
         "kind": "take",
         "place": {
           "name": "Turin",
-          "at": [1318, 1064]
+          "at": [1318, 1064],
+          "of": "french_empire"
         }
       }
     },
@@ -792,7 +843,8 @@
         "kind": "take",
         "place": {
           "name": "Solferino",
-          "at": [453, 199]
+          "at": [453, 199],
+          "of": "austria"
         },
         "minute": 30
       },
@@ -823,7 +875,8 @@
         "kind": "take",
         "place": {
           "name": "Bologna",
-          "at": [537, 296]
+          "at": [537, 296],
+          "of": "papal_states"
         }
       },
       "papal_states": {
@@ -852,7 +905,8 @@
         "kind": "take",
         "place": {
           "name": "Sondrio",
-          "at": [377, 111]
+          "at": [377, 111],
+          "of": "austria"
         }
       },
       "malta": {
@@ -865,21 +919,24 @@
         "kind": "take",
         "place": {
           "name": "La Calle",
-          "at": [215, 1132]
+          "at": [215, 1132],
+          "of": "france"
         }
       },
       "montenegro": {
         "kind": "take",
         "place": {
           "name": "Trebinje",
-          "at": [1305, 490]
+          "at": [1305, 490],
+          "of": "ottoman"
         }
       },
       "ottoman": {
         "kind": "take",
         "place": {
           "name": "Cetinje",
-          "at": [1368, 525]
+          "at": [1368, 525],
+          "of": "montenegro"
         }
       }
     },
@@ -902,7 +959,8 @@
         "kind": "take",
         "place": {
           "name": "Vicksburg",
-          "at": [1664, 1122]
+          "at": [1664, 1122],
+          "of": "tennessee_gulf"
         }
       },
       "missouri_kansas": {
@@ -916,7 +974,8 @@
         "kind": "hold",
         "place": {
           "name": "Santa Fe",
-          "at": [985, 919]
+          "at": [985, 919],
+          "of": "pacific"
         },
         "minute": 30
       },
@@ -1001,7 +1060,8 @@
         "kind": "take",
         "place": {
           "name": "Strasbourg",
-          "at": [1321, 922]
+          "at": [1321, 922],
+          "of": "german_empire"
         },
         "minute": 30
       },
@@ -1009,7 +1069,8 @@
         "kind": "take",
         "place": {
           "name": "Königsberg",
-          "at": [1838, 673]
+          "at": [1838, 673],
+          "of": "german_empire"
         },
         "minute": 25
       },
@@ -1030,14 +1091,16 @@
         "kind": "take",
         "place": {
           "name": "Shkodër",
-          "at": [1798, 1186]
+          "at": [1798, 1186],
+          "of": "albania"
         }
       },
       "belgium": {
         "kind": "hold",
         "place": {
           "name": "Antwerp",
-          "at": [1184, 815]
+          "at": [1184, 815],
+          "of": "belgium"
         },
         "minute": 20
       },
@@ -1045,70 +1108,80 @@
         "kind": "take",
         "place": {
           "name": "Trieste",
-          "at": [1565, 1041]
+          "at": [1565, 1041],
+          "of": "austria_hungary"
         }
       },
       "ottoman": {
         "kind": "take",
         "place": {
           "name": "Kars",
-          "at": [2756, 1246]
+          "at": [2756, 1246],
+          "of": "russia"
         }
       },
       "bulgaria": {
         "kind": "take",
         "place": {
           "name": "Skopje",
-          "at": [1876, 1189]
+          "at": [1876, 1189],
+          "of": "serbia"
         }
       },
       "romania": {
         "kind": "take",
         "place": {
           "name": "Brașov",
-          "at": [2045, 1041]
+          "at": [2045, 1041],
+          "of": "austria_hungary"
         }
       },
       "greece": {
         "kind": "take",
         "place": {
           "name": "Smyrna",
-          "at": [2108, 1334]
+          "at": [2108, 1334],
+          "of": "ottoman"
         }
       },
       "spain": {
         "kind": "take",
         "place": {
-          "name": "Gibraltar",
-          "at": [789, 1426]
+          "name": "Oran",
+          "at": [980, 1444],
+          "of": "france"
         }
       },
       "portugal": {
         "kind": "take",
         "place": {
           "name": "Olivenza",
-          "at": [718, 1323]
+          "at": [718, 1323],
+          "of": "spain"
         }
       },
       "netherlands": {
         "kind": "take",
         "place": {
           "name": "Antwerp",
-          "at": [1184, 815]
+          "at": [1184, 815],
+          "of": "belgium"
         }
       },
       "switzerland": {
         "kind": "take",
         "place": {
           "name": "Bregenz",
-          "at": [1402, 966]
+          "at": [1402, 966],
+          "of": "austria_hungary"
         }
       },
       "denmark": {
         "kind": "take",
         "place": {
           "name": "Flensburg",
-          "at": [1389, 670]
+          "at": [1389, 670],
+          "of": "german_empire"
         }
       },
       "norway": {
@@ -1121,28 +1194,32 @@
         "kind": "take",
         "place": {
           "name": "Mariehamn",
-          "at": [1815, 455]
+          "at": [1815, 455],
+          "of": "russia"
         }
       },
       "luxembourg": {
         "kind": "take",
         "place": {
           "name": "Arlon",
-          "at": [1242, 877]
+          "at": [1242, 877],
+          "of": "belgium"
         }
       },
       "albania": {
         "kind": "take",
         "place": {
           "name": "Pristina",
-          "at": [1866, 1162]
+          "at": [1866, 1162],
+          "of": "serbia"
         }
       },
       "persia": {
         "kind": "take",
         "place": {
           "name": "Tiflis",
-          "at": [2825, 1200]
+          "at": [2825, 1200],
+          "of": "russia"
         }
       }
     },
@@ -1151,7 +1228,8 @@
         "kind": "take",
         "place": {
           "name": "Busan",
-          "at": [798, 1766]
+          "at": [798, 1766],
+          "of": "south_korea"
         }
       },
       "south_korea": {

@@ -247,13 +247,13 @@ ticked when it's met. It never affects winning.
 "kentucky": { "kind": "hold", "place": { "capitalOf": "kentucky" }, "minute": 30, "onSide": "Union" }
 ```
 
-| field | meaning |
-| --- | --- |
-| `kind` | `hold`: hold the place at `minute` (met then, or when the war ends first with it held; missed after). `take`: hold it at any moment, before `minute` if given. `keep`: hold it when the war ends. |
-| `place` | a nation's capital (`capitalOf`), or a named spot (`name`, and `at`: full-size map pixels, like the data's). The goal's tile is the passable land tile nearest the spot (in this game's map: halved in a Compact game). |
-| `minute` | minutes since the war began (the timer). |
-| `side` | optional: your side holding the place counts, not only you ("Keep Washington in Union hands to the end", "Help take Moscow"). |
-| `onSide` | optional: when it's checked you must be on this side (a side id), or on any side (`"any"`, for a neutral: at war). A neutral joins a side by attacking the other (or being invaded). |
+| field    | meaning                                                                                                                                                                                                                 |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kind`   | `hold`: hold the place at `minute` (met then, or when the war ends first with it held; missed after). `take`: hold it at any moment, before `minute` if given. `keep`: hold it when the war ends.                       |
+| `place`  | a nation's capital (`capitalOf`), or a named spot (`name`, and `at`: full-size map pixels, like the data's). The goal's tile is the passable land tile nearest the spot (in this game's map: halved in a Compact game). |
+| `minute` | minutes since the war began (the timer).                                                                                                                                                                                |
+| `side`   | optional: your side holding the place counts, not only you ("Keep Washington in Union hands to the end", "Help take Moscow").                                                                                           |
+| `onSide` | optional: when it's checked you must be on this side (a side id), or on any side (`"any"`, for a neutral: at war). A neutral joins a side by attacking the other (or being invaded).                                    |
 
 How it's checked: the engine checks each human player's goal once a second
 (`WinCheckExecution`) and once more when the war ends (`GameImpl.setWinner`),
@@ -272,8 +272,9 @@ minute M") for nations that were attacked; offensive ones ("Take Y before
 minute M") for the attackers; neutrals, which nobody attacks while the sides
 are at war, get a claim of the time to take, or to join the side they joined
 and hold their capital. A handful of small neutrals that kept out of the war
-and could reach no one keep their capital to the end (Mohican, Catawba, San
-Marino, Malta, the Choctaw and Chickasaw, Norway 1914): easy, by design.
+and could reach no one keep their capital to the end (Iceland 1939, Mohican,
+Catawba, San Marino, Malta, the Choctaw and Chickasaw, Norway 1914): easy, by
+design.
 `tests/scenario/ScenarioGoals.test.ts` checks every goal: a playable
 nation's, its place on land in both map sizes, a take goal's place not held
 at the start, a hold goal's own place held, an `onSide` side that exists,

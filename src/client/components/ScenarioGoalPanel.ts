@@ -1,8 +1,7 @@
 import { GameMapSize } from "@openfront/engine-api/game/GameTypes";
 import type { AllPlayersStats } from "@openfront/engine-api/Schemas";
 import {
-  goalPlaceAt,
-  goalTile,
+  goalTileXY,
   scenarioGoal,
   TICKS_PER_MINUTE,
   type ScenarioGoal,
@@ -40,7 +39,11 @@ export class ScenarioGoalPanel extends LitElement {
   }
 
   /** Your goal (and nation), or null. */
-  private mine(): { goal: ScenarioGoal; scenario: string; nation: string } | null {
+  private mine(): {
+    goal: ScenarioGoal;
+    scenario: string;
+    nation: string;
+  } | null {
     const roster = this.game?.scenario?.() ?? null;
     const me = this.game?.myPlayer();
     if (roster === null || !me) return null;
@@ -54,15 +57,17 @@ export class ScenarioGoalPanel extends LitElement {
   }
 
   /** Whether you (or your side, for a side goal) hold the goal's place. */
-  private holds(goal: ScenarioGoal): boolean {
-    const roster = this.game.scenario()!;
+  private holds(goal: ScenarioGoal, scenario: string, nation: string): boolean {
     if (this.tile === undefined) {
-      const at = goalPlaceAt(roster.data, goal);
-      const scale =
-        this.game.config().gameConfig().gameMapSize === GameMapSize.Compact
-          ? 2
-          : 1;
-      this.tile = at === null ? null : goalTile(at, this.game, scale);
+      const xy = goalTileXY(
+        scenario,
+        nation,
+        this.game.config().gameConfig().gameMapSize === GameMapSize.Compact,
+      );
+      this.tile =
+        xy !== null && this.game.isValidCoord(xy[0], xy[1])
+          ? this.game.ref(xy[0], xy[1])
+          : null;
     }
     if (this.tile === null) return false;
     const owner = this.game.owner(this.tile);
@@ -74,7 +79,7 @@ export class ScenarioGoalPanel extends LitElement {
   }
 
   /** Follows the goal from what this client sees. */
-  private follow(goal: ScenarioGoal): void {
+  private follow(goal: ScenarioGoal, scenario: string, nation: string): void {
     const me = this.game.myPlayer();
     if (!me) return;
     const stats = this.finalStats?.[me.clientID() ?? ""];
@@ -91,7 +96,7 @@ export class ScenarioGoalPanel extends LitElement {
     const sideOk =
       goal.onSide === undefined ||
       (goal.onSide === "any" ? team !== null : team === goal.onSide);
-    const holds = this.holds(goal);
+    const holds = this.holds(goal, scenario, nation);
     switch (goal.kind) {
       case "take":
         if (holds && elapsed < due) this.state = "met";
@@ -112,10 +117,12 @@ export class ScenarioGoalPanel extends LitElement {
     const text = mine ? goalText(mine.scenario, mine.nation) : null;
     this.style.display = mine && text ? "block" : "none";
     if (!mine || !text) return nothing;
-    this.follow(mine.goal);
+    this.follow(mine.goal, mine.scenario, mine.nation);
     const open = this.state === "open";
     const holding =
-      open && mine.goal.kind !== "take" ? this.holds(mine.goal) : null;
+      open && mine.goal.kind !== "take"
+        ? this.holds(mine.goal, mine.scenario, mine.nation)
+        : null;
     const tone =
       this.state === "met"
         ? "text-green-400"
@@ -150,7 +157,9 @@ export class ScenarioGoalPanel extends LitElement {
                   ? "text-green-300/80"
                   : "text-red-300/80"}"
                 >${translateText(
-                  holding ? "scenario_goal.holding" : "scenario_goal.not_holding",
+                  holding
+                    ? "scenario_goal.holding"
+                    : "scenario_goal.not_holding",
                 )}</span
               >`
             : nothing}

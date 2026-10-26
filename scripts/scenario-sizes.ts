@@ -24,8 +24,14 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const SIZES_ABOUT =
   "DFX (r26): each scenario nation's starting land, in land tiles of its map's compact size (map4x). Made by scripts/scenario-sizes.ts (run it after changing a scenario's land); tests/scenario/RandomHistory.test.ts checks it.";
 
-/** One scenario's nations' starting land (map4x tiles), by nation key. */
-export function scenarioSizes(data: ScenarioData): Record<string, number> {
+/**
+ * A scenario's map at a size (`map`: Normal, `map4x`: Compact), with each
+ * tile's nation at the start (1 + its index in the data; 0 for none).
+ */
+export function scenarioBoard(
+  data: ScenarioData,
+  size: "map" | "map4x",
+): { width: number; height: number; scale: number; labels: Uint16Array } {
   const key = Object.keys(GameMapType).find(
     (k) => GameMapType[k as keyof typeof GameMapType] === data.map,
   );
@@ -33,9 +39,10 @@ export function scenarioSizes(data: ScenarioData): Record<string, number> {
   const dir = path.join(ROOT, "resources/maps", key.toLowerCase());
   const manifest = JSON.parse(
     fs.readFileSync(path.join(dir, "manifest.json"), "utf8"),
-  ) as { map4x: { width: number; height: number } };
-  const bin = fs.readFileSync(path.join(dir, "map4x.bin"));
-  const { width, height } = manifest.map4x;
+  ) as Record<string, { width: number; height: number }>;
+  const bin = fs.readFileSync(path.join(dir, `${size}.bin`));
+  const { width, height } = manifest[size];
+  const scale = size === "map" ? 1 : 2;
   const land = (r: number) => (bin[r] & 0x80) !== 0;
   const labels = scenarioTerritory(
     data,
@@ -45,8 +52,14 @@ export function scenarioSizes(data: ScenarioData): Record<string, number> {
       isLand: land,
       isImpassable: (r) => land(r) && (bin[r] & 0x1f) === 31,
     },
-    2,
+    scale,
   );
+  return { width, height, scale, labels };
+}
+
+/** One scenario's nations' starting land (map4x tiles), by nation key. */
+export function scenarioSizes(data: ScenarioData): Record<string, number> {
+  const { labels } = scenarioBoard(data, "map4x");
   const counts = new Array<number>(data.nations.length).fill(0);
   for (const l of labels) if (l > 0) counts[l - 1]++;
   return Object.fromEntries(data.nations.map((n, i) => [n.key, counts[i]]));

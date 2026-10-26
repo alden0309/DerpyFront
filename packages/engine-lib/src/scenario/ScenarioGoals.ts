@@ -1,3 +1,4 @@
+import tilesFile from "resources/scenarios/goal-tiles.json";
 import goalsFile from "resources/scenarios/goals.json";
 import { ScenarioData } from "./ScenarioData";
 
@@ -23,10 +24,13 @@ export const TICKS_PER_MINUTE = 600;
 
 export type GoalKind = "hold" | "take" | "keep";
 
-/** Where a goal is: a nation's capital, or a named spot (full-size pixels). */
+/**
+ * Where a goal is: a nation's capital, or a named spot (full-size pixels)
+ * and the nation it belongs to at the start (`of`).
+ */
 export type GoalPlace =
   | { capitalOf: string }
-  | { name: string; at: [number, number] };
+  | { name: string; at: [number, number]; of: string };
 
 export interface ScenarioGoal {
   /**
@@ -95,54 +99,36 @@ export function goalPlaceAt(
   return n === undefined ? null : [n.capital[0], n.capital[1]];
 }
 
-/** The bits of a map a goal's place needs (a GameMap has them). */
-export interface GoalMap {
-  width(): number;
-  height(): number;
-  isLand(ref: number): boolean;
-  isImpassable(ref: number): boolean;
+/** The nation whose place it is at the start. */
+export function goalPlaceOf(goal: ScenarioGoal): string {
+  return "capitalOf" in goal.place ? goal.place.capitalOf : goal.place.of;
 }
 
-/** How far (in this map's pixels) a place may be from land. */
-const PLACE_SEARCH = 40;
+const TILES = (
+  tilesFile as unknown as {
+    tiles: Record<
+      string,
+      Record<string, { normal: [number, number]; compact: [number, number] }>
+    >;
+  }
+).tiles;
 
 /**
- * The tile a goal's place stands for in this game's map (`scale`: 1, or 2
- * in a Compact game): the passable land tile nearest the spot, searched in
- * square rings, the nearest in each ring winning and the first scanned on a
- * tie. The same on every machine. Null when there's no land near it.
+ * The tile that stands for a goal's place, [x, y] in this game's map (a
+ * Compact game's or a Normal one's): the one nearest the place that its
+ * nation holds at the start, worked out ahead (resources/scenarios/
+ * goal-tiles.json, by scripts/scenario-goal-tiles.ts). Null if it has none.
  */
-export function goalTile(
-  at: readonly [number, number],
-  map: GoalMap,
-  scale: number,
-): number | null {
-  const W = map.width();
-  const H = map.height();
-  const cx = Math.floor(at[0] / scale);
-  const cy = Math.floor(at[1] / scale);
-  for (let r = 0; r <= PLACE_SEARCH; r++) {
-    let best: number | null = null;
-    let bestD = Infinity;
-    for (let dy = -r; dy <= r; dy++) {
-      const y = cy + dy;
-      if (y < 0 || y >= H) continue;
-      const edge = Math.abs(dy) === r;
-      for (let dx = -r; dx <= r; dx += edge ? 1 : 2 * r || 1) {
-        const x = cx + dx;
-        if (x < 0 || x >= W) continue;
-        const t = y * W + x;
-        if (!map.isLand(t) || map.isImpassable(t)) continue;
-        const d = dx * dx + dy * dy;
-        if (d < bestD) {
-          best = t;
-          bestD = d;
-        }
-      }
-    }
-    if (best !== null) return best;
-  }
-  return null;
+export function goalTileXY(
+  scenarioId: string,
+  nation: string,
+  compact: boolean,
+): [number, number] | null {
+  const t = Object.prototype.hasOwnProperty.call(TILES, scenarioId)
+    ? TILES[scenarioId][nation]
+    : undefined;
+  if (t === undefined) return null;
+  return compact ? t.compact : t.normal;
 }
 
 /** What a goal is checked against at a moment of the war. */

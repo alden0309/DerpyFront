@@ -1,8 +1,7 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
   goalMetAt,
-  goalPlaceAt,
-  goalTile,
+  goalTileXY,
   scenarioGoal,
   type ScenarioGoal,
 } from "@openfront/engine-lib/scenario/ScenarioGoals";
@@ -20,27 +19,15 @@ import { ScenarioRuntime } from "./Scenario";
 /** Ticks between the checks (WinCheckExecution runs every 10th tick). */
 export const GOAL_CHECK_INTERVAL = 10;
 
-// Each goal's tile, worked out once per game: a cache, not game state, so a
-// restored game's object graph matches the original's.
-const TILES = new WeakMap<ScenarioRuntime, Map<ScenarioGoal, TileRef | null>>();
-
+/** The goal's tile in this game's map (goal-tiles.json), or null. */
 function tileFor(
   game: Game,
   scenario: ScenarioRuntime,
-  goal: ScenarioGoal,
+  nation: string,
 ): TileRef | null {
-  let byGoal = TILES.get(scenario);
-  if (byGoal === undefined) {
-    byGoal = new Map();
-    TILES.set(scenario, byGoal);
-  }
-  let t = byGoal.get(goal);
-  if (t === undefined) {
-    const at = goalPlaceAt(scenario.data, goal);
-    t = at === null ? null : goalTile(at, game, scenario.scale);
-    byGoal.set(goal, t);
-  }
-  return t;
+  const xy = goalTileXY(scenario.data.id, nation, scenario.scale === 2);
+  if (xy === null || !game.isValidCoord(xy[0], xy[1])) return null;
+  return game.ref(xy[0], xy[1]);
 }
 
 /** Whether `p` (or, for a side goal, its side) holds the goal's place. */
@@ -67,8 +54,8 @@ export function checkScenarioGoals(game: Game, final: boolean): void {
     if (game.stats().getPlayerStats(p)?.goal !== undefined) continue;
     const nation = scenario.nationOf(p);
     const goal = scenarioGoal(scenario.data.id, nation?.key);
-    if (goal === null) continue;
-    const tile = tileFor(game, scenario, goal);
+    if (goal === null || nation === null) continue;
+    const tile = tileFor(game, scenario, nation.key);
     if (tile === null) continue;
     const met = goalMetAt(
       goal,
