@@ -158,6 +158,10 @@ export const ADMIN_CSS = `
   .adm-navlink[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--peel); }
   .adm-head h1 { font-size: 23px; }
   .adm-cols { grid-template-columns: minmax(0, 1fr); }
+  /* A section's tabs stay one row, scrolled sideways (as the hub's dl-cattabs). */
+  .adm-tabs.dl-seg { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .adm-tabs.dl-seg::-webkit-scrollbar { display: none; }
+  .adm-tabs.dl-seg button { flex: none; white-space: nowrap; padding: 7px 11px; font-size: 14px; }
 }
 @media (max-width: 640px) {
   .adm-table.cards thead { display: none; }
