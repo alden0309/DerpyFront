@@ -22,7 +22,7 @@ import {
   type AdminCtx,
   type Queryable,
 } from "../AdminRegistry";
-import { basedSince } from "../AdminSources";
+import { basedSince, dropFromGames } from "../AdminSources";
 import { ledger } from "../Ledger";
 
 /** Coin changes bigger than this (either way) need a typed name and a fresh sign-in. */
@@ -665,6 +665,7 @@ async function suspend(
   const until = body.data.until ? new Date(body.data.until) : null;
   if (until !== null && until.getTime() <= Date.now())
     return bad(res, "until_past");
+  let playIds: string[] | null = null;
   await onAccount(req, res, async (c, acc) => {
     if (acc.owner) return "own_account";
     if (!confirmed(body.data.confirm, acc.username)) return "confirm";
@@ -673,11 +674,13 @@ async function suspend(
          suspended_reason = $3 WHERE id = $1`,
       [acc.id, until, body.data.reason],
     );
-    // No sign-in from now: every session goes too.
+    // No sign-in from now: every session goes too (and, below, every game
+    // it's in).
     const s = await c.query(
-      "DELETE FROM derpy_sessions WHERE account_id = $1",
+      "DELETE FROM derpy_sessions WHERE account_id = $1 RETURNING play_id",
       [acc.id],
     );
+    playIds = s.rows.map((r) => String(r.play_id));
     await ctx.audit(
       {
         action: "account.suspend",
@@ -694,6 +697,8 @@ async function suspend(
   });
   const id = idParam(req);
   if (id !== null) socialForgetAccount(id);
+  if (id !== null && playIds !== null)
+    await dropFromGames(id, playIds, "This account is suspended.");
 }
 
 async function unsuspend(
@@ -768,6 +773,7 @@ async function deleteAccount(
   const confirm = Confirm.safeParse(req.body?.confirm);
   const reason =
     typeof req.body?.reason === "string" ? req.body.reason.slice(0, 300) : null;
+  let playIds: string[] | null = null;
   await onAccount(req, res, async (c, acc) => {
     if (acc.owner) return "own_account";
     if (
@@ -785,6 +791,11 @@ async function deleteAccount(
          (SELECT count(*) FROM derpy_friends WHERE account_id = $1)::int AS friends`,
       [acc.id],
     );
+    const sessions = await c.query(
+      "SELECT play_id FROM derpy_sessions WHERE account_id = $1",
+      [acc.id],
+    );
+    playIds = sessions.rows.map((r) => String(r.play_id));
     // The existing rules do the rest: every table keyed to the account
     // deletes its rows with it (ON DELETE CASCADE).
     await c.query("DELETE FROM derpy_accounts WHERE id = $1", [acc.id]);
@@ -801,6 +812,8 @@ async function deleteAccount(
   });
   const id = idParam(req);
   if (id !== null) socialForgetAccount(id);
+  if (id !== null && playIds !== null)
+    await dropFromGames(id, playIds, "This account has been deleted.");
 }
 
 export const accounts = adminSection({

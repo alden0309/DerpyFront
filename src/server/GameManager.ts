@@ -144,6 +144,11 @@ export class GameManager {
     return out;
   }
 
+  // ADMIN (r26): every game here, to take a suspended account out of.
+  allGames(): GameServer[] {
+    return [...this.games.values()].filter((g) => !g.hasEnded());
+  }
+
   // ADMIN (r26): every game here, for the owner's admin page.
   adminGames(): AdminFrontGame[] {
     return [...this.games.values()]

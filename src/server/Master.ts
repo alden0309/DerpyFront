@@ -302,6 +302,7 @@ export async function startMaster() {
     front: {
       list: () => lobbyService.adminList(),
       end: (id, reason) => lobbyService.adminEnd(id, reason),
+      kick: (playIds) => lobbyService.adminKick(playIds),
     },
     conquest: conquestRooms,
   });

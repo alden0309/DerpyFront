@@ -108,7 +108,10 @@ export const bannerSection = adminSection({
     return [
       {
         label: "Site banner",
-        value: s ? `On: "${s.text.slice(0, 60)}"` : "Off",
+        value: s ? "On" : "Off",
+        ...(s
+          ? { detail: s.text.length > 40 ? `${s.text.slice(0, 40)}…` : s.text }
+          : {}),
         href: "/admin/banner",
       },
     ];

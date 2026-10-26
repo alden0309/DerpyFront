@@ -13,11 +13,15 @@ import type { AdminFrontGame, AdminWorkerHealth } from "../../IPCBridgeSchema";
 export interface FrontAdmin {
   list(): Promise<{ games: AdminFrontGame[]; workers: AdminWorkerHealth[] }>;
   end(gameID: string, reason: string): Promise<boolean>;
+  /** Takes the players playing under these ids out of every game. */
+  kick?(playIds: string[]): Promise<void>;
 }
 
 export interface ConquestAdmin {
   rooms(): AdminConquestRoom[];
   close(code: string, reason: string): Promise<boolean>;
+  /** Takes an account's seats (and watching) away from every table. */
+  drop?(accountId: number, why: string): number;
 }
 
 let front: FrontAdmin | null = null;
@@ -37,6 +41,7 @@ export function setAdminSources(s: {
           ? {
               rooms: () => c.adminRooms(),
               close: (code, reason) => c.adminClose(code, reason),
+              drop: (accountId, why) => c.adminDrop(accountId, why),
             }
           : c;
   }
@@ -48,6 +53,20 @@ export function frontAdmin(): FrontAdmin | null {
 
 export function conquestAdmin(): ConquestAdmin | null {
   return conquest;
+}
+
+/**
+ * A suspended or deleted account leaves every game running now: its
+ * DerpyFront players (by the play ids its sessions had) and its Conquest
+ * seats. Signing in again is refused elsewhere.
+ */
+export async function dropFromGames(
+  accountId: number,
+  playIds: string[],
+  why: string,
+): Promise<void> {
+  conquest?.drop?.(accountId, why);
+  await front?.kick?.(playIds).catch(() => undefined);
 }
 
 // ---- Mr. Based: who used it lately -----------------------------------------

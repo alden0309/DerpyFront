@@ -338,12 +338,18 @@ export function joinLobby(
             composed: true,
           }),
         );
-      } else if (message.error === "kick_reason.derp_ended") {
-        // ADMIN (r26): Derp Land's owner closed this lobby, with a reason.
+      } else if (
+        message.error === "kick_reason.derp_ended" ||
+        message.error === "kick_reason.derp_suspended"
+      ) {
+        // ADMIN (r26): Derp Land's owner closed this lobby (with a reason),
+        // or suspended this account.
         showInGameAlert(
-          translateText("kick_reason.derp_ended", {
-            reason: message.message ?? "",
-          }),
+          message.error === "kick_reason.derp_suspended"
+            ? translateText("kick_reason.derp_suspended")
+            : translateText("kick_reason.derp_ended", {
+                reason: message.message ?? "",
+              }),
         ).then(() => {
           document.dispatchEvent(
             new CustomEvent("leave-lobby", {
@@ -1151,12 +1157,15 @@ export class ClientGameRunner {
       // why, then back to DerpyFront's menu.
       if (
         message.type === "error" &&
-        message.error === "kick_reason.derp_ended"
+        (message.error === "kick_reason.derp_ended" ||
+          message.error === "kick_reason.derp_suspended")
       ) {
         void showInGameAlert(
-          translateText("kick_reason.derp_ended", {
-            reason: message.message ?? "",
-          }),
+          message.error === "kick_reason.derp_suspended"
+            ? translateText("kick_reason.derp_suspended")
+            : translateText("kick_reason.derp_ended", {
+                reason: message.message ?? "",
+              }),
         ).then(() => {
           window.location.href = "/derpyfront";
         });

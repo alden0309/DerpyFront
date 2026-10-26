@@ -14,6 +14,7 @@ import {
   InternalGameInfoSchema,
   LiveFrontGameSchema,
   MasterAdminEnd, // ADMIN (r26)
+  MasterAdminKick, // ADMIN (r26)
   MasterAdminList, // ADMIN (r26)
   MasterCreateGame,
   MasterLobbiesBroadcast,
@@ -148,7 +149,7 @@ export class MasterLobbyService {
   /** Asks `worker` and waits for its answer (null: none in time). */
   private askWorker(
     workerId: number,
-    msg: MasterAdminList | MasterAdminEnd,
+    msg: MasterAdminList | MasterAdminEnd | MasterAdminKick,
     timeoutMs: number,
   ): Promise<unknown> {
     const worker = this.workers.get(workerId);
@@ -206,6 +207,20 @@ export class MasterLobbyService {
       3000,
     )) as { type?: string; ok?: boolean } | null;
     return answer?.type === "adminEnded" && answer.ok === true;
+  }
+
+  /** Takes these play ids' players out of every game on every worker. */
+  async adminKick(playIds: string[]): Promise<void> {
+    if (playIds.length === 0) return;
+    await Promise.all(
+      [...this.workers.keys()].map((id) =>
+        this.askWorker(
+          id,
+          { type: "adminKick", reqId: ++this.adminSeq, playIds },
+          3000,
+        ),
+      ),
+    );
   }
 
   // Lobby entries are validated individually so one malformed entry only

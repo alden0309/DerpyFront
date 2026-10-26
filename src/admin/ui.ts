@@ -108,7 +108,7 @@ export function table<T>(
                       ? "lead"
                       : ""} ${c.cls ?? ""}"
                   >
-                    ${c.cell(r) ?? nothing}
+                    <span class="cv">${c.cell(r) ?? nothing}</span>
                   </td>`,
               )}
             </tr>`,

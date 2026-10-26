@@ -263,11 +263,11 @@ export class AdminEconomy extends AdminPage {
               >
                 <span
                   class="earned"
-                  style="height:${(x.earned / top) * 50}%"
+                  style="height:${(x.earned / top) * 100}%"
                 ></span>
                 <span
                   class="spent"
-                  style="height:${(x.spent / top) * 50}%"
+                  style="height:${(x.spent / top) * 100}%"
                 ></span>
               </div>`,
           )}

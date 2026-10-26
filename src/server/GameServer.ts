@@ -2125,6 +2125,18 @@ export class GameServer {
     };
   }
 
+  // ADMIN (r26): a suspended or deleted account's players (by the play ids
+  // its sessions had) are taken out, told why, and can't come back in.
+  public adminKick(playIds: ReadonlySet<string>): number {
+    let n = 0;
+    for (const c of [...this.clients.active()]) {
+      if (!playIds.has(c.persistentID.toLowerCase())) continue;
+      this.kickClient(c.clientID, "kick_reason.derp_suspended");
+      n++;
+    }
+    return n;
+  }
+
   // ADMIN (r26): the owner closes this lobby, or ends this game, for
   // everyone. Each player is told why (the reason shows on their screen),
   // then it ends as a game everyone left does (a started one is recorded).

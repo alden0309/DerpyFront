@@ -56,7 +56,11 @@ export const ADMIN_CSS = `
 .adm-table tbody tr:last-child td { border-bottom: 0; }
 .adm-table .num { text-align: right; white-space: nowrap; }
 .adm-table .nowrap { white-space: nowrap; }
-.adm-table a { color: var(--text); }
+.adm-table a { color: var(--text); font-weight: 600; text-decoration: none; }
+.adm-table a:hover { text-decoration: underline; text-decoration-color: var(--peel); }
+.adm-box a:not(.dl-btn) { color: var(--text); }
+.adm-box .adm-aside a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }
+.adm-box .adm-aside a:hover { color: var(--text); }
 .adm-table .acts { text-align: right; white-space: nowrap; }
 .adm-table .acts .dl-btn + .dl-btn { margin-left: 6px; }
 .adm-tablewrap { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
@@ -88,9 +92,14 @@ export const ADMIN_CSS = `
 .dl-btn.adm-danger:hover { background: #ef4444; }
 .dl-btn.adm-danger.ghost { background: rgba(220, 38, 38, 0.12); color: #fca5a5; box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.35); }
 .dl-btn.adm-danger.ghost:hover { background: rgba(220, 38, 38, 0.22); }
+.dl-btn.adm-danger:disabled, .dl-btn.adm-danger.ghost:disabled { background: var(--surface-2); color: var(--text-3);
+  box-shadow: none; cursor: not-allowed; }
 .dl-btn.small.tiny { padding: 3px 8px; font-size: 12.5px; }
 .adm-tabs.dl-seg { margin-bottom: 14px; }
 .adm-pager { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 14px; color: var(--text-2); }
+.adm-fold { margin-top: 12px; }
+.adm-fold > summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-2); padding: 4px 0; }
+.adm-fold > summary:hover { color: var(--text); }
 .adm-empty { padding: 18px 4px; color: var(--text-2); font-size: 14.5px; }
 .adm-warnline { padding: 9px 12px; border-radius: 9px; background: rgba(245, 204, 60, 0.1);
   box-shadow: inset 3px 0 0 var(--peel); color: var(--cream); font-size: 14px; }
@@ -101,14 +110,16 @@ export const ADMIN_CSS = `
   display: grid; gap: 8px; align-content: start; }
 .adm-action h3 { font-size: 14px; font-weight: 700; margin: 0; }
 .adm-action p { font-size: 13px; color: var(--text-2); margin: 0; }
+.adm-action .adm-check { font-size: 14px; font-weight: 600; }
 .adm-action.danger { border-color: rgba(248, 113, 113, 0.28); }
 .adm-err { color: var(--bad); font-size: 13.5px; font-weight: 600; }
-.adm-json { margin: 0; font-size: 12px; color: var(--text-2); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 46ch; }
+.adm-json { margin: 0; font-size: 12px; color: var(--text-2); overflow-wrap: anywhere; max-width: 46ch; }
+.adm-json b { color: var(--text-3); font-weight: 650; }
 .adm-bar { display: flex; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; min-width: 60px; }
 .adm-bar > span { display: block; background: var(--peel); }
 .adm-chart { display: flex; align-items: flex-end; gap: 3px; height: 120px; padding: 4px 0; }
-.adm-chart .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 1px; min-width: 4px; height: 100%; }
-.adm-chart .col span { display: block; border-radius: 2px 2px 0 0; }
+.adm-chart .col { flex: 1; display: flex; align-items: flex-end; gap: 1px; min-width: 4px; height: 100%; }
+.adm-chart .col span { display: block; flex: 1; min-height: 1px; border-radius: 2px 2px 0 0; }
 .adm-chart .earned { background: var(--leaf); }
 .adm-chart .spent { background: var(--front); }
 .adm-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--text-2); margin-top: 6px; }
@@ -155,7 +166,8 @@ export const ADMIN_CSS = `
     background: rgba(255, 255, 255, 0.015); }
   .adm-table.cards tbody tr:hover td { background: none; }
   .adm-table.cards td { border: 0; padding: 3px 0; display: flex; gap: 10px; justify-content: space-between;
-    text-align: right; }
+    align-items: baseline; text-align: right; }
+  .adm-table.cards td > .cv { min-width: 0; }
   .adm-table.cards td::before { content: attr(data-label); color: var(--text-3); font-size: 12.5px; font-weight: 600;
     text-align: left; flex: none; }
   .adm-table.cards td[data-label=""]::before { content: none; }

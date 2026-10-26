@@ -29,15 +29,40 @@ interface AuditData {
   actions: string[];
 }
 
-function brief(v: unknown): string {
+const show = (x: unknown) =>
+  typeof x === "object" && x !== null ? JSON.stringify(x) : String(x);
+
+function brief(v: unknown, only?: Set<string>): string {
   if (v === null || v === undefined) return "";
   if (typeof v !== "object") return String(v);
   return Object.entries(v as Record<string, unknown>)
-    .map(
-      ([k, x]) =>
-        `${k}: ${typeof x === "object" && x !== null ? JSON.stringify(x) : String(x)}`,
-    )
+    .filter(([k]) => !only || only.has(k))
+    .map(([k, x]) => `${k}: ${show(x)}`)
     .join(", ");
+}
+
+/**
+ * Of a before and an after with the same fields, only the fields that
+ * changed (a banner's whole setting says only its text changed).
+ */
+export function changedKeys(
+  before: unknown,
+  after: unknown,
+): Set<string> | undefined {
+  if (
+    typeof before !== "object" ||
+    typeof after !== "object" ||
+    before === null ||
+    after === null
+  )
+    return undefined;
+  const a = before as Record<string, unknown>;
+  const b = after as Record<string, unknown>;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  const changed = [...keys].filter((k) => show(a[k]) !== show(b[k]));
+  return changed.length > 0 && changed.length < keys.size
+    ? new Set(changed)
+    : undefined;
 }
 
 function target(r: AuditRow): TemplateResult | string {
@@ -69,6 +94,17 @@ export class AdminAudit extends AdminPage {
       else next.delete(k);
     }
     return `/admin/audit${next.size ? `?${next}` : ""}`;
+  }
+
+  private change(r: AuditRow): TemplateResult {
+    const only = changedKeys(r.before, r.after);
+    const was = r.before !== null ? brief(r.before, only) : "";
+    const now = r.after !== null ? brief(r.after, only) : "";
+    return html`<p class="adm-json">
+      ${was ? html`<b>was</b> ${was}` : nothing}${was && now
+        ? html`<br />`
+        : nothing}${now ? html`<b>now</b> ${now}` : nothing}
+    </p>`;
   }
 
   render(): TemplateResult {
@@ -169,17 +205,7 @@ export class AdminAudit extends AdminPage {
                 {
                   label: "Change",
                   cell: (r) =>
-                    r.before === null && r.after === null
-                      ? ""
-                      : html`<p class="adm-json">
-                          ${r.before !== null
-                            ? html`<b>was</b> ${brief(r.before)}`
-                            : nothing}${r.before !== null && r.after !== null
-                            ? html`<br />`
-                            : nothing}${r.after !== null
-                            ? html`<b>now</b> ${brief(r.after)}`
-                            : nothing}
-                        </p>`,
+                    r.before === null && r.after === null ? "" : this.change(r),
                 },
                 { label: "By", cell: (r) => r.actor },
               ],
@@ -187,19 +213,21 @@ export class AdminAudit extends AdminPage {
               "Nothing in the log matches.",
             )}
             <div class="adm-pager">
-              <a
-                class="dl-btn small ghost"
-                href=${this.with({ page: String(d.page - 1) })}
-                ?hidden=${d.page <= 1}
-                >‹ Newer</a
-              >
+              ${d.page > 1
+                ? html`<a
+                    class="dl-btn small ghost"
+                    href=${this.with({ page: String(d.page - 1) })}
+                    >‹ Newer</a
+                  >`
+                : nothing}
               <span>Page ${d.page} of ${d.pages} · ${nf(d.total)} lines</span>
-              <a
-                class="dl-btn small ghost"
-                href=${this.with({ page: String(d.page + 1) })}
-                ?hidden=${d.page >= d.pages}
-                >Older ›</a
-              >
+              ${d.page < d.pages
+                ? html`<a
+                    class="dl-btn small ghost"
+                    href=${this.with({ page: String(d.page + 1) })}
+                    >Older ›</a
+                  >`
+                : nothing}
             </div>
           </div>`
         : html`<p class="adm-quiet">Loading…</p>`}`;

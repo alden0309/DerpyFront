@@ -163,7 +163,7 @@ export class AdminChallenges extends AdminPage {
                     label: "Challenge",
                     lead: true,
                     cell: (p) =>
-                      html`${pill(p.tier, TIER_TONE[p.tier])} ${p.name}
+                      html`${pill(p.tier[0].toUpperCase() + p.tier.slice(1), TIER_TONE[p.tier])} ${p.name}
                         ${p.standIn
                           ? html` <span class="adm-small"
                               >(stand-in for those without an AI

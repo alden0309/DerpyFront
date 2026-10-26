@@ -8,7 +8,7 @@ import { customElement, state } from "lit/decorators.js";
 import { gamesIcon } from "../icons";
 import { AdminPage } from "../Page";
 import { registerSection } from "../Registry";
-import { ago, nf, pill, span, table, type Tone, when } from "../ui";
+import { ago, type Col, nf, pill, span, table, type Tone, when } from "../ui";
 
 interface FrontGame {
   id: string;
@@ -157,98 +157,123 @@ export class AdminGames extends AdminPage {
       ${d ? this.body(d) : html`<p class="adm-quiet">Loading…</p>`}`;
   }
 
+  /**
+   * DerpyFront's games in three: being played, lobbies with someone in them
+   * (or a host's own), and the public lobbies the server keeps queued
+   * (folded away: there are always a few dozen).
+   */
+  private frontTables(
+    games: FrontGame[],
+    cols: Col<FrontGame>[],
+  ): TemplateResult {
+    const live = games.filter((g) => g.phase !== "lobby");
+    const queued = games.filter(
+      (g) =>
+        g.phase === "lobby" && g.kind === "public" && g.players.length === 0,
+    );
+    const lobbies = games.filter(
+      (g) => g.phase === "lobby" && !queued.includes(g),
+    );
+    return html`<h3 class="adm-h2">Being played</h3>
+      ${table(cols, live, "No DerpyFront game is being played on the server.")}
+      <h3 class="adm-h2" style="margin-top:14px">
+        Lobbies with players, and private ones
+      </h3>
+      ${table(cols, lobbies, "None right now.")}
+      <details class="adm-fold">
+        <summary>
+          Public lobbies waiting for players (${nf(queued.length)})
+        </summary>
+        ${table(cols, queued, "None.")}
+      </details>`;
+  }
+
   private body(d: GamesData): TemplateResult {
     const now = Date.now();
+    const cols: Col<FrontGame>[] = [
+      {
+        label: "Game",
+        lead: true,
+        cell: (g) =>
+          html`${g.scenario ?? g.map}
+            <span class="adm-small adm-mono">${g.id}</span>`,
+      },
+      {
+        label: "Kind",
+        cell: (g) =>
+          html`${pill(...(KIND[g.kind] ?? [g.kind, ""]))}
+          ${g.locked ? pill("Password") : nothing}
+          ${g.mode === "Team" ? pill("Teams") : nothing}`,
+      },
+      {
+        label: "State",
+        cell: (g) =>
+          g.phase === "lobby"
+            ? html`${pill("Lobby", "warn")}
+                <span class="adm-small">${ago(g.createdAt, now)}</span>`
+            : html`${pill(
+                g.phase === "playing" ? "Playing" : "Starting",
+                "good",
+              )}
+              ${g.startedAt
+                ? html`<span class="adm-small"
+                    >${span((now - g.startedAt) / 1000)}</span
+                  >`
+                : nothing}`,
+      },
+      {
+        label: "Players",
+        cell: (g) =>
+          html`<span title=${g.players.join(", ")}
+            >${nf(g.players.length)}${g.maxPlayers
+              ? ` / ${g.maxPlayers}`
+              : ""}${g.players.length
+              ? html` <span class="adm-small"
+                  >${g.players.slice(0, 4).join(", ")}${g.players.length > 4
+                    ? "…"
+                    : ""}</span
+                >`
+              : nothing}</span
+          >`,
+      },
+      { label: "Watching", num: true, cell: (g) => nf(g.watchers) },
+      {
+        label: "",
+        cls: "acts",
+        cell: (g) =>
+          html`${g.phase === "playing"
+              ? g.watchable
+                ? html`<a
+                    class="dl-btn small tiny ghost"
+                    href="/game/${encodeURIComponent(g.id)}?spectate"
+                    target="_blank"
+                    >Watch</a
+                  >`
+                : html`<span
+                    class="adm-small"
+                    title="Its host hasn't opened it to watchers"
+                    >No watchers</span
+                  >`
+              : nothing}
+            <button
+              class="dl-btn small tiny adm-danger ghost"
+              ?disabled=${this.busy}
+              @click=${() => void this.endFront(g)}
+            >
+              ${g.phase === "lobby" ? "Close" : "End"}
+            </button>`,
+      },
+    ];
     return html`<div class="adm-grid">
       <div class="adm-box">
         <h2>
           DerpyFront
           <span class="adm-aside"
-            >${nf(d.front.games.length)} lobbies and games</span
+            >${nf(d.front.games.length)} lobbies and games in all</span
           >
         </h2>
         ${d.front.available
-          ? table(
-              [
-                {
-                  label: "Game",
-                  lead: true,
-                  cell: (g) =>
-                    html`${g.scenario ?? g.map}
-                      <span class="adm-small adm-mono">${g.id}</span>`,
-                },
-                {
-                  label: "Kind",
-                  cell: (g) =>
-                    html`${pill(...(KIND[g.kind] ?? [g.kind, ""]))}
-                    ${g.locked ? pill("Password") : nothing}
-                    ${g.mode === "Team" ? pill("Teams") : nothing}`,
-                },
-                {
-                  label: "State",
-                  cell: (g) =>
-                    g.phase === "lobby"
-                      ? html`${pill("Lobby", "warn")}
-                          <span class="adm-small"
-                            >${ago(g.createdAt, now)}</span
-                          >`
-                      : html`${pill(
-                          g.phase === "playing" ? "Playing" : "Starting",
-                          "good",
-                        )}
-                        ${g.startedAt
-                          ? html`<span class="adm-small"
-                              >${span((now - g.startedAt) / 1000)}</span
-                            >`
-                          : nothing}`,
-                },
-                {
-                  label: "Players",
-                  cell: (g) =>
-                    html`<span title=${g.players.join(", ")}
-                      >${nf(g.players.length)}${g.maxPlayers
-                        ? ` / ${g.maxPlayers}`
-                        : ""}${g.players.length
-                        ? html` <span class="adm-small"
-                            >${g.players.slice(0, 4).join(", ")}${g.players
-                              .length > 4
-                              ? "…"
-                              : ""}</span
-                          >`
-                        : nothing}</span
-                    >`,
-                },
-                { label: "Watching", num: true, cell: (g) => nf(g.watchers) },
-                {
-                  label: "",
-                  cls: "acts",
-                  cell: (g) =>
-                    html`${g.phase === "playing"
-                        ? g.watchable
-                          ? html`<a
-                              class="dl-btn small tiny ghost"
-                              href="/game/${encodeURIComponent(g.id)}?spectate"
-                              target="_blank"
-                              >Watch</a
-                            >`
-                          : html`<span
-                              class="adm-small"
-                              title="Its host hasn't opened it to watchers"
-                              >No watchers</span
-                            >`
-                        : nothing}
-                      <button
-                        class="dl-btn small tiny adm-danger ghost"
-                        ?disabled=${this.busy}
-                        @click=${() => void this.endFront(g)}
-                      >
-                        ${g.phase === "lobby" ? "Close" : "End"}
-                      </button>`,
-                },
-              ],
-              d.front.games,
-              "No lobbies or games on the game workers right now.",
-            )
+          ? this.frontTables(d.front.games, cols)
           : html`<p class="adm-quiet">The game workers didn't answer.</p>`}
       </div>
 

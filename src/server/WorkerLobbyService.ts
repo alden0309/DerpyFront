@@ -204,6 +204,21 @@ export class WorkerLobbyService {
         this.sendToMaster({ type: "adminEnded", reqId: msg.reqId, ok });
         break;
       }
+      case "adminKick": {
+        const ids = new Set(msg.playIds.map((p) => p.toLowerCase()));
+        let kicked = 0;
+        for (const game of this.gm.allGames()) kicked += game.adminKick(ids);
+        if (kicked > 0)
+          this.log.info("players taken out of games from the admin page", {
+            kicked,
+          });
+        this.sendToMaster({
+          type: "adminEnded",
+          reqId: msg.reqId,
+          ok: kicked > 0,
+        });
+        break;
+      }
     }
   }
 

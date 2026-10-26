@@ -33,10 +33,11 @@ function moderationPage(view: AdminView): TemplateResult {
     ...children.map((c) => ({ id: c.id, label: c.label, order: c.order })),
     ...SLOTS.filter((s) => !children.some((c) => c.id === s.id)),
   ].sort((a, b) => a.order - b.order);
+  // Straight to the first tab that has something (not an empty slot).
   const at =
     view.path[0] && tabs.some((t) => t.id === view.path[0])
       ? view.path[0]
-      : (tabs[0]?.id ?? "names");
+      : (children[0]?.id ?? tabs[0]?.id ?? "names");
   const child = children.find((c) => c.id === at);
   const slot = SLOTS.find((s) => s.id === at);
   return html`<div class="adm-head">

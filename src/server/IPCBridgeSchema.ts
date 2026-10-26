@@ -195,6 +195,14 @@ const MasterAdminEndSchema = z.object({
 });
 export type MasterAdminList = z.infer<typeof MasterAdminListSchema>;
 export type MasterAdminEnd = z.infer<typeof MasterAdminEndSchema>;
+// A suspended or deleted account's players (by their sessions' play ids)
+// taken out of every game on the worker.
+const MasterAdminKickSchema = z.object({
+  type: z.literal("adminKick"),
+  reqId: z.number().int(),
+  playIds: z.array(z.string().max(60)).max(200),
+});
+export type MasterAdminKick = z.infer<typeof MasterAdminKickSchema>;
 
 export const MasterMessageSchema = z.discriminatedUnion("type", [
   MasterLobbiesBroadcastSchema,
@@ -202,4 +210,5 @@ export const MasterMessageSchema = z.discriminatedUnion("type", [
   MasterUpdateGameSchema,
   MasterAdminListSchema, // ADMIN (r26)
   MasterAdminEndSchema, // ADMIN (r26)
+  MasterAdminKickSchema, // ADMIN (r26)
 ]);

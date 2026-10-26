@@ -724,12 +724,42 @@ describe.skipIf(!TEST_DB)("the admin page, against Postgres", () => {
         confirm: sam.name,
       });
       expect(past.json.error).toBe("until_past");
+      // Whatever it's playing now, it's taken out of.
+      const playIds = (
+        await pool.query(
+          "SELECT play_id FROM derpy_sessions WHERE account_id = $1",
+          [sam.id],
+        )
+      ).rows.map((x) => String(x.play_id));
+      const kicked: string[] = [];
+      const dropped: number[] = [];
+      Sources.setAdminSources({
+        front: {
+          list: async () => ({ games: [], workers: [] }),
+          end: async () => false,
+          kick: async (ids) => {
+            kicked.push(...ids);
+          },
+        },
+        conquest: {
+          rooms: () => [],
+          close: async () => false,
+          drop: (id) => {
+            dropped.push(id);
+            return 1;
+          },
+        },
+      });
       const r = await admin(`/accounts/${sam.id}/suspend`, users.Alden, {
         reason: "Spamming chat",
         until: null,
         confirm: sam.name,
       });
       expect(r.status).toBe(200);
+      expect(playIds.length).toBeGreaterThan(0);
+      expect(kicked.sort()).toEqual(playIds.sort());
+      expect(dropped).toEqual([sam.id]);
+      Sources.setAdminSources({ front: null, conquest: null });
       expect((await call("/derpy/api/me", { token: sam.token })).status).toBe(
         401,
       );

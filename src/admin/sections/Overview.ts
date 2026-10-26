@@ -47,7 +47,12 @@ interface OverviewData {
   accounts: { total: number; newThisWeek: number; newToday: number };
   dbBytes: number;
   errors: { at: string; message: string; component?: string; where: string }[];
-  lines: { label: string; value: string | number; href?: string }[];
+  lines: {
+    label: string;
+    value: string | number;
+    detail?: string;
+    href?: string;
+  }[];
 }
 
 @customElement("adm-overview")
@@ -98,15 +103,15 @@ export class AdminOverview extends AdminPage {
       <div class="adm-stats">
         ${stat("Online now", nf(d.online.length))}
         ${stat(
-          "DerpyFront",
-          g.frontGames === null ? "–" : `${nf(g.frontGames)} playing`,
-          g.frontLobbies === null ? "" : `${nf(g.frontLobbies)} lobbies`,
+          "DerpyFront games",
+          g.frontGames === null ? "–" : nf(g.frontGames),
+          g.frontLobbies === null ? "" : `and ${nf(g.frontLobbies)} lobbies`,
           "/admin/games",
         )}
         ${stat(
-          "Derpy Conquest",
-          `${nf(g.conquestGames)} playing`,
-          `${nf(g.conquestRooms)} rooms`,
+          "Conquest games",
+          nf(g.conquestGames),
+          `and ${nf(g.conquestRooms)} rooms`,
           "/admin/games",
         )}
         ${stat(
@@ -117,12 +122,12 @@ export class AdminOverview extends AdminPage {
         )}
         ${stat("Database", bytes(d.dbBytes))}
         ${stat("Up for", span(d.server.uptimeS))}
-        ${stat("Memory", bytes(d.server.memory.rss), "the master")}
+        ${stat("Memory (master)", bytes(d.server.memory.rss))}
         ${d.lines.map((l) =>
           stat(
             l.label,
             String(typeof l.value === "number" ? nf(l.value) : l.value),
-            "",
+            l.detail ?? "",
             l.href,
           ),
         )}
@@ -159,16 +164,16 @@ export class AdminOverview extends AdminPage {
           <dl class="adm-facts">
             <dt>Commit</dt>
             <dd>
-              ${commit
+              ${commit && /^[0-9a-f]{7,40}$/i.test(commit)
                 ? html`<a
                     class="adm-mono"
                     href="https://github.com/alden0309/DerpyFront/commit/${commit}"
                     target="_blank"
                     rel="noopener noreferrer"
                     title=${commit}
-                    >${commit.length > 12 ? commit.slice(0, 10) : commit}</a
+                    >${commit.slice(0, 10)}</a
                   >`
-                : "–"}
+                : (commit ?? "–")}
             </dd>
             <dt>Built</dt>
             <dd>
@@ -232,15 +237,34 @@ export class AdminOverview extends AdminPage {
             {
               label: "Error",
               lead: true,
-              cell: (e) => html`<span class="adm-mono">${e.message}</span>`,
+              cell: (e) =>
+                html`<span class="adm-mono">${e.message}</span>${e.count > 1
+                    ? html` ${pill(`× ${e.count}`, "warn")}`
+                    : nothing}`,
             },
           ],
-          d.errors,
+          groupErrors(d.errors),
           "No errors since the last start.",
         )}
       </div>
     </div>`;
   }
+}
+
+type RingErr = OverviewData["errors"][number];
+
+/** The same error over and over (a retry loop) is one line, with how many. */
+export function groupErrors(
+  errors: RingErr[],
+): (RingErr & { count: number })[] {
+  const out = new Map<string, RingErr & { count: number }>();
+  for (const e of errors) {
+    const key = `${e.where}|${e.component ?? ""}|${e.message}`;
+    const hit = out.get(key);
+    if (hit) hit.count++;
+    else out.set(key, { ...e, count: 1 });
+  }
+  return [...out.values()];
 }
 
 function stat(

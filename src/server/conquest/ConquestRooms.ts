@@ -1360,6 +1360,32 @@ export class ConquestRooms {
     }));
   }
 
+  /** An account (suspended or deleted) leaves every table: its seats and its watching. */
+  adminDrop(accountId: number, why: string): number {
+    let n = 0;
+    for (const room of [...this.rooms.values()]) {
+      for (const seat of room.seats) {
+        const conn = seat.conn;
+        if (!conn || seat.accountId !== accountId) continue;
+        this.send(conn, { t: "err", msg: "That game has ended or closed." });
+        this.send(conn, { t: "watchend", why });
+        conn.accountId = null;
+        conn.username = null;
+        this.disconnect(conn);
+        n++;
+      }
+      for (const w of [...room.watchers]) {
+        if (w.accountId !== accountId) continue;
+        this.send(w, { t: "watchend", why });
+        w.accountId = null;
+        w.username = null;
+        this.disconnect(w);
+        n++;
+      }
+    }
+    return n;
+  }
+
   /**
    * The owner closes a room: a game under way is saved first (it can be
    * picked up again from the saved games), each player is told why and

@@ -55,6 +55,8 @@ export interface AdminRoute {
 export interface OverviewLine {
   label: string;
   value: string | number;
+  /** Smaller words beside the value. */
+  detail?: string;
   /** A page of the admin to go to: "/admin/moderation/pictures". */
   href?: string;
 }

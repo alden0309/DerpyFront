@@ -105,7 +105,7 @@ export const moderation = adminSection({
     ).query("SELECT count(*)::int AS n FROM derpy_name_blocklist");
     return [
       {
-        label: "Blocked name words",
+        label: "Blocked words in names",
         value: r.rows[0].n,
         href: "/admin/moderation",
       },
