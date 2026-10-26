@@ -168,15 +168,17 @@ export class Lobby extends LitElement {
    * A first visit (nothing saved or finished, and it hasn't been taken or
    * turned down in this browser): the first life, offered.
    */
-  private firstVisit(): TemplateResult | typeof nothing {
+  private firstVisit(
+    where: "top" | "in-start",
+  ): TemplateResult | typeof nothing {
     if (this.declined || firstLifeSeen() !== "") return nothing;
     if (this.saved.length || this.finished.length) return nothing;
-    return html`<div class="cq-firstlife" role="note">
+    return html`<div class="cq-firstlife ${where}" role="note">
       <p class="cq-firstlife-head">New to Derpy Conquest?</p>
       <p class="small">
         Take a short first life: a young cooper in Boston, 1700, learning the
-        ropes with someone at your elbow. About fifteen minutes, and the life
-        is yours to keep.
+        ropes with someone at your elbow. About fifteen minutes, and the life is
+        yours to keep.
       </p>
       <div class="cq-btnrow">
         <button
@@ -220,6 +222,7 @@ export class Lobby extends LitElement {
     return html`<div class="cq-lobby">
       <derp-bar page="conquest"></derp-bar>
       <div class="cq-lobby-page">
+        ${this.firstVisit("top") /* CQTUT (r26): first, on a phone */}
         <section class="cq-hero">
           <figure class="cq-hero-art">
             <img
@@ -276,7 +279,7 @@ export class Lobby extends LitElement {
           <section class="cq-sheet cq-new">
             <span class="cq-seal cq-sheet-seal" aria-hidden="true"></span>
             <h2 class="cq-h2">Start a game</h2>
-            ${this.firstVisit() /* CQTUT (r26) */}
+            ${this.firstVisit("in-start") /* CQTUT (r26) */}
             ${this.account
               ? html`<p class="cq-muted">
                   Playing as <b>${this.account}</b>. Your games are saved to

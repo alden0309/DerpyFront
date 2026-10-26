@@ -17,7 +17,9 @@ import {
   TUT_HOME,
   TUT_STEP_COUNT,
   tutEarned,
+  tutHolding,
   TUTORIAL_STEPS,
+  tutRunning,
   tutStep,
   type TutStep,
 } from "../../engine/TutorialCore";
@@ -50,6 +52,8 @@ interface Say {
   show?: () => void;
   /** Over an open letter: a line of advice. */
   over?: string;
+  /** A button of the step's own in place of Show me (the last step's "Done"). */
+  act?: { label: string; run: () => void };
 }
 
 /** What the card needs besides the game: the drawer's page, the open window, and the way out. */
@@ -60,7 +64,15 @@ export interface TutContext {
   /** Leave this game for the start screen, and begin there: a fresh life, or the first life again. */
   fresh: () => void;
   again: (female: boolean) => void;
+  /** Start the clock (carrying on, at the end). */
+  play: () => void;
 }
+
+/** A touch screen: "tap" and "hold", not "click" and "right-click". */
+const touch = () =>
+  typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+const click = () => (touch() ? "tap" : "click");
+const Click = () => (touch() ? "Tap" : "Click");
 
 const provNamed = (ui: GameUi, name: string) =>
   ui.map.provinces.findIndex((p) => p.name === name);
@@ -119,7 +131,9 @@ function letterSay(
     text,
     at: l.open ? [CHOICES] : after ? [NEXT, TRAY] : [TRAY, LETTERS],
     show: () => ui.modal({ k: "event", id: l.id }),
-    over: after ? "A letter has come: Next opens it." : over,
+    over: after
+      ? "A letter has come: Next opens it (or Continue, and it waits up top)."
+      : over,
   };
 }
 
@@ -128,8 +142,8 @@ function homeFirst(ui: GameUi, title: string, why: string): Say {
   const home = provNamed(ui, TUT_HOME);
   return {
     title,
-    text: html`${why} Click Boston (Massachusetts Bay) on the map, then
-      <b>Set out</b>; ⏩ runs the road quickly.`,
+    text: html`${why} ${Click()} <b>Massachusetts Bay</b> (Boston's province) on
+      the map, then <b>Set out</b>; ⏩ runs the road quickly.`,
     at: [ASK, SET_OUT, { prov: home }, SKIP],
     show: () => ui.focusProv(home),
   };
@@ -174,8 +188,9 @@ function stepSay(
       return {
         title: "Your work",
         text: html`Your days at the bench are worked for you, and wages come at
-          the month's end. <b>Choose how hard you'll go at it</b> (Steady will
-          do): harder brings promotion sooner, and more stress.`,
+          the month's end. <b>Choose how hard you'll go at it</b>: ${click()}
+          Steady to keep a fair day's work, or go harder for promotion sooner
+          (and more stress).`,
         at: [{ sel: ".cq-lv-effort" }, { sel: ".cq-tab", text: /^Work$/ }],
         show: () => ui.open({ k: "tab", tab: "work", sub: "job" }),
       };
@@ -187,17 +202,18 @@ function stepSay(
         t,
         ctx,
         "A favour from next door",
-        `${name} has a favour to ask, by letter. A letter stops the clock until you answer it: point at a choice for what it comes to.`,
-        "Point at a choice (or tap it) for what it comes to, then choose.",
+        `${name} has a favour to ask, by letter. A letter stops the clock until you answer it: open it (up top), and under each choice is what it comes to.`,
+        "A letter stops the clock until you answer. Under each choice is what it comes to; left unanswered, the first is chosen for you after a minute of play.",
       );
       if (said) return said;
       const talking = ctx.modal?.k === "interact" && ctx.modal.act === "talk";
       return {
         title: `A word with ${name}`,
         text: html`That's ${fullOf(ui, cast.friend, "your neighbour")} at the
-          next bench: he keeps the cooperage next to your master's.
-          <b>Click him</b> to see what he thinks of you, then <b>Talk</b> to
-          pass the time of day.`,
+          next bench (Here now, below the places): he keeps the cooperage next
+          to your master's. <b>${Click()} him</b> for his card and what he
+          thinks of you, then <b>Talk</b>, under Interactions, to pass the time
+          of day.`,
         at: talking
           ? [{ sel: ".cq-modal .cq-btn.primary" }]
           : [
@@ -224,7 +240,7 @@ function stepSay(
         ctx,
         "Trouble in the yard",
         `${firstOf(ui, cast.rival, "A rival")} has come about the Bristol hogsheads. A choice with a percentage is a test of skill: that's your chance, from your skill.`,
-        "The percentage is your chance, from your skill. Point at a choice for what it comes to.",
+        "A percentage is a test of skill: your chance, from your skill. Under each choice is what it comes to.",
       );
       return (
         said ?? {
@@ -240,8 +256,10 @@ function stepSay(
         title: "An errand to Plymouth",
         text: html`${master} wants a cartload of barrels taken to Plymouth, a
           few days down the coast. Find <b>Plymouth</b> on the map, south of
-          Boston, click it, then <b>Set out</b>. (Or right-click it, or hold it
-          on a phone, for a quick way to set out.)`,
+          Massachusetts Bay, ${click()} it, then <b>Set out</b>.
+          ${touch()
+            ? "(Or hold it, for a quick way to set out.)"
+            : "(Or right-click it, for a quick way to set out.)"}`,
         at: there ? [ASK, SET_OUT] : [ASK, { prov: errand }],
         show: () => ui.focusProv(errand),
       };
@@ -261,7 +279,7 @@ function stepSay(
       if (!going && !(life.prov === errand && !life.travel))
         return {
           title: "An errand to Plymouth",
-          text: html`Plymouth is the place: click it on the map, then
+          text: html`Plymouth is the place: ${click()} it on the map, then
             <b>Set out</b>.`,
           at: [ASK, SET_OUT, { prov: errand }],
           show: () => ui.focusProv(errand),
@@ -281,15 +299,21 @@ function stepSay(
             "Home, and pay day",
             "Now home to Boston for your wages.",
           ),
-          text: html`Now home to Boston for your wages. Click Boston
-            (Massachusetts Bay) on the map and <b>Set out</b>, then press
-            <b>⏩</b>: it runs the quiet days until something needs you.`,
+          text: life.travel
+            ? html`On the road home. Press <b>⏩</b>: it runs the quiet days
+                quickly, and stops when you're home (and again for pay day).`
+            : html`Now home to Boston for your wages. ${Click()}
+                <b>Massachusetts Bay</b> (Boston's province) on the map and
+                <b>Set out</b>, then press <b>⏩</b>: it runs the quiet days
+                until something needs you.`,
           at: life.travel ? [SKIP] : [ASK, SET_OUT, { prov: home }],
         };
       return {
         title: "Pay day",
-        text: html`Wages come at the month's end. Press <b>⏩</b>: it runs the
-          quiet days until something needs you, and stops for pay day.`,
+        text: html`At the month's end your wages come in and your keep (board,
+          lodging, the church rate) goes out; the small number by your purse, up
+          top, is what a month should leave you. Press <b>⏩</b>: it runs the
+          quiet days and stops for pay day.`,
         at: [SKIP],
       };
     }
@@ -300,8 +324,8 @@ function stepSay(
         t,
         ctx,
         "Supper at your mother's",
-        "Your wages are in: point at your purse up top for the month's money, in and out. And your mother wants you at supper.",
-        "Pay day: your wages are in the purse, up top. Family matters too: what you choose here changes what they think of you.",
+        "Your wages are in: the month's accounts are by your purse, up top. And your mother wants you at supper: her letter is waiting (up top).",
+        "Pay day: the month's accounts are in your purse, up top. Family matters too: what you choose here changes what they think of you.",
       );
       if (said) return said;
       if (!atHome)
@@ -362,7 +386,23 @@ function stepSay(
         at: [SKIP],
       };
     }
-    case "heir":
+    case "heir": {
+      const open =
+        ctx.cur?.k === "tab" &&
+        ctx.cur.tab === "you" &&
+        subOf(ctx.cur) === "family";
+      if (open)
+        return {
+          title: "Your line",
+          text: html`Your father, gone; your mother, your sister and you. Your
+          children will be here too, and the eldest is your heir: when you die,
+          you play on as them. Find someone to marry, and it's a line.`,
+          at: [{ sel: ".cq-tut .cq-btn.primary" }],
+          act: {
+            label: "That's the last lesson",
+            run: () => void ui.cmd({ k: "tut", act: "saw", what: "heir" }),
+          },
+        };
       return {
         title: "When you die",
         text: html`Nobody lives for ever. When you die you carry on as your
@@ -375,6 +415,7 @@ function stepSay(
         ],
         show: () => ui.open({ k: "tab", tab: "you", sub: "family" }),
       };
+    }
   }
 }
 
@@ -383,19 +424,88 @@ function stepSay(
 /** Asking whether to leave the lessons, and the card folded down to a line (a phone). */
 let asking = false;
 let folded = false;
-/** The step whose page-looked-at has been sent (once a step). */
-let sawSent = -1;
+/** The friend's card whose Talk has been brought into view (once a card opened). */
+let talkShown = false;
 
-/** Tell the engine a page the step asks to look at is open (the heir's). */
+/**
+ * A page opened as the lessons wanted: on the talk step, the friend's card
+ * opened, Talk (far down it, under Interactions) is brought into view.
+ */
 export function tutorialSaw(ui: GameUi, cur: DrawerView | undefined): void {
   const life = ui.life;
   const t = life?.tut;
   if (!life || !t || t.over || ui.watcher) return;
-  if (TUTORIAL_STEPS[t.step] !== "heir" || sawSent === t.step) return;
-  if (cur?.k === "tab" && cur.tab === "you" && subOf(cur) === "family") {
-    sawSent = t.step;
-    void ui.cmd({ k: "tut", act: "saw", what: "heir" });
+  const onCard =
+    TUTORIAL_STEPS[t.step] === "talk" &&
+    !t.wait &&
+    cur?.k === "char" &&
+    cur.c === t.cast.friend;
+  if (!onCard) {
+    talkShown = false;
+    return;
   }
+  if (talkShown) return;
+  talkShown = true;
+  setTimeout(() => {
+    for (const el of document.querySelectorAll<HTMLElement>(
+      ".cq-interactions .cq-int",
+    ))
+      if (/^Talk/.test((el.textContent ?? "").trim())) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+  }, 700);
+}
+
+// ---------------------------------------------------------------- the clock
+
+/** The steps that run on the clock by themselves (the road). */
+const ON_TIME = new Set<TutStep>(["road"]);
+let clockKey = "";
+
+/**
+ * The lessons hold the clock still while you read (alone): after a letter
+ * it doesn't start again unless the step runs on time, and it stops when a
+ * step that needs reading begins, at the end, and while the menu is open.
+ * `still`: don't start it again after a letter; `stop`: stop it now.
+ */
+export function tutClock(
+  life: Life | null | undefined,
+  modal: Modal | null,
+  paused: boolean,
+  skipping: boolean,
+): { still: boolean; stop: boolean } {
+  const t = life?.tut;
+  if (!t || !tutHolding(life)) {
+    clockKey = "";
+    return { still: false, stop: false };
+  }
+  const step = tutStep(life);
+  const still = !step || !ON_TIME.has(step);
+  const key = t.over ? "end" : String(t.step);
+  const changed = key !== clockKey;
+  clockKey = key;
+  const stop =
+    !paused &&
+    !skipping &&
+    ((still && changed) || modal?.k === "menu" || modal?.k === "guide");
+  return { still, stop };
+}
+
+/**
+ * Notices held back: while one of the lessons' letters (or what came of it)
+ * is open; and an achievement's, while the lessons run (they come with the end).
+ */
+export function tutHoldsNotices(
+  life: Life | null | undefined,
+  modal: Modal | null,
+  achievement = false,
+): boolean {
+  if (achievement && tutRunning(life)) return true;
+  return (
+    tutHolding(life) &&
+    (modal?.k === "event" || modal?.k === "outcome" || modal?.k === "interact")
+  );
 }
 
 /** The lessons on screen: the card (or the line over a letter), and the ring. */
@@ -407,7 +517,7 @@ export function tutorialLayer(ui: GameUi, ctx: TutContext): TemplateResult {
     return t.over.how === "done" && !t.closed ? endCard(ui, t, ctx) : html``;
   const step = tutStep(life);
   if (!step) return html``;
-  const say = stepSay(ui, life, t, step, ctx);
+  const say = lettersFirst(ui, life, t, stepSay(ui, life, t, step, ctx));
   const n = t.step + 1;
   // A letter (or another window) open: the card makes way.
   const letterOpen =
@@ -501,18 +611,25 @@ export function tutorialLayer(ui: GameUi, ctx: TutContext): TemplateResult {
               </div>`
           : html`<p class="cq-tut-text">${say.text}</p>
               <div class="cq-tut-acts">
-                ${say.show
+                ${say.act
                   ? html`<button
                       class="cq-btn small primary"
-                      @click=${() => {
-                        say.show!();
-                        ring.pulse();
-                      }}
+                      @click=${say.act.run}
                     >
-                      Show me
+                      ${say.act.label}
                     </button>`
-                  : nothing}
-                <button class="cq-btn small quiet" @click=${skip}>
+                  : say.show
+                    ? html`<button
+                        class="cq-btn small primary"
+                        @click=${() => {
+                          say.show!();
+                          ring.pulse();
+                        }}
+                      >
+                        Show me
+                      </button>`
+                    : nothing}
+                <button class="cq-btn small quiet cq-tut-skip" @click=${skip}>
                   Skip step
                 </button>
               </div>`}
@@ -524,6 +641,23 @@ function me(ui: GameUi): string {
   return ui.me?.first ?? "This";
 }
 
+/**
+ * Another letter waiting (not the step's own) holds up the clock: the card
+ * says so, and rings it, when the step wants the clock to run.
+ */
+function lettersFirst(ui: GameUi, life: Life, t: TutorialState, say: Say): Say {
+  const timed = say.at.some((x) => x === SKIP || x === PLAY);
+  const other = life.events.find((e) => e.key !== t.wait);
+  if (!timed || !other) return say;
+  return {
+    title: say.title,
+    text: html`A letter is waiting for you (up top). The clock can't run on
+    until it's answered: open it, and choose.`,
+    at: [TRAY, LETTERS],
+    show: () => ui.modal({ k: "event", id: other.id }),
+  };
+}
+
 /** The end: First life, and where next. */
 function endCard(
   ui: GameUi,
@@ -533,7 +667,11 @@ function endCard(
   const mine = ui.me;
   const name = mine?.first ?? "this life";
   const female = !!mine?.female;
-  const close = () => void ui.cmd({ k: "tut", act: "close" });
+  // Carrying on: the card put away (and what waited comes in), the clock on.
+  const close = () => {
+    void ui.cmd({ k: "tut", act: "close" });
+    ctx.play();
+  };
   return html`<aside class="cq-tut end" aria-label="First life: the end">
     <div class="cq-tut-top">
       <span class="cq-tut-kicker">First life · done</span>
@@ -556,8 +694,8 @@ function endCard(
         : ctx.signedIn
           ? html`<b>First life:</b> ${FIRST_LIFE_COINS} Derp Coins on your
               account (once).`
-          : html`Signed in, finishing it pays ${FIRST_LIFE_COINS} Derp Coins
-            (once).`}
+          : html`You're playing as a guest: sign in to Derp Land, and a first
+            life finished pays ${FIRST_LIFE_COINS} Derp Coins (once).`}
     </p>
     <div class="cq-tut-acts end">
       <button class="cq-btn small primary" @click=${close}>
@@ -645,7 +783,7 @@ export class TutRing extends LitElement {
         // Only where the map itself shows (not under a page, a sheet or the card).
         const on = pt && document.elementFromPoint(pt.x, pt.y);
         if (pt && on instanceof Element && on.closest(".cq-map-host"))
-          return { el: null, r: new DOMRect(pt.x - 20, pt.y - 20, 40, 40) };
+          return { el: null, r: new DOMRect(pt.x - 50, pt.y - 17, 100, 34) };
         continue;
       }
       for (const found of document.querySelectorAll<HTMLElement>(t.sel)) {
@@ -683,6 +821,8 @@ export class TutRing extends LitElement {
     if (key === this.last) return;
     this.last = key;
     b.classList.toggle("spot", !hit.el);
+    // The pointer goes above it, or below when it's at the top of the screen.
+    b.classList.toggle("under", r.top < 48);
     b.style.display = "block";
     b.style.left = `${r.left - pad}px`;
     b.style.top = `${r.top - pad}px`;

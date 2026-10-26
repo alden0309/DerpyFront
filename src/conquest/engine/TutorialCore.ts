@@ -76,6 +76,16 @@ export function tutRunning(life: Life | null | undefined): boolean {
   return !!t && !t.over;
 }
 
+/**
+ * Whether the lessons still hold the world back from this life: while they
+ * run, and at their end until its card is put away (carrying on), so nothing
+ * comes over the end card.
+ */
+export function tutHolding(life: Life | null | undefined): boolean {
+  const t = life?.tut;
+  return !!t && (!t.over || (t.over.how === "done" && !t.closed));
+}
+
 /** The step the lessons are at, or null at the end (or with none). */
 export function tutStep(life: Life | null | undefined): TutStep | null {
   const t = life?.tut;

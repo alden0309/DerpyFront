@@ -516,6 +516,101 @@ describe("nothing can go wrong while they run", () => {
     expect(cmd(g, { k: "crime", act: "pickpocket" })).not.toBe(TUT_WAITS);
   });
 
+  test("on the master's errand you're never counted away: no letter from him, even lingering, and the month paid in full", () => {
+    const { g, life } = fresh();
+    const t = life.tut!;
+    const purse = life.purse;
+    cmd(g, { k: "enter", area: "workshop" });
+    cmd(g, { k: "effort", v: "steady" });
+    cmd(g, { k: "person", c: t.cast.friend, act: "talk" });
+    answer(g, life, 0);
+    answer(g, life, 0);
+    cmd(g, { k: "travel", to: PLYMOUTH, bySea: false });
+    runUntil(g, () => !life.travel);
+    answer(g, life, 1);
+    // Three weeks and more in Plymouth (the clock left running).
+    ticks(g, 24);
+    expect(life.job?.awayDays ?? 0).toBe(0);
+    cmd(g, { k: "travel", to: BOSTON, bySea: false });
+    runUntil(g, () => step(life) !== "home");
+    expect(step(life)).toBe("family");
+    const keys = [...life.events, ...(t.held ?? [])].map((e) => e.key);
+    expect(keys).not.toContain("boss-where");
+    expect(keys).not.toContain("boss-dismissed");
+    expect(life.job?.kind).toBe("craftsman");
+    // May's accounts: every working day paid, and the purse the fuller for it.
+    const may = life.statements!.at(-1)!;
+    const wage = may.lines.find((l) => l.k === "m:Wage: journeyman")!;
+    expect(wage.l).toMatch(/24 of 24 days/);
+    expect(life.purse).toBeGreaterThan(purse);
+    // Over, you can be away again like anyone.
+    expect(tutRunning(life)).toBe(true);
+  });
+
+  test("what waited comes only when the end's card is put away; nothing comes over it", () => {
+    const { g, life } = fresh();
+    raiseEvent(g, life, "kin-question", {});
+    expect(life.tut!.held?.length).toBe(1);
+    playThrough(g, life);
+    const t = life.tut!;
+    expect(t.over?.how).toBe("done");
+    // The end's card up: still held, and nothing new comes unasked.
+    expect(life.events).toEqual([]);
+    expect(t.held?.map((e) => e.key)).toEqual(["kin-question"]);
+    raiseEvent(g, life, "kin-question-2", {});
+    ticks(g, 3);
+    expect(life.events).toEqual([]);
+    // Carrying on: in it comes.
+    expect(cmd(g, { k: "tut", act: "close" })).toBe(null);
+    expect(life.events.map((e) => e.key)).toContain("kin-question");
+    expect(t.held).toBeUndefined();
+  });
+
+  test("played on with the end's card left up, it puts itself away after a week", () => {
+    const { g, life } = fresh();
+    playThrough(g, life);
+    raiseEvent(g, life, "kin-question", {});
+    expect(life.events).toEqual([]);
+    ticks(g, 8);
+    expect(life.tut!.closed).toBe(true);
+    expect(life.events.map((e) => e.key)).toContain("kin-question");
+  });
+
+  test("left early, what waited comes at once", () => {
+    const { g, life } = fresh();
+    raiseEvent(g, life, "kin-question", {});
+    cmd(g, { k: "tut", act: "leave" });
+    expect(life.events.map((e) => e.key)).toContain("kin-question");
+  });
+
+  test("a birthday reached late says so; Ezra's first word isn't a first meeting", () => {
+    const { g, life } = fresh();
+    const t = life.tut!;
+    for (let i = 0; i < 8; i++) cmd(g, { k: "tut", act: "skip", step: i });
+    for (const ev of [...life.events])
+      cmd(g, { k: "event", id: ev.id, choice: 0 });
+    // Reading the ambition step with the clock left running, past the fifteenth.
+    expect(step(life)).toBe("aim");
+    runUntil(g, () => g.s.day > t.birthday + 3, 80);
+    cmd(g, { k: "ambition", key: "rise" });
+    expect(step(life)).toBe("birthday");
+    const late = life.events.find((e) => e.key === "tut-birthday")!;
+    expect(late.body).toMatch(/^You turned twenty-one on the fifteenth/);
+    // On the day: today.
+    const b = fresh();
+    for (let i = 0; i < 9; i++) cmd(b.g, { k: "tut", act: "skip", step: i });
+    runUntil(b.g, () => !!b.life.tut!.wait);
+    expect(b.g.s.day).toBe(b.life.tut!.birthday);
+    expect(b.life.events.find((e) => e.key === "tut-birthday")!.body).toMatch(
+      /^You are twenty-one today/,
+    );
+    // A word with Ezra, who's worked beside you for years.
+    const c = fresh();
+    cmd(c.g, { k: "person", c: c.life.tut!.cast.friend, act: "talk" });
+    expect(c.life.outcome?.lines.join(" ")).toBeTruthy();
+    expect(c.life.outcome?.lines.join(" ")).not.toMatch(/get to know/);
+  });
+
   test("what the player starts goes ahead; what comes unasked waits", () => {
     const { g, life } = fresh();
     // Raised by the days (not by a command of the player's): held.

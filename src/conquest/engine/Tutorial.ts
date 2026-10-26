@@ -30,6 +30,7 @@ import {
   TUT_HOME,
   TUT_SAW,
   TUTORIAL_STEPS,
+  tutHolding,
   tutRunning,
   type TutStep,
 } from "./TutorialCore";
@@ -215,6 +216,7 @@ function stepDone(
       raiseWith(g, life, "tut-birthday", {
         c: alive(cast.friend) ? cast.friend : -1,
         m: cast.mother,
+        late: s.day - t.birthday,
       });
       return answered(life, t);
     case "heir":
@@ -264,7 +266,22 @@ function workGone(life: Life): boolean {
 
 // ---------------------------------------------------------------- the end
 
-/** The lessons over: what was kept back is given, and the days run as ever. */
+/**
+ * What came unasked while the lessons held the world back, given now (the
+ * stale left out): when they're left, or when the end's card is put away.
+ */
+function releaseHeld(g: ConquestGame, life: Life): void {
+  const t = touchLife(g, life).tut;
+  const held = t?.held ?? [];
+  if (!t || !held.length) return;
+  const s = g.s;
+  delete t.held;
+  for (const ev of held)
+    if (ev.expires > s.day && !life.events.some((e) => e.key === ev.key))
+      life.events.push({ ...ev, expires: Math.max(ev.expires, s.day + 30) });
+}
+
+/** The lessons over: the days run as ever (once the end's card is put away). */
 export function endLessons(
   g: ConquestGame,
   life: Life,
@@ -275,12 +292,8 @@ export function endLessons(
   const s = g.s;
   t.over = { how, day: s.day };
   delete t.wait;
-  // What came unasked while they ran, given now (the stale left out).
-  const held = t.held ?? [];
-  delete t.held;
-  for (const ev of held)
-    if (ev.expires > s.day && !life.events.some((e) => e.key === ev.key))
-      life.events.push({ ...ev, expires: Math.max(ev.expires, s.day + 30) });
+  // Left: what was kept back comes now. Done: when the end's card is put away.
+  if (how === "left") releaseHeld(g, life);
   // The work's matters and the shop's scenes come again, after a breath.
   workState(g, life).matter = s.day;
   for (const fam of ["colleagues", "masters"])
@@ -329,6 +342,7 @@ export function tutorialCommand(
     case "close":
       if (!t.over) return "The lessons aren't over yet.";
       touchLife(g, life).tut!.closed = true;
+      releaseHeld(g, life);
       return null;
     default:
       return "No such thing.";
@@ -357,9 +371,9 @@ function inCast(g: ConquestGame, c: number): boolean {
 }
 
 hooks.gate.push((g, life, c) => {
-  if (!tutRunning(life)) return null;
+  if (!tutHolding(life)) return null;
   doing = { life, c, outcome: life.outcome?.n ?? 0 };
-  return perilous(c);
+  return tutRunning(life) ? perilous(c) : null;
 });
 
 hooks.command.push((g, life, c) =>
@@ -372,8 +386,18 @@ hooks.afterCommand.push((g, life) => {
   if (tutRunning(life)) settle(g, life, cmd);
 });
 
+/** Days the end's card waits while the clock runs before it puts itself away. */
+const END_CARD_DAYS = 7;
+
 hooks.lifeDaily.push((g, life) => {
   if (tutRunning(life)) settle(g, life, null);
+  // Playing on with the end's card still up: it's put away, and the world
+  // comes back in.
+  const t = life.tut;
+  if (t?.over && !t.closed && g.s.day - t.over.day >= END_CARD_DAYS) {
+    touchLife(g, life).tut!.closed = true;
+    releaseHeld(g, life);
+  }
 });
 
 hooks.lifeMonthly.push((g, life) => {
@@ -383,15 +407,16 @@ hooks.lifeMonthly.push((g, life) => {
   settle(g, life, null);
 });
 
-// Only the lessons' own letters are drawn while they run.
+// Only the lessons' own letters are drawn while they run (and while their
+// end's card is up).
 hooks.eventWeight.push((g, life, key, _pool, _ctx, w) =>
-  w > 0 && tutRunning(life) && !isTutKey(key) ? 0 : w,
+  w > 0 && tutHolding(life) && !isTutKey(key) ? 0 : w,
 );
 
 // What comes unasked (raised by the days, not by the player's own command)
-// waits until the lessons are over.
+// waits until the lessons are over and their end's card put away.
 hooks.eventFired.push((g, life, key) => {
-  if (!tutRunning(life) || isTutKey(key) || doing?.life === life) return;
+  if (!tutHolding(life) || isTutKey(key) || doing?.life === life) return;
   let i = -1;
   for (let j = life.events.length - 1; j >= 0; j--)
     if (life.events[j].key === key) {

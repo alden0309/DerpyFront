@@ -9,6 +9,7 @@ import { servesHere } from "./Campaign1776Core"; // DLC (r21)
 import { eduStartRank } from "./EduData"; // EDU (r13)
 import { Explain } from "./Explain";
 import { hooks } from "./Hooks"; // EDU (r13)
+import { tutRunning } from "./TutorialCore"; // CQTUT (r26)
 import { r21Opinion } from "./LifeR21Core"; // LIFE (r21)
 import {
   ALLOWANCE,
@@ -296,6 +297,9 @@ export function jobTitle(life: Life): string {
 export function atPost(s: GameState, w: World, life: Life): boolean {
   const job = life.job;
   if (!job) return false;
+  // CQTUT (r26): a first life's lessons: on your master's errand, or
+  // learning the place, you're never counted away (nor unpaid).
+  if (tutRunning(life)) return true;
   // SEA (r15): gone on a voyage of your own trade (the fur brigade, a survey) is work.
   for (const h of hooks.atPost) {
     const r = h(s, life);

@@ -186,6 +186,14 @@ export function setUpLessons(g: ConquestGame, seat: string): void {
   });
   friend.role = "master";
   friend.traits = ["generous", "diligent"];
+  // Years at the next bench: he knows you already (a first word isn't a
+  // first meeting).
+  friend.memories.push({
+    of: me.id,
+    why: "Good company",
+    value: 4,
+    until: s.day + 730,
+  });
   const wife = folk({
     female: true,
     age: 25,

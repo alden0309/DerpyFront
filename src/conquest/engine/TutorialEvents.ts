@@ -151,7 +151,7 @@ export function tutorialEvents(): LifeEventDef[] {
       body: (g, life, ctx) => {
         const c = who(g, ctx.c);
         const m = who(g, ctx.m);
-        return `${name(g, ctx.c, "A cooper from across the lane")} is in your master's yard with ${his(c)} hat on, which is never a good sign. ${He(c)} swears the six hogsheads you hooped for the Bristol ship are ${his(c)} shop's work, sold cheap and passed off as yours. ${m ? charName(m) : "Your master"} looks from ${first(g, ctx.c, "the cooper")} to you and back again.`;
+        return `${name(g, ctx.c, "A cooper from across the lane")} is in your master's yard with ${his(c)} hat on, which is never a good sign. Six hogsheads of yours are going aboard the Bristol ship this week, and ${he(c)} swears they were made in ${his(c)} yard and your mark cut on them after. ${m ? charName(m) : "Your master"} looks from ${first(g, ctx.c, "the cooper")} to you and back again.`;
       },
       choices: [
         {
@@ -378,7 +378,7 @@ export function tutorialEvents(): LifeEventDef[] {
       where: {},
       title: "Twenty-one",
       body: (g, life, ctx) =>
-        `You are twenty-one today. Your master shakes your hand and says your father would be proud, and ${first(g, ctx.c, "your neighbour")} from next door has a jug of cider under ${his(who(g, ctx.c))} apron. At twenty-one the years ahead feel like a fortune. They are one, and they're spent the same way.`,
+        `${(ctx.late ?? 0) > 1 ? "You turned twenty-one on the fifteenth, and the shop hasn't let you forget it." : "You are twenty-one today."} Your master shakes your hand and says your father would be proud, and ${first(g, ctx.c, "your neighbour")} from next door has a jug of cider under ${his(who(g, ctx.c))} apron. At twenty-one the years ahead feel like a fortune. They are one, and they're spent the same way.`,
       choices: [
         {
           label: "Stand the shop a round at the tavern (1 coin)",

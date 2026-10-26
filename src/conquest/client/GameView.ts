@@ -115,7 +115,14 @@ import { tripLeaveLine } from "./ui/LeaveUi"; // ECON (r17)
 import { affairKindName } from "./ui/Ledger"; // LEDGER (r15)
 import { seasonChip } from "./ui/SeasonChip"; // MAP (r12)
 import { postButton } from "./ui/Society";
-import { tutMap, tutorialLayer, tutorialSaw } from "./ui/Tutorial"; // CQTUT (r26)
+// CQTUT (r26)
+import {
+  tutClock,
+  tutHoldsNotices,
+  tutMap,
+  tutorialLayer,
+  tutorialSaw,
+} from "./ui/Tutorial";
 import { FigureColors, figureColorsOf } from "./Walkers";
 
 export type GameStart = Extract<ServerMessage, { t: "game" }>;
@@ -448,6 +455,16 @@ export class GameView extends LitElement {
       this.paused = true;
       this.net.send({ t: "pause", p: true });
     }
+    // CQTUT (r26): a first life's lessons hold the clock still while you
+    // read (stopped as a step begins, and with the menu open; not started
+    // again after a letter unless the step runs on time).
+    const tutTime = this.solo
+      ? tutClock(this.life, this.modalView, this.paused, this.skipOn)
+      : { still: false, stop: false };
+    if (tutTime.stop && !this.s.over) {
+      this.paused = true;
+      this.net.send({ t: "pause", p: true });
+    }
     // Alone, the clock stopped for a letter starts again once they're all
     // answered.
     if (
@@ -457,8 +474,29 @@ export class GameView extends LitElement {
       (this.life?.events.length ?? 0) === 0
     ) {
       this.autoPaused = false;
-      this.net.send({ t: "pause", p: false });
+      if (!tutTime.still) this.net.send({ t: "pause", p: false }); // CQTUT (r26)
     }
+    // CQTUT (r26): notices held while a lesson's letter was open, shown now.
+    if (this.tutHeld.length) {
+      const now = this.tutHeld.filter(
+        (x) => !tutHoldsNotices(this.life, this.modalView, x.ach),
+      );
+      if (now.length) {
+        this.tutHeld = this.tutHeld.filter((x) => !now.includes(x));
+        for (const x of now) x.show();
+      }
+    }
+  }
+
+  /** CQTUT (r26): notices held back while a lesson's letter is open (achievements, while the lessons run). */
+  private tutHeld: { show: () => void; ach: boolean }[] = [];
+
+  /** CQTUT (r26): hold a notice back while the lessons want it held (true: held). */
+  private tutHold(show: () => void, ach = false): boolean {
+    if (!this.solo || !tutHoldsNotices(this.life, this.modalView, ach))
+      return false;
+    this.tutHeld = [...this.tutHeld.slice(-7), { show, ach }];
+    return true;
   }
 
   protected updated(): void {
@@ -724,13 +762,17 @@ export class GameView extends LitElement {
         return;
       case "achieved": {
         const t = onAchieved(m, this.nextId++);
-        this.achToasts = [...this.achToasts.slice(-1), t];
-        // CQACH (r22): paid in this game on any difficulty (when signed in).
-        if (t.coins !== null) play("honour");
-        setTimeout(() => {
-          this.achToasts = this.achToasts.filter((x) => x.id !== t.id);
-        }, 8000);
-        this.requestRender();
+        const show = () => {
+          this.achToasts = [...this.achToasts.slice(-1), t];
+          // CQACH (r22): paid in this game on any difficulty (when signed in).
+          if (t.coins !== null) play("honour");
+          setTimeout(() => {
+            this.achToasts = this.achToasts.filter((x) => x.id !== t.id);
+          }, 8000);
+          this.requestRender();
+        };
+        // CQTUT (r26): not over the lessons; they come with the end.
+        if (!this.tutHold(show, true)) show();
         return;
       }
       // LEGACY (r21): Derp Coins paid as you play.
@@ -989,6 +1031,8 @@ export class GameView extends LitElement {
     go: DrawerView | undefined = undefined,
     aff?: AffairKind, // LEDGER (r15)
   ): void {
+    // CQTUT (r26): not over a lesson's letter; it's shown once that's put by.
+    if (this.tutHold(() => this.toast(text, tone, go, aff))) return;
     const id = this.nextId++;
     this.toasts = [
       ...this.toasts.slice(aff ? -3 : -2),
@@ -1923,6 +1967,7 @@ export class GameView extends LitElement {
           signedIn: this.signedIn,
           fresh: () => this.leaveFor("cq-fresh", {}),
           again: (female) => this.leaveFor("cq-tutorial", { female }),
+          play: () => this.setPaused(false),
         })
       }
     </div>`;
