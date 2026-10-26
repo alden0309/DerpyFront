@@ -6,6 +6,7 @@ import { assetUrl } from "@openfront/shared/AssetUrls";
 import { html, nothing, TemplateResult } from "lit";
 import { translateText } from "../Utils";
 import "./ScenarioPreview";
+import { renderGoalLine } from "./ScenarioGoalText"; // DFX (r26)
 import {
   nationName,
   scenarioDate,
@@ -83,6 +84,8 @@ export function renderScenarioPanel(
                 : nothing}
             </p>`
           : nothing}
+        <!-- DFX (r26): the nation's optional goal -->
+        ${renderGoalLine(data.id, n?.key ?? null)}
         ${onChange !== null
           ? html`<button
               class="mt-1 self-start rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white/80 hover:bg-white/10"

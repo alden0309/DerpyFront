@@ -16,6 +16,7 @@ import { loadModal } from "../LazyModals";
 import type { SinglePlayerModal } from "../SinglePlayerModal";
 import { translateText } from "../Utils";
 import { randomHistoryIcon } from "./RandomHistoryIcon"; // DFX (r26)
+import { renderGoalLine } from "./ScenarioGoalText"; // DFX (r26)
 import "./ScenarioNationBoard";
 import { ScenarioPick, scenarioPickFromArgs } from "./ScenarioPick";
 import "./ScenarioPreview";
@@ -172,6 +173,8 @@ export class ScenariosModal extends BaseModal {
                 <b>${nationName(n)}</b>
               </p>`
             : nothing}
+          <!-- DFX (r26): the nation's optional goal -->
+          ${renderGoalLine(d.id, n?.key ?? null)}
         </div>
       </div>
       <h3

@@ -405,6 +405,18 @@ CREATE INDEX IF NOT EXISTS derpy_invites_to
 -- (none yet). Null until the account first looks, when it becomes the
 -- newest entry then, so old news is never new to a new account.
 ALTER TABLE derpy_accounts ADD COLUMN IF NOT EXISTS news_seen TEXT;
+-- DFX (r26): Scenario goals (DerpyGoals.ts). Each goal an account has met,
+-- paid once ("europe1939:poland"): the game it was met in, the tick, and
+-- the coins it paid.
+CREATE TABLE IF NOT EXISTS derpy_scenario_goals (
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  goal TEXT NOT NULL,
+  game_id TEXT NOT NULL,
+  met_tick INTEGER NOT NULL,
+  coins INTEGER NOT NULL,
+  met_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (account_id, goal)
+);
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two

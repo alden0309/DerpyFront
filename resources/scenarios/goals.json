@@ -1,0 +1,1172 @@
+{
+  "_about": "DFX (r26): each playable scenario nation's optional goal (resources/scenarios/README.md, \"Goals\"). kind: hold (the place at `minute`), take (the place, before `minute` if set), keep (the place when the war ends). place: a nation's capital (capitalOf) or a named spot (`at`: full-size map pixels). side: your side holding it counts. onSide: you must be on that side (or any side: \"any\") when it's checked. The words are in en.json, scenario_goal_text.<scenario>.<nation>.",
+  "goals": {
+    "europe1939": {
+      "germany": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "france"
+        },
+        "minute": 25
+      },
+      "italy": {
+        "kind": "take",
+        "place": {
+          "name": "Alexandria",
+          "at": [2221, 1627]
+        },
+        "minute": 35
+      },
+      "hungary": {
+        "kind": "take",
+        "place": {
+          "name": "Novi Sad",
+          "at": [1812, 1057]
+        },
+        "minute": 30
+      },
+      "romania": {
+        "kind": "take",
+        "place": {
+          "name": "Odessa",
+          "at": [2254, 1007]
+        },
+        "minute": 35
+      },
+      "bulgaria": {
+        "kind": "take",
+        "place": {
+          "name": "Skopje",
+          "at": [1876, 1189]
+        },
+        "minute": 30
+      },
+      "slovakia": {
+        "kind": "take",
+        "place": {
+          "name": "Zakopane",
+          "at": [1816, 893]
+        },
+        "minute": 20
+      },
+      "finland": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "finland"
+        },
+        "minute": 25
+      },
+      "united_kingdom": {
+        "kind": "take",
+        "place": {
+          "name": "Tripoli",
+          "at": [1542, 1558]
+        },
+        "minute": 40
+      },
+      "france": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "france"
+        },
+        "minute": 30
+      },
+      "soviet_union": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "germany"
+        }
+      },
+      "poland": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "poland"
+        },
+        "minute": 20
+      },
+      "yugoslavia": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "yugoslavia"
+        },
+        "minute": 20
+      },
+      "greece": {
+        "kind": "take",
+        "place": {
+          "name": "Korçë",
+          "at": [1850, 1245]
+        },
+        "minute": 30
+      },
+      "belgium": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "belgium"
+        },
+        "minute": 15
+      },
+      "netherlands": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "netherlands"
+        },
+        "minute": 15
+      },
+      "norway": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "norway"
+        },
+        "minute": 25
+      },
+      "spain": {
+        "kind": "take",
+        "place": {
+          "name": "Gibraltar",
+          "at": [789, 1426]
+        }
+      },
+      "portugal": {
+        "kind": "take",
+        "place": {
+          "name": "Olivenza",
+          "at": [718, 1323]
+        }
+      },
+      "ireland": {
+        "kind": "take",
+        "place": {
+          "name": "Belfast",
+          "at": [765, 677]
+        }
+      },
+      "switzerland": {
+        "kind": "take",
+        "place": {
+          "name": "Bregenz",
+          "at": [1402, 966]
+        }
+      },
+      "sweden": {
+        "kind": "take",
+        "place": {
+          "name": "Narvik",
+          "at": [1713, 116]
+        }
+      },
+      "turkey": {
+        "kind": "take",
+        "place": {
+          "name": "Mosul",
+          "at": [2757, 1419]
+        }
+      },
+      "denmark": {
+        "kind": "take",
+        "place": {
+          "name": "Flensburg",
+          "at": [1389, 670]
+        }
+      },
+      "estonia": {
+        "kind": "take",
+        "place": {
+          "name": "Pskov",
+          "at": [2156, 547]
+        }
+      },
+      "latvia": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "latvia"
+        },
+        "minute": 30,
+        "onSide": "any"
+      },
+      "lithuania": {
+        "kind": "take",
+        "place": {
+          "name": "Vilnius",
+          "at": [2032, 674]
+        }
+      },
+      "iceland": {
+        "kind": "take",
+        "place": {
+          "name": "Tórshavn",
+          "at": [731, 377]
+        }
+      },
+      "luxembourg": {
+        "kind": "take",
+        "place": {
+          "name": "Arlon",
+          "at": [1242, 877]
+        }
+      },
+      "iran": {
+        "kind": "take",
+        "place": {
+          "name": "Nakhchivan",
+          "at": [2850, 1302]
+        }
+      },
+      "saudi_arabia": {
+        "kind": "take",
+        "place": {
+          "name": "Ma'an",
+          "at": [2457, 1667]
+        }
+      }
+    },
+    "colonies1776": {
+      "great_britain": {
+        "kind": "hold",
+        "place": {
+          "name": "New York",
+          "at": [932, 909]
+        },
+        "minute": 40
+      },
+      "new_hampshire": {
+        "kind": "take",
+        "place": {
+          "name": "Trois-Rivières",
+          "at": [948, 220]
+        },
+        "minute": 30
+      },
+      "massachusetts": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "massachusetts"
+        }
+      },
+      "rhode_island": {
+        "kind": "hold",
+        "place": {
+          "name": "Newport",
+          "at": [1156, 776]
+        },
+        "minute": 20
+      },
+      "connecticut": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "great_britain"
+        }
+      },
+      "new_york": {
+        "kind": "take",
+        "place": {
+          "name": "Montreal",
+          "at": [880, 335]
+        },
+        "minute": 30
+      },
+      "new_jersey": {
+        "kind": "take",
+        "place": {
+          "name": "Staten Island",
+          "at": [922, 927]
+        },
+        "minute": 25
+      },
+      "pennsylvania": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "pennsylvania"
+        },
+        "minute": 30
+      },
+      "delaware": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "delaware"
+        },
+        "minute": 20
+      },
+      "maryland": {
+        "kind": "hold",
+        "place": {
+          "name": "New York",
+          "at": [932, 909]
+        },
+        "minute": 20,
+        "side": true
+      },
+      "virginia": {
+        "kind": "take",
+        "place": {
+          "name": "Detroit",
+          "at": [105, 801]
+        }
+      },
+      "north_carolina": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "north_carolina"
+        },
+        "minute": 30
+      },
+      "south_carolina": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "south_carolina"
+        }
+      },
+      "georgia": {
+        "kind": "take",
+        "place": {
+          "name": "St. Augustine",
+          "at": [369, 2279]
+        },
+        "minute": 35
+      },
+      "haudenosaunee": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "haudenosaunee"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "wabanaki": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "wabanaki"
+        },
+        "minute": 30,
+        "onSide": "Patriots"
+      },
+      "mohican": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "mohican"
+        }
+      },
+      "lenape": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "lenape"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "shawnee": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "shawnee"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "mingo": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "mingo"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "wendat": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "wendat"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "ojibwe": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "ojibwe"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "cherokee": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "cherokee"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "catawba": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "catawba"
+        }
+      },
+      "creek": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "creek"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "seminole": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "seminole"
+        },
+        "minute": 30,
+        "onSide": "British"
+      }
+    },
+    "continental1776": {
+      "great_britain": {
+        "kind": "hold",
+        "place": {
+          "name": "New York",
+          "at": [932, 909]
+        },
+        "minute": 40
+      },
+      "united_colonies": {
+        "kind": "take",
+        "place": {
+          "name": "Montreal",
+          "at": [880, 335]
+        },
+        "minute": 30
+      },
+      "haudenosaunee": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "haudenosaunee"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "wabanaki": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "wabanaki"
+        },
+        "minute": 30,
+        "onSide": "Patriots"
+      },
+      "mohican": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "mohican"
+        }
+      },
+      "lenape": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "lenape"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "shawnee": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "shawnee"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "mingo": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "mingo"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "wendat": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "wendat"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "ojibwe": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "ojibwe"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "cherokee": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "cherokee"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "catawba": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "catawba"
+        }
+      },
+      "creek": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "creek"
+        },
+        "minute": 30,
+        "onSide": "British"
+      },
+      "seminole": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "seminole"
+        },
+        "minute": 30,
+        "onSide": "British"
+      }
+    },
+    "threekingdoms219": {
+      "cao_cao": {
+        "kind": "hold",
+        "place": {
+          "name": "Fancheng",
+          "at": [782, 935]
+        },
+        "minute": 25
+      },
+      "liu_bei": {
+        "kind": "take",
+        "place": {
+          "name": "Fancheng",
+          "at": [782, 935]
+        },
+        "minute": 30
+      },
+      "sun_quan": {
+        "kind": "take",
+        "place": {
+          "name": "Jiangling",
+          "at": [785, 1048]
+        },
+        "minute": 30
+      },
+      "shi_xie": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "nanzhong"
+        }
+      },
+      "gongsun_kang": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "goguryeo"
+        }
+      },
+      "goguryeo": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "gongsun_kang"
+        }
+      },
+      "xianbei": {
+        "kind": "take",
+        "place": {
+          "name": "Ji",
+          "at": [1003, 403]
+        }
+      },
+      "qiang": {
+        "kind": "take",
+        "place": {
+          "name": "Chang'an",
+          "at": [605, 783]
+        }
+      },
+      "nanzhong": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "nanzhong"
+        },
+        "minute": 30,
+        "onSide": "Wu"
+      },
+      "shanyue": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "shanyue"
+        },
+        "minute": 25,
+        "onSide": "any"
+      }
+    },
+    "napoleon1812": {
+      "french_empire": {
+        "kind": "take",
+        "place": {
+          "name": "Moscow",
+          "at": [2533, 631]
+        },
+        "minute": 40
+      },
+      "kingdom_of_italy": {
+        "kind": "take",
+        "place": {
+          "name": "Moscow",
+          "at": [2533, 631]
+        },
+        "minute": 40,
+        "side": true
+      },
+      "naples": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "sicily"
+        }
+      },
+      "bavaria": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "bavaria"
+        },
+        "minute": 30
+      },
+      "wurttemberg": {
+        "kind": "take",
+        "place": {
+          "name": "Smolensk",
+          "at": [2307, 671]
+        },
+        "minute": 35,
+        "side": true
+      },
+      "saxony": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "saxony"
+        },
+        "minute": 30
+      },
+      "westphalia": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "prussia"
+        },
+        "minute": 35
+      },
+      "warsaw": {
+        "kind": "take",
+        "place": {
+          "name": "Vilnius",
+          "at": [2032, 674]
+        },
+        "minute": 25
+      },
+      "denmark_norway": {
+        "kind": "hold",
+        "place": {
+          "name": "Christiania",
+          "at": [1442, 462]
+        },
+        "minute": 30
+      },
+      "united_kingdom": {
+        "kind": "take",
+        "place": {
+          "name": "Bayonne",
+          "at": [946, 1128]
+        },
+        "minute": 35
+      },
+      "russia": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "french_empire"
+        }
+      },
+      "prussia": {
+        "kind": "take",
+        "place": {
+          "name": "Leipzig",
+          "at": [1508, 810]
+        },
+        "minute": 35
+      },
+      "austria": {
+        "kind": "take",
+        "place": {
+          "name": "Innsbruck",
+          "at": [1469, 975]
+        },
+        "minute": 30
+      },
+      "sweden": {
+        "kind": "take",
+        "place": {
+          "name": "Christiania",
+          "at": [1442, 462]
+        }
+      },
+      "portugal": {
+        "kind": "take",
+        "place": {
+          "name": "Bayonne",
+          "at": [946, 1128]
+        },
+        "minute": 35,
+        "side": true
+      },
+      "spain": {
+        "kind": "take",
+        "place": {
+          "name": "Barcelona",
+          "at": [1094, 1213]
+        }
+      },
+      "sicily": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "naples"
+        }
+      },
+      "ottoman": {
+        "kind": "take",
+        "place": {
+          "name": "Chișinău",
+          "at": [2178, 986]
+        }
+      },
+      "switzerland": {
+        "kind": "take",
+        "place": {
+          "name": "Sondrio",
+          "at": [1407, 1020]
+        }
+      },
+      "morocco": {
+        "kind": "take",
+        "place": {
+          "name": "Tlemcen",
+          "at": [953, 1477]
+        }
+      },
+      "persia": {
+        "kind": "take",
+        "place": {
+          "name": "Tiflis",
+          "at": [2825, 1200]
+        }
+      },
+      "serbia": {
+        "kind": "take",
+        "place": {
+          "name": "Niš",
+          "at": [1895, 1135]
+        }
+      },
+      "montenegro": {
+        "kind": "take",
+        "place": {
+          "name": "Kotor",
+          "at": [1768, 1172]
+        }
+      },
+      "sardinia": {
+        "kind": "take",
+        "place": {
+          "name": "Turin",
+          "at": [1318, 1064]
+        }
+      }
+    },
+    "italy1859": {
+      "sardinia": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "austria"
+        },
+        "minute": 30
+      },
+      "france": {
+        "kind": "take",
+        "place": {
+          "name": "Solferino",
+          "at": [453, 199]
+        },
+        "minute": 30
+      },
+      "austria": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "sardinia"
+        },
+        "minute": 25
+      },
+      "parma": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "parma"
+        },
+        "minute": 25,
+        "onSide": "Austria"
+      },
+      "modena": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "modena"
+        },
+        "minute": 25,
+        "onSide": "Austria"
+      },
+      "tuscany": {
+        "kind": "take",
+        "place": {
+          "name": "Bologna",
+          "at": [537, 296]
+        }
+      },
+      "papal_states": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "papal_states"
+        },
+        "minute": 30,
+        "onSide": "Austria"
+      },
+      "san_marino": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "san_marino"
+        }
+      },
+      "two_sicilies": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "two_sicilies"
+        },
+        "minute": 30,
+        "onSide": "Austria"
+      },
+      "switzerland": {
+        "kind": "take",
+        "place": {
+          "name": "Sondrio",
+          "at": [377, 111]
+        }
+      },
+      "malta": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "malta"
+        }
+      },
+      "tunis": {
+        "kind": "take",
+        "place": {
+          "name": "La Calle",
+          "at": [215, 1132]
+        }
+      },
+      "montenegro": {
+        "kind": "take",
+        "place": {
+          "name": "Trebinje",
+          "at": [1305, 490]
+        }
+      },
+      "ottoman": {
+        "kind": "take",
+        "place": {
+          "name": "Cetinje",
+          "at": [1368, 525]
+        }
+      }
+    },
+    "civilwar1861": {
+      "new_england": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "mid_atlantic"
+        },
+        "side": true
+      },
+      "mid_atlantic": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "virginia_nc"
+        },
+        "minute": 40
+      },
+      "midwest": {
+        "kind": "take",
+        "place": {
+          "name": "Vicksburg",
+          "at": [1664, 1122]
+        }
+      },
+      "missouri_kansas": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "missouri_kansas"
+        },
+        "minute": 25
+      },
+      "pacific": {
+        "kind": "hold",
+        "place": {
+          "name": "Santa Fe",
+          "at": [985, 919]
+        },
+        "minute": 30
+      },
+      "virginia_nc": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "virginia_nc"
+        }
+      },
+      "south_atlantic": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "south_atlantic"
+        }
+      },
+      "tennessee_gulf": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "virginia_nc"
+        },
+        "side": true
+      },
+      "trans_mississippi": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "missouri_kansas"
+        }
+      },
+      "kentucky": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "kentucky"
+        },
+        "minute": 30,
+        "onSide": "Union"
+      },
+      "cherokee_nation": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "cherokee_nation"
+        },
+        "minute": 30,
+        "onSide": "Confederacy"
+      },
+      "muscogee": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "muscogee"
+        },
+        "minute": 25,
+        "onSide": "Union"
+      },
+      "choctaw": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "choctaw"
+        }
+      },
+      "chickasaw": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "chickasaw"
+        }
+      }
+    },
+    "ww1914": {
+      "german_empire": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "france"
+        },
+        "minute": 25
+      },
+      "austria_hungary": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "serbia"
+        },
+        "minute": 20
+      },
+      "france": {
+        "kind": "take",
+        "place": {
+          "name": "Strasbourg",
+          "at": [1321, 922]
+        },
+        "minute": 30
+      },
+      "russia": {
+        "kind": "take",
+        "place": {
+          "name": "Königsberg",
+          "at": [1838, 673]
+        },
+        "minute": 25
+      },
+      "united_kingdom": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "ottoman"
+        }
+      },
+      "serbia": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "serbia"
+        },
+        "minute": 20
+      },
+      "montenegro": {
+        "kind": "take",
+        "place": {
+          "name": "Shkodër",
+          "at": [1798, 1186]
+        }
+      },
+      "belgium": {
+        "kind": "hold",
+        "place": {
+          "name": "Antwerp",
+          "at": [1184, 815]
+        },
+        "minute": 20
+      },
+      "italy": {
+        "kind": "take",
+        "place": {
+          "name": "Trieste",
+          "at": [1565, 1041]
+        }
+      },
+      "ottoman": {
+        "kind": "take",
+        "place": {
+          "name": "Kars",
+          "at": [2756, 1246]
+        }
+      },
+      "bulgaria": {
+        "kind": "take",
+        "place": {
+          "name": "Skopje",
+          "at": [1876, 1189]
+        }
+      },
+      "romania": {
+        "kind": "take",
+        "place": {
+          "name": "Brașov",
+          "at": [2045, 1041]
+        }
+      },
+      "greece": {
+        "kind": "take",
+        "place": {
+          "name": "Smyrna",
+          "at": [2108, 1334]
+        }
+      },
+      "spain": {
+        "kind": "take",
+        "place": {
+          "name": "Gibraltar",
+          "at": [789, 1426]
+        }
+      },
+      "portugal": {
+        "kind": "take",
+        "place": {
+          "name": "Olivenza",
+          "at": [718, 1323]
+        }
+      },
+      "netherlands": {
+        "kind": "take",
+        "place": {
+          "name": "Antwerp",
+          "at": [1184, 815]
+        }
+      },
+      "switzerland": {
+        "kind": "take",
+        "place": {
+          "name": "Bregenz",
+          "at": [1402, 966]
+        }
+      },
+      "denmark": {
+        "kind": "take",
+        "place": {
+          "name": "Flensburg",
+          "at": [1389, 670]
+        }
+      },
+      "norway": {
+        "kind": "keep",
+        "place": {
+          "capitalOf": "norway"
+        }
+      },
+      "sweden": {
+        "kind": "take",
+        "place": {
+          "name": "Mariehamn",
+          "at": [1815, 455]
+        }
+      },
+      "luxembourg": {
+        "kind": "take",
+        "place": {
+          "name": "Arlon",
+          "at": [1242, 877]
+        }
+      },
+      "albania": {
+        "kind": "take",
+        "place": {
+          "name": "Pristina",
+          "at": [1866, 1162]
+        }
+      },
+      "persia": {
+        "kind": "take",
+        "place": {
+          "name": "Tiflis",
+          "at": [2825, 1200]
+        }
+      }
+    },
+    "korea1950": {
+      "north_korea": {
+        "kind": "take",
+        "place": {
+          "name": "Busan",
+          "at": [798, 1766]
+        }
+      },
+      "south_korea": {
+        "kind": "hold",
+        "place": {
+          "capitalOf": "south_korea"
+        },
+        "minute": 20
+      },
+      "un_command": {
+        "kind": "take",
+        "place": {
+          "capitalOf": "north_korea"
+        }
+      }
+    }
+  }
+}

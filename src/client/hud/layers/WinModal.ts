@@ -33,6 +33,8 @@ import { Controller } from "../../Controller";
 import { derpyGameChallenges } from "../../derpy/DerpyAccount"; // CHAL (r25)
 import { isDerpySignedIn } from "../../derpy/DerpySession";
 import "../../derpy/DerpyWatchButton"; // DFX (r26)
+import { derpyGameGoal } from "../../derpy/DerpyAccount"; // DFX (r26)
+import { GOAL_COINS } from "@openfront/engine-lib/scenario/ScenarioGoals"; // DFX (r26)
 import { PROGRESSION_ENABLED } from "../../derpy/UpstreamFeatures";
 import { playVictoryFanfare } from "../../derpy/VictoryFanfare";
 import { gamePortal } from "../../GamePortal";
@@ -129,6 +131,12 @@ export class WinModal extends LitElement implements Controller {
   // DFX (r26): this game's replay is saved, so it can be watched together.
   @state()
   private replayIsSaved = false;
+  // DFX (r26): the Scenario goal this game met (the end-of-game stats say
+  // so), and what the server paid for it.
+  @state()
+  private goalMet = false;
+  @state()
+  private goalPaid: { coins: number } | null = null;
   private savedAbort: AbortController | null = null;
 
   // DFSTORE (r21): your fanfare played, so the win screen offers it again.
@@ -533,7 +541,12 @@ export class WinModal extends LitElement implements Controller {
     const signedIn = isDerpySignedIn();
     // CHAL (r25): with any weekly challenges it finished.
     const chal = signedIn ? this.challenges : [];
-    const extra = chal.reduce((n, c) => n + c.coins + (c.bonus ?? 0), 0);
+    // DFX (r26): and the Scenario goal met, once the server has paid it
+    // (signed out: what it would pay).
+    const goal = this.goalLine(signedIn);
+    const extra =
+      chal.reduce((n, c) => n + c.coins + (c.bonus ?? 0), 0) +
+      (goal?.coins ?? 0);
     return html`
       <section
         class="mb-2 flex flex-col items-center gap-2 rounded-lg border border-cyber-yellow/30 bg-black/30 p-4 text-center"
@@ -544,7 +557,7 @@ export class WinModal extends LitElement implements Controller {
                 coins: result.total + extra,
               })
             : translateText("derpy.coins_would_earn", {
-                coins: result.total,
+                coins: result.total + (goal?.coins ?? 0),
               })}
         </span>
         ${result.lines.length > 0
@@ -561,6 +574,17 @@ export class WinModal extends LitElement implements Controller {
           : html`<span class="text-sm text-white/60"
               >${translateText("derpy.coins_too_short")}</span
             >`}
+        ${goal !== null
+          ? html`<span
+              class="rounded-full border border-green-400/40 bg-green-500/15 px-2.5 py-0.5 text-xs font-bold text-green-300"
+              data-goal-line
+              >${goal.coins > 0
+                ? translateText("scenario_goal.coin_line", {
+                    coins: goal.coins,
+                  })
+                : translateText("scenario_goal.collected")}</span
+            >`
+          : null}
         ${chal.length > 0
           ? html`<div
               class="flex flex-col items-center gap-1.5"
@@ -988,6 +1012,14 @@ export class WinModal extends LitElement implements Controller {
     void this.show();
     void this.watchChallenges(); // CHAL (r25)
     void this.watchSaved(); // DFX (r26)
+    // DFX (r26): the Scenario goal met, from the engine's end-of-game stats.
+    const me = this.game.myPlayer()?.clientID();
+    this.goalMet =
+      !this.game.config().isReplay() &&
+      me !== undefined &&
+      me !== null &&
+      wu.allPlayersStats[me]?.goal !== undefined;
+    void this.watchGoal();
   }
 
   /**
@@ -1008,6 +1040,44 @@ export class WinModal extends LitElement implements Controller {
         if (!abort.signal.aborted) this.replayIsSaved = true;
         return;
       }
+    }
+  }
+
+  /**
+   * DFX (r26): the Scenario goal this game met, for the coin line: the
+   * server's word once it has saved the game (signed in), or what it would
+   * pay (signed out, from the end-of-game stats). Null when none was met.
+   */
+  private goalLine(signedIn: boolean): { coins: number } | null {
+    if (!this.goalMet) return null;
+    if (!signedIn) return { coins: GOAL_COINS };
+    return this.goalPaid;
+  }
+
+  /**
+   * DFX (r26): asks, a few times over the next minute, what the server paid
+   * for this game's Scenario goal (it saves the game once the winner is
+   * settled, or when a solo game's upload arrives).
+   */
+  private async watchGoal(): Promise<void> {
+    if (!this.goalMet || !isDerpySignedIn()) return;
+    const abort = this.savedAbort;
+    const gameId = this.game.gameID();
+    for (const wait of [2000, 3000, 5000, 8000, 12000, 20000, 30000]) {
+      await new Promise((r) => setTimeout(r, wait));
+      if (abort?.signal.aborted) return;
+      const r = await derpyGameGoal(gameId);
+      if (r === null) continue;
+      if (r.goal !== null) {
+        this.goalPaid = { coins: r.goal.coins };
+        if (r.goal.coins > 0)
+          showToast(
+            translateText("scenario_goal.coin_line", { coins: r.goal.coins }),
+            "green",
+            6000,
+          );
+      }
+      if (r.recorded) return;
     }
   }
 

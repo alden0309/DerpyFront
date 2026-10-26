@@ -12,6 +12,7 @@ import type { SinglePlayerModal } from "../SinglePlayerModal";
 import { translateText } from "../Utils";
 import { type HistoryPick, pickRandomHistory } from "./RandomHistory";
 import { randomHistoryIcon } from "./RandomHistoryIcon";
+import { renderGoalLine } from "./ScenarioGoalText";
 import "./ScenarioPreview";
 import {
   nationName,
@@ -272,6 +273,10 @@ export class RandomHistoryReveal extends LitElement {
           difficulty: about.difficulty,
         })}
       </p>
+      <!-- the nation's optional goal -->
+      <div class="mt-2 w-full">
+        ${renderGoalLine(this.pick.id, this.pick.nation)}
+      </div>
     </div>`;
   }
 

@@ -28,6 +28,7 @@ import { logger } from "../Logger";
 import { getMapLandTilesForSize } from "../MapLandTiles";
 import { accountsForPlayIds } from "./DerpyAuth";
 import { recordFrontChallenges } from "./DerpyChallenges"; // CHAL (r25)
+import { type GoalLine, payGoal } from "./DerpyGoals"; // DFX (r26)
 import {
   ConquestGameSummary,
   conquestProfile,
@@ -51,6 +52,8 @@ export interface PlayerLine {
   coins: number;
   /** CHAL (r25): weekly challenges this game finished for the account (and what they paid, on top of `coins`). */
   challenges?: ChallengeDone[];
+  /** DFX (r26): the Scenario goal it met (and what it paid, on top of `coins`). */
+  goal?: GoalLine;
 }
 
 function n(v: bigint | string | number | undefined | null): number {
@@ -264,6 +267,9 @@ export async function recordDerpyGame(
           "UPDATE derpy_accounts SET coins = coins + $2 WHERE id = $1",
           [accountId, line.coins],
         );
+        // DFX (r26): a Scenario goal met, paid once per goal per account.
+        const goal = await payGoal(c, accountId, record, player);
+        if (goal !== null) line.goal = goal;
       }
     });
     log.info("saved game", {

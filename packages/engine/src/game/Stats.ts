@@ -168,6 +168,10 @@ export interface Stats {
   // Record tiles owned at game end (final standings).
   recordFinalTiles(player: Player, tiles: number | bigint): void;
 
+  // DFX (r26): the player met their Scenario nation's optional goal at
+  // `tick`. First write wins.
+  recordScenarioGoal(player: Player, tick: number): void;
+
   // Record where the player spawned. Last write wins: a player may re-pick
   // during the spawn phase, and only the final pick matters.
   recordSpawnTile(player: Player, tile: TileRef): void;

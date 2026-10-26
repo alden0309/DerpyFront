@@ -402,6 +402,28 @@ export async function derpyGameChallenges(
   }
 }
 
+/**
+ * DFX (r26): what a saved game's Scenario goal paid the signed-in account
+ * (null while signed out or unreachable).
+ */
+export async function derpyGameGoal(gameId: string): Promise<{
+  recorded: boolean;
+  goal: { key: string; coins: number } | null;
+} | null> {
+  if (!isDerpySignedIn()) return null;
+  try {
+    const r = await api<{
+      recorded: boolean;
+      goal: { key: string; coins: number } | null;
+    }>(`/goals/game/${encodeURIComponent(gameId)}`);
+    // Its coins are in the account now: the coin count says so.
+    if ((r.goal?.coins ?? 0) > 0) announce();
+    return r;
+  } catch {
+    return null;
+  }
+}
+
 /** Where a saved game's replay opens. */
 export function replayHref(gameId: string): string {
   return `/game/${encodeURIComponent(gameId)}`;

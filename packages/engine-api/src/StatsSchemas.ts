@@ -202,6 +202,10 @@ export const PlayerStatsSchema = z
     // so compact games index a smaller map). Last write wins: a player may
     // re-pick during the spawn phase.
     spawnTile: zb.uint().optional(),
+    // DFX (r26): the tick a Scenario player met their nation's optional goal
+    // (engine-lib/scenario/ScenarioGoals.ts). First write wins. Bookkeeping
+    // only: nothing in the simulation reads it, and it isn't in the hash.
+    goal: zb.uint().optional(),
   })
   .optional();
 export type PlayerStats = z.infer<typeof PlayerStatsSchema>;

@@ -1,4 +1,5 @@
 import { GameType } from "@openfront/engine-api/game/GameTypes";
+import type { AllPlayersStats } from "@openfront/engine-api/Schemas"; // DFX (r26)
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
 import { html, LitElement } from "lit";
@@ -7,6 +8,7 @@ import { createNextLobby } from "../../Api";
 import { ClientEnv } from "../../ClientEnv";
 import "../../components/DoomsdayClockPanel";
 import "../../components/OvertimePanel";
+import "../../components/ScenarioGoalPanel"; // DFX (r26)
 import { Controller } from "../../Controller";
 import { isDesktopShell } from "../../DesktopShell";
 import { gamePortal } from "../../GamePortal";
@@ -57,6 +59,10 @@ export class GameRightSidebar extends LitElement implements Controller {
   @state()
   private timer: number = 0;
 
+  // DFX (r26): the end-of-game stats, which settle the Scenario goal's line.
+  @state()
+  private finalStats: AllPlayersStats | null = null;
+
   // Derp Land (SITE r19): how many are watching ("2 watching").
   @state()
   private watchers: number = 0;
@@ -104,8 +110,9 @@ export class GameRightSidebar extends LitElement implements Controller {
       this.updateParentOffset();
     });
 
-    this.eventBus.on(SendWinnerEvent, () => {
+    this.eventBus.on(SendWinnerEvent, (e) => {
       this.hasWinner = true;
+      this.finalStats = e.allPlayersStats; // DFX (r26)
       this.requestUpdate();
     });
 
@@ -450,6 +457,13 @@ export class GameRightSidebar extends LitElement implements Controller {
         .hasWinner=${this.hasWinner}
         .refreshKey=${this.timer}
       ></overtime-panel>
+      <!-- DFX (r26): your Scenario nation's optional goal -->
+      <scenario-goal-panel
+        .game=${this.game}
+        .hasWinner=${this.hasWinner}
+        .finalStats=${this.finalStats}
+        .refreshKey=${this.timer}
+      ></scenario-goal-panel>
     `;
   }
 
