@@ -242,18 +242,26 @@ ticked when it's met. It never affects winning.
 ```json
 "poland": { "kind": "hold", "place": { "capitalOf": "poland" }, "minute": 20 },
 "germany": { "kind": "take", "place": { "capitalOf": "france" }, "minute": 25 },
-"italy": { "kind": "take", "place": { "name": "Alexandria", "at": [2221, 1627] }, "minute": 35 },
+"italy": { "kind": "take", "place": { "name": "Alexandria", "at": [2221, 1627], "of": "united_kingdom" }, "minute": 35 },
 "tennessee_gulf": { "kind": "keep", "place": { "capitalOf": "virginia_nc" }, "side": true },
 "kentucky": { "kind": "hold", "place": { "capitalOf": "kentucky" }, "minute": 30, "onSide": "Union" }
 ```
 
-| field    | meaning                                                                                                                                                                                                                 |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kind`   | `hold`: hold the place at `minute` (met then, or when the war ends first with it held; missed after). `take`: hold it at any moment, before `minute` if given. `keep`: hold it when the war ends.                       |
-| `place`  | a nation's capital (`capitalOf`), or a named spot (`name`, and `at`: full-size map pixels, like the data's). The goal's tile is the passable land tile nearest the spot (in this game's map: halved in a Compact game). |
-| `minute` | minutes since the war began (the timer).                                                                                                                                                                                |
-| `side`   | optional: your side holding the place counts, not only you ("Keep Washington in Union hands to the end", "Help take Moscow").                                                                                           |
-| `onSide` | optional: when it's checked you must be on this side (a side id), or on any side (`"any"`, for a neutral: at war). A neutral joins a side by attacking the other (or being invaded).                                    |
+| field    | meaning                                                                                                                                                                                           |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kind`   | `hold`: hold the place at `minute` (met then, or when the war ends first with it held; missed after). `take`: hold it at any moment, before `minute` if given. `keep`: hold it when the war ends. |
+| `place`  | a nation's capital (`capitalOf`), or a named spot (`name`; `at`: full-size map pixels, like the data's; `of`: the nation that holds it at the start).                                             |
+| `minute` | minutes since the war began (the timer).                                                                                                                                                          |
+| `side`   | optional: your side holding the place counts, not only you ("Keep Washington in Union hands to the end", "Help take Moscow").                                                                     |
+| `onSide` | optional: when it's checked you must be on this side (a side id), or on any side (`"any"`, for a neutral: at war). A neutral joins a side by attacking the other (or being invaded).              |
+
+**The goal's tile.** A place is one tile in each map size: the tile nearest
+the spot that its nation (`capitalOf`, or `of`) holds at the start. They are
+worked out ahead into `goal-tiles.json` by `npx tsx scripts/scenario-goal-tiles.ts`
+(run it after changing `goals.json` or a scenario's land): halving the
+spot for a Compact game can land across a border river (Belgrade's pixel
+is Austria-Hungary's bank of the Sava there), and a tiny place (Gibraltar,
+the Faroes) can vanish from the Compact map altogether.
 
 How it's checked: the engine checks each human player's goal once a second
 (`WinCheckExecution`) and once more when the war ends (`GameImpl.setWinner`),
