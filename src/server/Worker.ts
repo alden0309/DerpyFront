@@ -35,6 +35,7 @@ import { censorPlayer } from "./Censor";
 import { Client } from "./Client";
 import { derpyLooksForPlayer } from "./derpy/DerpySkins";
 import { registerLobbyLockRoutes } from "./derpy/LobbyLockRoutes"; // FRIENDS (r25)
+import { RANKED_MATCHMAKING_ENABLED } from "./derpy/UpstreamFeatures"; // DFX (r26)
 import { gameApiCors } from "./GameApiCors";
 import { GameManager } from "./GameManager";
 import { registerGamePreviewRoute } from "./GamePreviewRoute";
@@ -98,6 +99,8 @@ export async function startWorker() {
 
   setTimeout(
     () => {
+      // DFX (r26): off on Derp Land (derpy/UpstreamFeatures.ts).
+      if (!RANKED_MATCHMAKING_ENABLED) return;
       // The ranked loop follows the deployment-active flag the master pushes
       // to this worker (OPE-469): a draining, standby or fenced server keeps
       // the games it has but stops offering new matches.

@@ -54,6 +54,7 @@ import {
   recordDerpyGame,
   savedGameRecord,
 } from "./DerpyGames";
+import { goalsRouter } from "./DerpyGoals"; // DFX (r26)
 import { checkName, nameStatus, renameAccount } from "./DerpyNames"; // NAMES (r20)
 import { loadNews, newsRouter } from "./DerpyNews"; // NEWS (r25)
 import { socialRenamed, socialRouter, socialSignedOut } from "./DerpySocial"; // FRIENDS (r25)
@@ -63,6 +64,7 @@ import { passwordRouter } from "./PasswordReset"; // ADMIN (r26)
 import { badgesRouter } from "./DerpyBadges";
 import { withLooks } from "./DerpyLooks";
 import { meExtras, picturesRouter, profileExtras } from "./DerpyPictures";
+import { watchRouter } from "./ReplayRooms"; // DFX (r26)
 
 const log = logger.child({ component: "DerpyApi" });
 
@@ -520,8 +522,13 @@ export function derpyApiRouter(): express.Router {
         () => account.id,
       );
       const line = lines.get(account.id);
-      // CHAL (r25): with the weekly challenges it finished.
-      res.json({ coins: line?.coins ?? 0, challenges: line?.challenges ?? [] });
+      // CHAL (r25): with the weekly challenges it finished; DFX (r26): and
+      // the Scenario goal it met.
+      res.json({
+        coins: line?.coins ?? 0,
+        challenges: line?.challenges ?? [],
+        ...(line?.goal ? { goal: line.goal } : {}),
+      });
     }),
   );
 
@@ -546,6 +553,10 @@ export function derpyApiRouter(): express.Router {
   // ADMIN (r26): the owner's admin page's API. For anyone else, every path
   // under it answers exactly as the 404 below does.
   router.use("/admin", adminRouter());
+  // DFX (r26): watch a saved game's replay together (rooms: ReplayRooms).
+  router.use("/watch", watchRouter({ handle }));
+  // DFX (r26): Scenario goals met.
+  router.use("/goals", goalsRouter({ requireAccount }));
 
   router.use((_req, res) => {
     res.status(404).json({ error: "not_found" });

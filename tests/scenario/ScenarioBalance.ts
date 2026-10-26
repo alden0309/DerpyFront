@@ -8,7 +8,7 @@
  *
  * Usage (from the worktree root):
  *   nice -n 10 npx tsx tests/scenario/ScenarioBalance.ts --scenario europe1939 \
- *     --seed s1 --difficulty Medium --minutes 120 [--size Normal]
+ *     --seed s1 --difficulty Medium --minutes 120 [--size Normal] [--goals]
  */
 import {
   Difficulty,
@@ -21,7 +21,13 @@ import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { GameStartInfo } from "@openfront/engine-api/Schemas";
 import { applyScenarioRules } from "@openfront/engine-lib/scenario/ScenarioConfig";
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
+import {
+  goalMetAt,
+  goalTileXY,
+  scenarioGoal,
+} from "@openfront/engine-lib/scenario/ScenarioGoals"; // DFX (r26)
 import { createGameRunner } from "@openfront/engine/GameRunner";
+import { GOAL_CHECK_INTERVAL } from "@openfront/engine/scenario/ScenarioGoals"; // DFX (r26)
 import { loadMapFiles } from "@openfront/shared/GameMapLoader";
 import path from "path";
 import { NodeGameMapLoader } from "../perf/fullgame/NodeGameMapLoader";
@@ -38,6 +44,9 @@ const difficulty = arg("difficulty", "Medium") as Difficulty;
 const minutes = parseInt(arg("minutes", "120"), 10);
 const size = arg("size", "Normal") as GameMapSize;
 const verbose = args.includes("--verbose");
+// DFX (r26): --goals: the minute each nation's own computer player met its
+// Scenario goal (null: it didn't), to see which goals happen anyway.
+const withGoals = args.includes("--goals");
 // Overtime from this minute on (the bars sink 2 points a minute), or off.
 const overtime = parseInt(
   arg("overtime", process.env.SCEN_OVERTIME ?? "0"),
@@ -129,10 +138,46 @@ async function main() {
     }
     return by;
   };
+  // DFX (r26): --goals, checked as the engine checks a player's (every
+  // GOAL_CHECK_INTERVAL ticks, and once more when the war ends).
+  const goals: Record<string, number | null> = {};
+  const checkGoals = (final: boolean) => {
+    const sc = game.scenario();
+    if (sc === null) return;
+    const elapsed = Math.round(game.elapsedGameSeconds() * 10);
+    for (const p of game.players()) {
+      const nation = sc.nationOf(p);
+      const goal = nation === null ? null : scenarioGoal(id, nation.key);
+      if (nation === null || goal === null) continue;
+      if (typeof goals[nation.key] === "number") continue;
+      goals[nation.key] = null;
+      const xy = goalTileXY(id, nation.key, sc.scale === 2);
+      if (xy === null) continue;
+      const owner = game.owner(game.ref(xy[0], xy[1]));
+      const team = p.team();
+      const holds =
+        owner.isPlayer() &&
+        (owner === p ||
+          (goal.side === true && team !== null && owner.team() === team));
+      const w = game.getWinner();
+      const won = final && (typeof w === "string" ? team === w : w === p);
+      if (
+        goalMetAt(
+          goal,
+          { elapsed, holds, team, won, compact: sc.scale === 2 },
+          final,
+          GOAL_CHECK_INTERVAL,
+        )
+      )
+        goals[nation.key] = Math.round(elapsed / 60) / 10;
+    }
+  };
+  // DFX (r26) end
   let tick = 0;
   for (; tick < maxTicks && winner === null; tick++) {
     runner.addTurn({ turnNumber: tick, intents: [] });
     runner.executeNextTick();
+    if (withGoals && tick % GOAL_CHECK_INTERVAL === 0) checkGoals(false); // DFX (r26)
     if (tick === 2 || (tick > 2 && tick % 300 === 0)) {
       const by = sideLand();
       const progress: Record<string, number> = {};
@@ -168,6 +213,7 @@ async function main() {
       }
     }
   }
+  if (withGoals) checkGoals(true); // DFX (r26)
   const alive = game
     .players()
     .filter((p) => p.type() === PlayerType.Nation)
@@ -215,6 +261,7 @@ async function main() {
       shares,
       joins,
       alive,
+      ...(withGoals ? { goals } : {}), // DFX (r26)
     }),
   );
   process.exit(0);

@@ -1,3 +1,4 @@
+import { GOAL_COINS } from "@openfront/engine-lib/scenario/ScenarioGoals"; // DFX (r26)
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { html } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
@@ -254,8 +255,18 @@ export class HelpModal extends BaseModal {
               ${translateText("help_modal.scenarios_fronts")}
             </p>
             <!-- SCEN (r25): Thirteen Colonies 1776's blockade and Overtime -->
-            <p class="mb-6 text-white/70 text-sm">
+            <p class="mb-2 text-white/70 text-sm">
               ${translateText("help_modal.scenarios_colonies")}
+            </p>
+            <!-- DFX (r26): Random history and Random nations -->
+            <p class="mb-2 text-white/70 text-sm" data-help-random-history>
+              ${translateText("help_modal.scenarios_random")}
+            </p>
+            <!-- DFX (r26): Scenario goals -->
+            <p class="mb-6 text-white/70 text-sm" data-help-goals>
+              ${translateText("help_modal.scenarios_goals", {
+                coins: GOAL_COINS,
+              })}
             </p>
           </section>
           <!-- Hotkeys Section -->

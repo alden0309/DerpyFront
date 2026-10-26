@@ -169,6 +169,7 @@ import "./derpy/DerpyNavAccount";
 import "./derpy/DerpyStorePage";
 import { classicReplayHref } from "./replay/ReplayEntry";
 import { parseReplayViewerHash } from "./replay/ReplayViewerRoute";
+import { parseWatchPath } from "./replay/WatchRoute"; // DFX (r26)
 import {
   installCtrlWheelZoomBlocker,
   installDoubleTapZoomBlocker,
@@ -1319,6 +1320,46 @@ class Client {
       this.replayViewerID = null;
       return;
     }
+    this.takeOverMenuForViewer();
+    const viewer = new ReplayViewer();
+    viewer.gameID = gameID;
+    document.body.appendChild(viewer);
+  }
+
+  /**
+   * DFX (r26): replace the menu with a watch-together room (/watch/<room>),
+   * which plays its game in the replay viewer. Leaving it goes home.
+   */
+  private async openWatchRoom(room: string): Promise<void> {
+    if (this.replayViewerID !== null) return;
+    this.replayViewerID = `watch:${room}`;
+    let WatchRoom: typeof import("./replay/WatchRoom").WatchRoom;
+    try {
+      ({ WatchRoom } = await import("./replay/WatchRoom"));
+    } catch (err) {
+      // A network error, or a deploy that replaced the chunk. The menu is
+      // still up; a reload tries again (and picks up a new deploy).
+      console.error("watch room failed to load:", err);
+      this.replayViewerID = null;
+      void showInGameAlert(translateText("watch_together.closed_unreachable"));
+      return;
+    }
+    if (this.gameUnderway()) {
+      console.warn("watch room: ignored, a game started");
+      this.replayViewerID = null;
+      return;
+    }
+    this.takeOverMenuForViewer();
+    const el = new WatchRoom();
+    el.room = room;
+    document.body.appendChild(el);
+  }
+
+  /**
+   * The menu's teardown for the replay viewer (and DFX r26's watch rooms):
+   * what starting a game does, without a game.
+   */
+  private takeOverMenuForViewer(): void {
     // The same teardown as starting a game: the featured stream, ads and
     // menu music stop, and the menu's modals close.
     const hash = window.location.hash;
@@ -1348,9 +1389,6 @@ class Client {
       );
     }
     setInGameSignal(true);
-    const viewer = new ReplayViewer();
-    viewer.gameID = gameID;
-    document.body.appendChild(viewer);
   }
 
   /**
@@ -1417,6 +1455,13 @@ class Client {
     const replayViewerID = parseReplayViewerHash(hash);
     if (replayViewerID !== null) {
       await this.openReplayViewer(replayViewerID);
+      return;
+    }
+
+    // DFX (r26): so does a watch-together room, /watch/<room>.
+    const watchRoom = parseWatchPath(window.location.pathname);
+    if (watchRoom !== null) {
+      await this.openWatchRoom(watchRoom);
       return;
     }
 

@@ -136,7 +136,10 @@ describe("WinModal end-of-game awards", () => {
       }),
       numLandTiles: () => 1000,
       ticks: () => 3000, // five minutes
-      config: () => ({ gameConfig: () => ({ rankedType: undefined }) }),
+      config: () => ({
+        gameConfig: () => ({ rankedType: undefined }),
+        isReplay: () => false,
+      }),
     };
   }
 

@@ -63,7 +63,10 @@ function makeGame(myTeam: string): GameView {
     }),
     inSpawnPhase: () => false,
     updatesSinceLastTick: () => ({ [GameUpdateType.Win]: [winUpdate] }),
-    config: () => ({ gameConfig: () => ({ rankedType: undefined }) }),
+    config: () => ({
+      gameConfig: () => ({ rankedType: undefined }),
+      isReplay: () => false,
+    }),
     scenario: () => ({ data: { id: "europe1939" }, seats: new Map() }),
     playerViews: () => [
       view("France (Alden)", "Allies"),

@@ -655,12 +655,13 @@ describe("UserSettings audio volumes", () => {
 describe("UserSettings replay viewer", () => {
   beforeEach(resetUserSettingsState);
 
-  it("is off by default, and remembers being turned on", () => {
-    expect(new UserSettings().replayViewer()).toBe(false);
-    new UserSettings().setReplayViewer(true);
+  // DFX (r26): on by default on Derp Land.
+  it("is on by default, and remembers being turned off", () => {
     expect(new UserSettings().replayViewer()).toBe(true);
     new UserSettings().setReplayViewer(false);
     expect(new UserSettings().replayViewer()).toBe(false);
+    new UserSettings().setReplayViewer(true);
+    expect(new UserSettings().replayViewer()).toBe(true);
   });
 });
 

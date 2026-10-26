@@ -7,6 +7,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { z } from "zod";
 import { Execution, Game } from "../game/Game";
+import { checkScenarioGoals } from "../scenario/ScenarioGoals"; // DFX (r26)
 import { scenarioRule, scenarioWinner } from "../scenario/ScenarioRules"; // SCEN (r25)
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
 import type { ExecRecord, SnapshotReader } from "../snapshot/SnapshotContext";
@@ -40,6 +41,8 @@ export class WinCheckExecution implements Execution {
 
     // SCEN (r25): a side wins together.
     if (this.mg.scenario() !== null) {
+      // DFX (r26): and each player's optional goal, once a second.
+      checkScenarioGoals(this.mg, false);
       this.checkWinnerScenario();
       return;
     }

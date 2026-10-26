@@ -14,6 +14,15 @@ import { createGameWorker } from "../WorkerClient";
 import type { ReplayAppend, ReplayBase } from "./codec/ReplayTypes";
 import type { ProcessorRequest, ProcessorResponse } from "./ProcessorMessages";
 
+// DFX (r26): the worker is a Blob, so a path like "/_assets/maps/..." has
+// no origin to resolve against there and its fetch throws. With no CDN
+// (CDN_BASE empty: dev, and the site served from one origin) the assets
+// come from this page's origin, so the worker is told that one.
+export function workerCdnBase(): string {
+  return getCdnBase() || (globalThis.location?.origin ?? "");
+}
+// DFX (r26) end
+
 export interface ProcessingHandlers {
   onProgress(percent: number): void;
   /** The header fields that don't change, before any frames. */
@@ -106,7 +115,7 @@ export function processInBrowser(
       engine.postMessage(connect, [channel.port1]);
       const request: ProcessorRequest = {
         record,
-        cdnBase: getCdnBase(),
+        cdnBase: workerCdnBase(),
         engine: channel.port2,
       };
       w.postMessage(request, [channel.port2]);

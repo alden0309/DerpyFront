@@ -59,6 +59,8 @@ export class ReplayPlayback {
   private pumping: Promise<void> | null = null;
   /** Set after a decode error. Playback stays stopped. */
   private failed = false;
+  /** DFX (r26): a chunk is being read ahead (one at a time). */
+  private readingAhead = false;
 
   private constructor(
     private readonly reader: ReplayReader,
@@ -241,7 +243,16 @@ export class ReplayPlayback {
   }
 
   private prefetchNextChunk(): void {
+    // DFX (r26): one read-ahead at a time. The reader trims its inflated
+    // chunks to its cap when it decodes, not when one lands, so a burst of
+    // seeks (rewinding, dragging the timeline) each reading ahead would
+    // otherwise hold a chunk apiece until the next decode.
+    if (this.readingAhead) return;
     const next = this.reader.chunkOf(this.current) + 1;
-    this.reader.load(next).catch((err: unknown) => this.fail(err, true));
+    this.readingAhead = true;
+    this.reader
+      .load(next)
+      .catch((err: unknown) => this.fail(err, true))
+      .finally(() => (this.readingAhead = false));
   }
 }

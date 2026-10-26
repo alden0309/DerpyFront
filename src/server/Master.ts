@@ -21,6 +21,7 @@ import { derpyApiRouter } from "./derpy/DerpyApi";
 import { setLiveSources } from "./derpy/LiveGames";
 import { ensurePassSecret, setFrontLocks } from "./derpy/LobbyLock"; // FRIENDS (r25)
 import { presence } from "./derpy/Presence"; // FRIENDS (r25)
+import { attachReplayRooms } from "./derpy/ReplayRooms"; // DFX (r26)
 import { getDescriptor } from "./DesktopRelease";
 import {
   coordinatorUrl,
@@ -306,6 +307,8 @@ export async function startMaster() {
     },
     conquest: conquestRooms,
   });
+  // DFX (r26): watching a replay together (rooms in memory, on /derpy/watch/ws).
+  attachReplayRooms(server);
 
   const PORT = 3000;
   server.listen(PORT, () => {

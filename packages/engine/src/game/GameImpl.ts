@@ -63,6 +63,7 @@ import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
 import { WaterPathFinder } from "../pathfinding/PathFinder";
 import { PathFinder } from "../pathfinding/types";
 import { ScenarioRuntime, scenarioRuntime } from "../scenario/Scenario"; // SCEN (r25)
+import { checkScenarioGoals } from "../scenario/ScenarioGoals"; // DFX (r26)
 import {
   nationData,
   NationSchema,
@@ -1037,6 +1038,8 @@ export class GameImpl implements Game {
     allPlayersStats: AllPlayersStats,
   ): void {
     this._winner = winner;
+    // DFX (r26): the Scenario players' goals, as the war ends.
+    checkScenarioGoals(this, true);
     // OFM: snapshot final tiles for standings (bots skipped in recordFinalTiles).
     for (const player of this.players()) {
       this.stats().recordFinalTiles(player, player.numTilesOwned());

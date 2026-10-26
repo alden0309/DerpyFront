@@ -5,6 +5,7 @@ import {
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { html, nothing, TemplateResult } from "lit";
 import { translateText } from "../Utils";
+import { renderGoalLine } from "./ScenarioGoalText"; // DFX (r26)
 import "./ScenarioPreview";
 import {
   nationName,
@@ -30,12 +31,14 @@ export function scenarioOvertimeFrom(
  * SCEN (r25): the scenario at the top of the solo screen and the host lobby,
  * in place of the map and mode pickers: its picture, name, date, the nation
  * you play and a way back to the Scenarios screen. `below` is shown under it
- * (the lobby's seats).
+ * (the lobby's seats). `compact`: a Compact map's game (DFX r26: its goal's
+ * minutes are halved).
  */
 export function renderScenarioPanel(
   pick: { id: string; nation: string | null },
   onChange: (() => void) | null,
   below: TemplateResult | typeof nothing = nothing,
+  compact = false,
 ): TemplateResult {
   const data = scenarioData(pick.id);
   if (data === null) return html``;
@@ -83,6 +86,8 @@ export function renderScenarioPanel(
                 : nothing}
             </p>`
           : nothing}
+        <!-- DFX (r26): the nation's optional goal -->
+        ${renderGoalLine(data.id, n?.key ?? null, compact)}
         ${onChange !== null
           ? html`<button
               class="mt-1 self-start rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white/80 hover:bg-white/10"

@@ -15,6 +15,8 @@ import type { HostLobbyModal } from "../HostLobbyModal";
 import { loadModal } from "../LazyModals";
 import type { SinglePlayerModal } from "../SinglePlayerModal";
 import { translateText } from "../Utils";
+import { randomHistoryIcon } from "./RandomHistoryIcon"; // DFX (r26)
+import { renderGoalLine } from "./ScenarioGoalText"; // DFX (r26)
 import "./ScenarioNationBoard";
 import { ScenarioPick, scenarioPickFromArgs } from "./ScenarioPick";
 import "./ScenarioPreview";
@@ -87,6 +89,12 @@ export class ScenariosModal extends BaseModal {
       "host-lobby-modal",
     ) as HostLobbyModal | null;
     host?.open({ scenario: pick.id, nation: pick.nation });
+  };
+
+  // DFX (r26): Random history (the reveal, then a solo game).
+  private randomHistory = async () => {
+    const { showRandomHistory } = await import("./RandomHistoryReveal");
+    showRandomHistory();
   };
 
   protected renderHeaderSlot() {
@@ -165,6 +173,8 @@ export class ScenariosModal extends BaseModal {
                 <b>${nationName(n)}</b>
               </p>`
             : nothing}
+          <!-- DFX (r26): the nation's optional goal -->
+          ${renderGoalLine(d.id, n?.key ?? null)}
         </div>
       </div>
       <h3
@@ -188,13 +198,25 @@ export class ScenariosModal extends BaseModal {
       <div
         class="flex-1 min-h-0 overflow-y-auto custom-scrollbar mx-auto w-full max-w-5xl space-y-6 px-4 pb-6 pt-4 sm:px-6"
       >
-        <div class="space-y-1">
-          <p class="text-sm font-semibold text-white/80">
-            ${translateText("scenarios.subtitle")}
-          </p>
-          <p class="hidden text-xs leading-relaxed text-white/50 sm:block">
-            ${translateText("scenarios.help_text")}
-          </p>
+        <div class="flex items-start gap-3">
+          <div class="min-w-0 flex-1 space-y-1">
+            <p class="text-sm font-semibold text-white/80">
+              ${translateText("scenarios.subtitle")}
+            </p>
+            <p class="hidden text-xs leading-relaxed text-white/50 sm:block">
+              ${translateText("scenarios.help_text")}
+            </p>
+          </div>
+          <!-- DFX (r26): Random history, a random war and nation, solo. -->
+          <button
+            class="flex shrink-0 items-center gap-2 rounded-lg border border-cyber-yellow/40 bg-cyber-yellow/10 px-3 py-2 text-sm font-bold text-cyber-yellow transition-colors hover:bg-cyber-yellow/20"
+            data-random-history-button
+            title=${translateText("random_history.blurb")}
+            @click=${this.randomHistory}
+          >
+            ${randomHistoryIcon("size-5")}
+            <span>${translateText("random_history.button")}</span>
+          </button>
         </div>
         <div
           class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0"

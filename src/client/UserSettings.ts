@@ -449,10 +449,11 @@ export class UserSettings {
 
   /**
    * "Watch replay" opens the new replay viewer instead of the classic
-   * replay. Opt-in while the viewer is rolled out.
+   * replay. DFX (r26): on by default on Derp Land, so every replay has the
+   * timeline and rewind (upstream ships it opt-in).
    */
   replayViewer() {
-    return this.getBool("settings.replayViewer", false);
+    return this.getBool("settings.replayViewer", true);
   }
 
   setReplayViewer(value: boolean) {

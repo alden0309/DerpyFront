@@ -1,5 +1,9 @@
 import { GAME_ID_REGEX, GameConfig } from "@openfront/engine-api/Schemas";
-import { GameMode, GameType } from "@openfront/engine-api/game/GameTypes";
+import {
+  GameMapSize,
+  GameMode,
+  GameType,
+} from "@openfront/engine-api/game/GameTypes";
 import { scenarioReplayable } from "@openfront/engine-api/game/Scenarios"; // SCEN (r25)
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
@@ -283,8 +287,10 @@ export class JoinLobbyModal extends BaseModal {
           <div
             class="p-6 lg:p-6 border-t border-white/10 bg-black/60 backdrop-blur-md shrink-0 sticky bottom-0 z-10"
           >
+            <!-- DFX (r26): wraps on a phone, the status on a line of its own,
+                 rather than squeezing it to a word a line -->
             <div
-              class="w-full px-4 py-3 rounded-xl border border-white/10 bg-white/5 flex items-center justify-between gap-3"
+              class="w-full px-4 py-3 rounded-xl border border-white/10 bg-white/5 flex flex-wrap items-center justify-between gap-3"
             >
               <div class="flex flex-col">
                 <span
@@ -734,6 +740,8 @@ export class JoinLobbyModal extends BaseModal {
               this.eventBus?.emit(new SendScenarioSeatIntentEvent(e.detail))}
           ></scenario-nation-board>
         </div>`,
+        // DFX (r26): the goal's minutes for the map
+        this.gameConfig?.gameMapSize === GameMapSize.Compact,
       )}
     </div>`;
   }

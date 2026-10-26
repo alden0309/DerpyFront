@@ -55,8 +55,9 @@ import { clientPlatform } from "./ClientPlatform";
 import { isDesktopShell } from "./DesktopShell";
 import { showInGameConfirm } from "./InGameModal";
 import {
-  SendKickPlayerIntentEvent,
-  SendScenarioSeatIntentEvent, // SCEN (r25)
+  SendKickPlayerIntentEvent, // SCEN (r25)
+  SendScenarioDealIntentEvent,
+  SendScenarioSeatIntentEvent, // DFX (r26)
   SendSpectateEvent,
   SendToggleGameStartTimer,
   SendUpdateGameConfigIntentEvent,
@@ -427,6 +428,10 @@ export class Transport {
         nation: e.nation,
         ...(e.target !== undefined ? { target: e.target } : {}),
       }),
+    );
+    // DFX (r26)
+    this.subscribe(SendScenarioDealIntentEvent, (e) =>
+      this.sendIntent({ type: "scenario_deal", seats: e.seats }),
     );
     this.subscribe(SendSpectateEvent, (e) => {
       this.lobbyConfig.spectator = e.spectator;

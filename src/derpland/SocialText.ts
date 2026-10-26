@@ -27,6 +27,9 @@ export const SOCIAL_TEXT = {
   place_df_game: "Playing DerpyFront: {map}",
   place_df_game_any: "Playing DerpyFront",
   place_df_watch: "Watching DerpyFront: {map}",
+  // DFX (r26): watching a replay together
+  place_df_replay: "Watching a replay together: {map}",
+  place_df_replay_any: "Watching a replay together",
   place_cq_front: "Choosing a Derpy Conquest game",
   place_cq_room: "In a Conquest lobby",
   place_cq_game: "Playing Derpy Conquest: {year}, {where}",
@@ -82,10 +85,12 @@ export const SOCIAL_TEXT = {
   // Notifications
   invite_df: "{name} invited you into their DerpyFront lobby.",
   invite_cq: "{name} invited you to their Derpy Conquest game.",
+  invite_replay: "{name} invited you to watch a replay together.", // DFX (r26)
   party_invite: "{name} asked you to join their party ({count} of {max}).",
   join_party: "Join party",
   pull_df: "{name}, your party's leader, went into a DerpyFront lobby.",
   pull_cq: "{name}, your party's leader, went to a Derpy Conquest table.",
+  pull_replay: "{name}, your party's leader, is watching a replay together.", // DFX (r26)
   follow: "Join them",
   not_now: "Not now",
   dismiss: "Dismiss",
@@ -145,6 +150,11 @@ export function placeText(p: Place | null, t: SocialTranslate): string {
       return p.watching
         ? t("place_df_watch", { map: p.map })
         : t("place_df_game", { map: p.map });
+    // DFX (r26)
+    case "df-replay":
+      return p.map
+        ? t("place_df_replay", { map: p.map })
+        : t("place_df_replay_any");
     case "cq-front":
       return t("place_cq_front");
     case "cq-room":
@@ -173,7 +183,8 @@ export function placeTone(p: Place | null): "off" | "play" | "lobby" | "about" {
     p.k === "df-lobby" ||
     p.k === "cq-room" ||
     p.k === "cq-watch" ||
-    p.k === "df-game"
+    p.k === "df-game" ||
+    p.k === "df-replay" // DFX (r26)
   )
     return "lobby";
   return "about";

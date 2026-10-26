@@ -91,6 +91,7 @@ import {
   ServerMessage,
   StoredChronicle,
 } from "../../conquest/Protocol";
+import { WATCH_WS_PATH } from "../../derpland/WatchTypes"; // DFX (r26)
 import { keepDynasty, siteDynasty } from "../derpy/ConquestDynasties"; // TREE (r25)
 import {
   deleteSave,
@@ -2859,6 +2860,8 @@ export function attachConquest(
     "upgrade",
     (req: http.IncomingMessage, socket: Duplex, head: Buffer) => {
       const path = (req.url ?? "").split("?")[0];
+      // DFX (r26): watch-together rooms have their own socket (ReplayRooms).
+      if (path === WATCH_WS_PATH) return;
       if (path !== CONQUEST_WS_PATH) {
         socket.destroy();
         return;

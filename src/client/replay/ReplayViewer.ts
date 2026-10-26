@@ -71,7 +71,13 @@ import { terrainOf } from "./codec/Terrain";
 import { processInBrowser, type Processing } from "./LocalProcessing";
 import { ReplayAppearance } from "./ReplayAppearance";
 import { CameraGestures, ReplayCamera } from "./ReplayCamera";
-import { formatGameTime, timelineFrames } from "./ReplayControls";
+import {
+  formatGameTime,
+  REWIND_LONG_S,
+  REWIND_SHORT_S,
+  rewindFrame,
+  timelineFrames,
+} from "./ReplayControls";
 import { classicReplayHref, versionedViewerUrl } from "./ReplayEntry";
 import { ReplayGameView } from "./ReplayGameAdapter";
 import { ReplayNukedLayers } from "./ReplayNukedLayers";
@@ -82,6 +88,7 @@ import "./ReplayStatus";
 import type { Preparing } from "./ReplayStatus";
 import { replayStore } from "./ReplayStore";
 import { ReplayTerrain } from "./ReplayTerrain";
+import type { WatchSync } from "./WatchSync"; // DFX (r26)
 
 const WHEEL_ZOOM = 1.0015;
 
@@ -122,6 +129,11 @@ class UnreadableReplayError extends Error {
 @customElement("replay-viewer")
 export class ReplayViewer extends LitElement {
   @property() gameID = "";
+  /**
+   * DFX (r26): watching together. The room's clock drives playback, and the
+   * controls act through it (only for whoever holds them).
+   */
+  @property({ attribute: false }) together: WatchSync | null = null;
 
   @state() private status: "loading" | "processing" | "ready" | "error" =
     "loading";
@@ -190,6 +202,7 @@ export class ReplayViewer extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this.abort.abort();
+    this.together?.detach(); // DFX (r26)
     this.processing?.cancel();
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
     if (this.hudTimer !== null) clearInterval(this.hudTimer);
@@ -225,6 +238,12 @@ export class ReplayViewer extends LitElement {
         this.fail(translateText("replay_viewer.unavailable_unreachable"));
         return;
       case "other_build": {
+        // DFX (r26): a room watches here or not at all (another build's
+        // page would leave the room).
+        if (this.together !== null) {
+          this.fail(translateText("replay_viewer.unavailable_other_build"));
+          return;
+        }
         const url = await versionedViewerUrl(this.gameID);
         if (this.abort.signal.aborted) return;
         if (url !== null) {
@@ -335,7 +354,8 @@ export class ReplayViewer extends LitElement {
     this.playing = false;
     this.status = "error";
     this.error = message;
-    this.classicFallback = true;
+    // DFX (r26): the client-side replay would leave the room.
+    this.classicFallback = this.together === null;
     this.processing?.cancel();
     this.processing = null;
   }
@@ -484,11 +504,14 @@ export class ReplayViewer extends LitElement {
     await playback.seek(0);
     // disconnectedCallback has disposed the renderer by now.
     if (this.abort.signal.aborted) return;
+    // DFX (r26): to where the room is.
+    this.together?.attach(playback);
 
     let last: number | null = null;
     const loop = (now: number) => {
       camera.step(last === null ? 0 : now - last);
       last = now;
+      this.together?.tick(); // DFX (r26)
       playback.tick(now);
       view.setCameraState(camera.x, camera.y, camera.zoom * renderDpr());
       draw(now);
@@ -607,6 +630,8 @@ export class ReplayViewer extends LitElement {
     // playback pauses while it's open.
     new ViewModeController(this.hudBus, view).init();
     this.hudBus.on(PauseGameIntentEvent, (e) => {
+      // DFX (r26): one viewer's menu doesn't pause the room.
+      if (this.together !== null) return;
       if (e.paused) this.playback?.pause();
       else this.playback?.play();
     });
@@ -703,10 +728,20 @@ export class ReplayViewer extends LitElement {
       this.togglePlay();
     } else if (e.code === "ArrowRight") {
       e.preventDefault();
-      void p.seek(p.frame + (e.shiftKey ? 100 : 1));
+      this.seekTo(p.frame + (e.shiftKey ? 100 : 1));
     } else if (e.code === "ArrowLeft") {
       e.preventDefault();
-      void p.seek(p.frame - (e.shiftKey ? 100 : 1));
+      this.seekTo(p.frame - (e.shiftKey ? 100 : 1));
+    } else if (e.code === "KeyJ" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // DFX (r26): rewind, 10 seconds (J) or a minute (Shift+J).
+      e.preventDefault();
+      this.seekTo(
+        rewindFrame(p.frame, e.shiftKey ? REWIND_LONG_S : REWIND_SHORT_S),
+      );
+    } else if (e.code === "Home") {
+      // DFX (r26): back to the start.
+      e.preventDefault();
+      this.seekTo(0);
     }
   }
 
@@ -768,10 +803,31 @@ export class ReplayViewer extends LitElement {
   }
 
   private togglePlay(): void {
+    // DFX (r26): together, through the room (for whoever holds the controls).
+    if (this.together !== null) {
+      this.together.togglePlay();
+      return;
+    }
     const p = this.playback;
     if (p === null) return;
     if (p.playing) p.pause();
     else p.play();
+  }
+
+  /** DFX (r26): a seek, through the room when watching together. */
+  private seekTo(frame: number): void {
+    if (this.together !== null) {
+      const last = (this.playback?.totalFrames ?? 1) - 1;
+      this.together.seek(Math.max(0, Math.min(last, frame)));
+      return;
+    }
+    void this.playback?.seek(frame);
+  }
+
+  /** DFX (r26): a change of speed, through the room when watching together. */
+  private setSpeed(speed: number): void {
+    if (this.together !== null) this.together.setSpeed(speed);
+    else this.playback?.setSpeed(speed);
   }
 
   private openMenu(): void {
@@ -816,7 +872,7 @@ export class ReplayViewer extends LitElement {
           the replay is still loading. Its content is w-96 from 1200px up,
           so it widens with it there instead of spilling off the right. -->
         <events-display
-          class="absolute right-3 bottom-20 w-80 max-w-[40vw] min-[1200px]:w-96 ${this
+          class="absolute right-3 bottom-20 max-sm:bottom-24 w-80 max-w-[40vw] min-[1200px]:w-96 ${this
             .status === "ready"
             ? ""
             : "hidden"}"
@@ -829,11 +885,12 @@ export class ReplayViewer extends LitElement {
               .total=${timelineFrames(loaded, this.gameLength, this.growing)}
               .playing=${this.playing}
               .speed=${this.speed}
+              .locked=${this.together !== null && !this.together.inControl}
+              .lockedBy=${this.together?.controllerName() ?? ""}
               @replay-toggle-play=${() => this.togglePlay()}
-              @replay-seek=${(e: CustomEvent<number>) =>
-                void this.playback?.seek(e.detail)}
+              @replay-seek=${(e: CustomEvent<number>) => this.seekTo(e.detail)}
               @replay-speed=${(e: CustomEvent<number>) =>
-                this.playback?.setSpeed(e.detail)}
+                this.setSpeed(e.detail)}
               @replay-menu=${() => this.openMenu()}
             ></replay-controls>`
           : html`<replay-status

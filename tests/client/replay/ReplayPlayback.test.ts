@@ -223,6 +223,8 @@ describe("ReplayPlayback", () => {
     const reader = (
       playback as unknown as { reader: { load(i: number): Promise<void> } }
     ).reader;
+    // DFX (r26): the seek's own read-ahead lands first (one at a time).
+    await reader.load(1);
     vi.spyOn(reader, "load").mockImplementation((i) =>
       i === 0 ? Promise.resolve() : Promise.reject(new Error("bad gzip")),
     );

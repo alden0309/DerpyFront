@@ -569,6 +569,15 @@ export class MasterLobbyService {
     }
   }
 
+  // DFX (r26): the "public lobby churn" in Derp Land's logs is this loop,
+  // working as upstream intends. Derp Land runs in dev mode (start-site.mjs,
+  // for its own sign-in), where ServerEnv.gameCreationRate() is 5 s, not
+  // 2 min. So each of the three scheduled types keeps 6 lobbies queued, the
+  // head one counts down 5 s, leaves the Lobby phase, and a new one is made
+  // here; nobody having joined, GameServer.phase() reaps the old one 30 s
+  // later (GameServer.end(): "game not started"). That's a lobby made and one
+  // discarded every ~2 s with nobody on. Not a bug: an unstarted lobby is a
+  // small object, never simulated or archived; the two log lines are debug.
   private async maybeScheduleLobby() {
     // Coordinated: the site's queue depth and countdowns are the
     // coordinator's; adding our own here would double-schedule.

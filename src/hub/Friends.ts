@@ -15,6 +15,7 @@ import {
   eyeIcon,
   joinIcon,
   lockIcon,
+  replayIcon, // DFX (r26)
 } from "../derpland/Icons";
 import { social, SOCIAL_EVENT } from "../derpland/Social";
 import {
@@ -30,6 +31,7 @@ import type {
 } from "../derpland/SocialTypes";
 import { nationName, timeAgo } from "./format";
 import "./friends.css";
+import "./WatchButton"; // DFX (r26): Watch together
 
 /** Light-DOM pieces that redraw whenever the social side hears anything. */
 abstract class SocialPiece extends LitElement {
@@ -430,6 +432,17 @@ export class DerpFriends extends SocialPiece {
               ${r.won ? crownIcon("dl-i dl-crown") : nothing}
             </span>
             <span class="dl-feed-when">${timeAgo(r.endedAt, now)}</span>
+            ${r.game === "derpyfront"
+              ? // DFX (r26): their game's replay, alone or together.
+                html`<span class="dl-feed-acts">
+                  <a
+                    class="dl-btn small ghost"
+                    href="/game/${encodeURIComponent(r.gameId)}"
+                    >${replayIcon()} Replay</a
+                  >
+                  <dl-watch-button .gameId=${r.gameId}></dl-watch-button>
+                </span>`
+              : nothing}
           </li>`,
       )}
     </ol>`;

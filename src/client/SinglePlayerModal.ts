@@ -14,7 +14,7 @@ import { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { generateID } from "@openfront/shared/SharedUtil";
 import { PlayerCosmetics } from "@openfront/shared/WireSchemas";
-import { html, TemplateResult } from "lit";
+import { html, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { translateText } from "../client/Utils";
 import { responseHasLinkedIdentity } from "./AccountIdentity";
@@ -535,10 +535,15 @@ export class SinglePlayerModal extends BaseModal {
               // SCEN (r25)
               ...(this.scenario !== null
                 ? {
-                    scenario: renderScenarioPanel(this.scenario, () => {
-                      this.close();
-                      window.showPage?.("page-scenarios");
-                    }),
+                    scenario: renderScenarioPanel(
+                      this.scenario,
+                      () => {
+                        this.close();
+                        window.showPage?.("page-scenarios");
+                      },
+                      nothing,
+                      this.compactMap, // DFX (r26): the goal's minutes
+                    ),
                   }
                 : {}),
               gameMode: {
@@ -708,6 +713,22 @@ export class SinglePlayerModal extends BaseModal {
     // A nation count of 0 means "nations disabled"; wait for the real one.
     await this.loadNationCount();
     new UserSettings().setTutorialDismissed(false);
+    await this.startGame();
+  }
+
+  /**
+   * DFX (r26): Random history. A Scenario's solo game at once, without
+   * opening the modal: the pick's nation, on the solo screen's usual
+   * settings (its default difficulty).
+   */
+  public async startScenario(pick: ScenarioPick): Promise<void> {
+    void prewarmCosmetics();
+    this.resetOptions();
+    this.scenario = scenarioPickFromArgs({
+      scenario: pick.id,
+      nation: pick.nation,
+    });
+    if (this.scenario === null) return;
     await this.startGame();
   }
 

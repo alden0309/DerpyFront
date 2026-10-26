@@ -52,7 +52,8 @@ export type Intent =
   | TradeAgreementReplyIntent
   | TradeAgreementCancelIntent
   | EscortedBoatAttackIntent
-  | ScenarioSeatIntent; // SCEN (r25)
+  | ScenarioSeatIntent // SCEN (r25)
+  | ScenarioDealIntent; // DFX (r26)
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -103,6 +104,8 @@ export type EscortedBoatAttackIntent = z.infer<
 >;
 // SCEN (r25)
 export type ScenarioSeatIntent = z.infer<typeof ScenarioSeatIntentSchema>;
+// DFX (r26)
+export type ScenarioDealIntent = z.infer<typeof ScenarioDealIntentSchema>;
 export type ScenarioConfig = z.infer<typeof ScenarioConfigSchema>;
 
 export type Turn = z.infer<typeof TurnSchema>;
@@ -680,6 +683,15 @@ export const ScenarioSeatIntentSchema = z.object({
   target: MappedID.optional(),
 });
 
+// DFX (r26): "Random nations" in a Scenario's lobby. The host deals every
+// player a seat at once (nation key -> clientID); the server checks the deal
+// and it replaces the seats. Lobby only, like scenario_seat: it never
+// reaches a turn.
+export const ScenarioDealIntentSchema = z.object({
+  type: z.literal("scenario_deal"),
+  seats: z.record(z.string().regex(SCENARIO_KEY_RE), ID),
+});
+
 export const IntentSchema = z.discriminatedUnion("type", [
   AttackIntentSchema,
   CancelAttackIntentSchema,
@@ -711,6 +723,7 @@ export const IntentSchema = z.discriminatedUnion("type", [
   TradeAgreementCancelIntentSchema,
   EscortedBoatAttackIntentSchema,
   ScenarioSeatIntentSchema, // SCEN (r25)
+  ScenarioDealIntentSchema, // DFX (r26)
 ]);
 
 // StampedIntent = Intent with server-stamped clientID (used in turns and execution)

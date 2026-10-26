@@ -1,0 +1,655 @@
+{
+  "_about": "DFX (r26): each scenario goal's tile, [x, y] in the Normal map and the Compact one: the tile nearest the goal's place held at the start by its nation. Made by scripts/scenario-goal-tiles.ts (run it after changing goals.json or a scenario's land); tests/scenario/ScenarioGoals.test.ts checks it.",
+  "tiles": {
+    "europe1939": {
+      "germany": {
+        "normal": [2533, 631],
+        "compact": [1266, 314]
+      },
+      "italy": {
+        "normal": [2222, 1627],
+        "compact": [1110, 814]
+      },
+      "hungary": {
+        "normal": [1837, 1073],
+        "compact": [918, 536]
+      },
+      "romania": {
+        "normal": [2254, 1007],
+        "compact": [1127, 503]
+      },
+      "bulgaria": {
+        "normal": [1876, 1189],
+        "compact": [938, 594]
+      },
+      "slovakia": {
+        "normal": [1815, 862],
+        "compact": [907, 431]
+      },
+      "finland": {
+        "normal": [2018, 452],
+        "compact": [1009, 226]
+      },
+      "united_kingdom": {
+        "normal": [1542, 1559],
+        "compact": [771, 780]
+      },
+      "france": {
+        "normal": [1101, 910],
+        "compact": [550, 454]
+      },
+      "soviet_union": {
+        "normal": [1550, 762],
+        "compact": [775, 381]
+      },
+      "poland": {
+        "normal": [1859, 774],
+        "compact": [929, 387]
+      },
+      "yugoslavia": {
+        "normal": [1837, 1073],
+        "compact": [918, 536]
+      },
+      "greece": {
+        "normal": [1850, 1245],
+        "compact": [925, 622]
+      },
+      "belgium": {
+        "normal": [1182, 830],
+        "compact": [591, 415]
+      },
+      "netherlands": {
+        "normal": [1205, 768],
+        "compact": [602, 384]
+      },
+      "norway": {
+        "normal": [1442, 462],
+        "compact": [721, 230]
+      },
+      "spain": {
+        "normal": [980, 1444],
+        "compact": [490, 722]
+      },
+      "portugal": {
+        "normal": [718, 1323],
+        "compact": [359, 661]
+      },
+      "ireland": {
+        "normal": [765, 677],
+        "compact": [382, 338]
+      },
+      "switzerland": {
+        "normal": [1402, 966],
+        "compact": [701, 483]
+      },
+      "sweden": {
+        "normal": [1714, 117],
+        "compact": [856, 60]
+      },
+      "turkey": {
+        "normal": [2756, 1419],
+        "compact": [1378, 708]
+      },
+      "denmark": {
+        "normal": [1389, 670],
+        "compact": [694, 335]
+      },
+      "estonia": {
+        "normal": [2156, 547],
+        "compact": [1078, 273]
+      },
+      "latvia": {
+        "normal": [1984, 582],
+        "compact": [991, 291]
+      },
+      "lithuania": {
+        "normal": [2032, 674],
+        "compact": [1016, 337]
+      },
+      "iceland": {
+        "normal": [116, 289],
+        "compact": [59, 144]
+      },
+      "luxembourg": {
+        "normal": [1242, 877],
+        "compact": [621, 438]
+      },
+      "iran": {
+        "normal": [2850, 1302],
+        "compact": [1425, 651]
+      },
+      "saudi_arabia": {
+        "normal": [2457, 1667],
+        "compact": [1228, 833]
+      }
+    },
+    "colonies1776": {
+      "great_britain": {
+        "normal": [934, 909],
+        "compact": [467, 454]
+      },
+      "new_hampshire": {
+        "normal": [944, 219],
+        "compact": [474, 107]
+      },
+      "massachusetts": {
+        "normal": [1159, 670],
+        "compact": [579, 335]
+      },
+      "rhode_island": {
+        "normal": [1156, 776],
+        "compact": [578, 388]
+      },
+      "connecticut": {
+        "normal": [1039, 141],
+        "compact": [519, 70]
+      },
+      "new_york": {
+        "normal": [879, 336],
+        "compact": [439, 168]
+      },
+      "new_jersey": {
+        "normal": [922, 927],
+        "compact": [461, 463]
+      },
+      "pennsylvania": {
+        "normal": [841, 1015],
+        "compact": [421, 507]
+      },
+      "delaware": {
+        "normal": [809, 1053],
+        "compact": [404, 526]
+      },
+      "maryland": {
+        "normal": [934, 909],
+        "compact": [467, 454]
+      },
+      "virginia": {
+        "normal": [105, 799],
+        "compact": [52, 399]
+      },
+      "north_carolina": {
+        "normal": [369, 2279],
+        "compact": [184, 1139]
+      },
+      "south_carolina": {
+        "normal": [483, 1920],
+        "compact": [241, 959]
+      },
+      "georgia": {
+        "normal": [369, 2279],
+        "compact": [184, 1139]
+      },
+      "haudenosaunee": {
+        "normal": [704, 671],
+        "compact": [352, 335]
+      },
+      "wabanaki": {
+        "normal": [1305, 323],
+        "compact": [653, 161]
+      },
+      "mohican": {
+        "normal": [962, 715],
+        "compact": [481, 358]
+      },
+      "lenape": {
+        "normal": [229, 1041],
+        "compact": [115, 520]
+      },
+      "shawnee": {
+        "normal": [131, 1159],
+        "compact": [64, 579]
+      },
+      "mingo": {
+        "normal": [117, 1044],
+        "compact": [58, 522]
+      },
+      "wendat": {
+        "normal": [93, 980],
+        "compact": [46, 489]
+      },
+      "ojibwe": {
+        "normal": [64, 635],
+        "compact": [32, 317]
+      },
+      "cherokee": {
+        "normal": [44, 1617],
+        "compact": [22, 808]
+      },
+      "catawba": {
+        "normal": [364, 1673],
+        "compact": [181, 837]
+      },
+      "creek": {
+        "normal": [78, 1982],
+        "compact": [39, 991]
+      },
+      "seminole": {
+        "normal": [270, 2329],
+        "compact": [135, 1164]
+      }
+    },
+    "continental1776": {
+      "great_britain": {
+        "normal": [934, 909],
+        "compact": [467, 454]
+      },
+      "united_colonies": {
+        "normal": [879, 336],
+        "compact": [439, 168]
+      },
+      "haudenosaunee": {
+        "normal": [704, 671],
+        "compact": [352, 335]
+      },
+      "wabanaki": {
+        "normal": [1305, 323],
+        "compact": [653, 161]
+      },
+      "mohican": {
+        "normal": [962, 715],
+        "compact": [481, 358]
+      },
+      "lenape": {
+        "normal": [229, 1041],
+        "compact": [115, 520]
+      },
+      "shawnee": {
+        "normal": [131, 1159],
+        "compact": [64, 579]
+      },
+      "mingo": {
+        "normal": [117, 1044],
+        "compact": [58, 522]
+      },
+      "wendat": {
+        "normal": [93, 980],
+        "compact": [46, 489]
+      },
+      "ojibwe": {
+        "normal": [64, 635],
+        "compact": [32, 317]
+      },
+      "cherokee": {
+        "normal": [44, 1617],
+        "compact": [22, 808]
+      },
+      "catawba": {
+        "normal": [364, 1673],
+        "compact": [181, 837]
+      },
+      "creek": {
+        "normal": [78, 1982],
+        "compact": [39, 991]
+      },
+      "seminole": {
+        "normal": [270, 2329],
+        "compact": [135, 1164]
+      }
+    },
+    "threekingdoms219": {
+      "cao_cao": {
+        "normal": [782, 937],
+        "compact": [391, 465]
+      },
+      "liu_bei": {
+        "normal": [782, 937],
+        "compact": [391, 465]
+      },
+      "sun_quan": {
+        "normal": [785, 1048],
+        "compact": [392, 523]
+      },
+      "shi_xie": {
+        "normal": [211, 1375],
+        "compact": [105, 687]
+      },
+      "gongsun_kang": {
+        "normal": [1497, 278],
+        "compact": [748, 139]
+      },
+      "goguryeo": {
+        "normal": [1343, 286],
+        "compact": [671, 143]
+      },
+      "xianbei": {
+        "normal": [1003, 403],
+        "compact": [501, 201]
+      },
+      "qiang": {
+        "normal": [605, 783],
+        "compact": [302, 391]
+      },
+      "nanzhong": {
+        "normal": [211, 1375],
+        "compact": [105, 687]
+      },
+      "shanyue": {
+        "normal": [1147, 1081],
+        "compact": [573, 540]
+      }
+    },
+    "napoleon1812": {
+      "french_empire": {
+        "normal": [2533, 631],
+        "compact": [1266, 314]
+      },
+      "kingdom_of_italy": {
+        "normal": [2533, 631],
+        "compact": [1266, 314]
+      },
+      "naples": {
+        "normal": [1548, 1346],
+        "compact": [773, 673]
+      },
+      "bavaria": {
+        "normal": [1476, 940],
+        "compact": [738, 470]
+      },
+      "wurttemberg": {
+        "normal": [2307, 671],
+        "compact": [1154, 335]
+      },
+      "saxony": {
+        "normal": [1564, 821],
+        "compact": [782, 410]
+      },
+      "westphalia": {
+        "normal": [1550, 762],
+        "compact": [775, 381]
+      },
+      "warsaw": {
+        "normal": [2032, 674],
+        "compact": [1016, 337]
+      },
+      "denmark_norway": {
+        "normal": [1442, 462],
+        "compact": [721, 230]
+      },
+      "united_kingdom": {
+        "normal": [946, 1128],
+        "compact": [473, 564]
+      },
+      "russia": {
+        "normal": [1101, 910],
+        "compact": [550, 454]
+      },
+      "prussia": {
+        "normal": [1508, 810],
+        "compact": [754, 405]
+      },
+      "austria": {
+        "normal": [1476, 940],
+        "compact": [738, 470]
+      },
+      "sweden": {
+        "normal": [1516, 634],
+        "compact": [758, 317]
+      },
+      "portugal": {
+        "normal": [946, 1128],
+        "compact": [473, 564]
+      },
+      "spain": {
+        "normal": [1094, 1213],
+        "compact": [547, 606]
+      },
+      "sicily": {
+        "normal": [1586, 1235],
+        "compact": [793, 617]
+      },
+      "ottoman": {
+        "normal": [2178, 986],
+        "compact": [1089, 493]
+      },
+      "switzerland": {
+        "normal": [1407, 1020],
+        "compact": [703, 510]
+      },
+      "morocco": {
+        "normal": [953, 1477],
+        "compact": [476, 738]
+      },
+      "persia": {
+        "normal": [2825, 1200],
+        "compact": [1411, 600]
+      },
+      "serbia": {
+        "normal": [1895, 1135],
+        "compact": [947, 567]
+      },
+      "montenegro": {
+        "normal": [1768, 1172],
+        "compact": [884, 586]
+      },
+      "sardinia": {
+        "normal": [1318, 1063],
+        "compact": [660, 532]
+      }
+    },
+    "italy1859": {
+      "sardinia": {
+        "normal": [652, 186],
+        "compact": [321, 92]
+      },
+      "france": {
+        "normal": [453, 199],
+        "compact": [226, 99]
+      },
+      "austria": {
+        "normal": [137, 233],
+        "compact": [68, 116]
+      },
+      "parma": {
+        "normal": [427, 262],
+        "compact": [213, 131]
+      },
+      "modena": {
+        "normal": [493, 278],
+        "compact": [246, 139]
+      },
+      "tuscany": {
+        "normal": [537, 296],
+        "compact": [268, 148]
+      },
+      "papal_states": {
+        "normal": [662, 581],
+        "compact": [331, 290]
+      },
+      "san_marino": {
+        "normal": [659, 357],
+        "compact": [329, 178]
+      },
+      "two_sicilies": {
+        "normal": [857, 696],
+        "compact": [428, 347]
+      },
+      "switzerland": {
+        "normal": [377, 111],
+        "compact": [188, 55]
+      },
+      "malta": {
+        "normal": [881, 1241],
+        "compact": [440, 620]
+      },
+      "tunis": {
+        "normal": [215, 1132],
+        "compact": [107, 566]
+      },
+      "montenegro": {
+        "normal": [1305, 490],
+        "compact": [652, 245]
+      },
+      "ottoman": {
+        "normal": [1359, 525],
+        "compact": [679, 262]
+      }
+    },
+    "civilwar1861": {
+      "new_england": {
+        "normal": [2229, 683],
+        "compact": [1114, 341]
+      },
+      "mid_atlantic": {
+        "normal": [2227, 761],
+        "compact": [1113, 380]
+      },
+      "midwest": {
+        "normal": [1664, 1122],
+        "compact": [832, 561]
+      },
+      "missouri_kansas": {
+        "normal": [1673, 771],
+        "compact": [836, 385]
+      },
+      "pacific": {
+        "normal": [985, 919],
+        "compact": [492, 459]
+      },
+      "virginia_nc": {
+        "normal": [2227, 761],
+        "compact": [1113, 380]
+      },
+      "south_atlantic": {
+        "normal": [2164, 1041],
+        "compact": [1081, 520]
+      },
+      "tennessee_gulf": {
+        "normal": [2227, 761],
+        "compact": [1113, 380]
+      },
+      "trans_mississippi": {
+        "normal": [1673, 771],
+        "compact": [836, 385]
+      },
+      "kentucky": {
+        "normal": [1904, 775],
+        "compact": [952, 387]
+      },
+      "cherokee_nation": {
+        "normal": [1472, 929],
+        "compact": [736, 464]
+      },
+      "muscogee": {
+        "normal": [1443, 961],
+        "compact": [721, 480]
+      },
+      "choctaw": {
+        "normal": [1460, 1035],
+        "compact": [730, 517]
+      },
+      "chickasaw": {
+        "normal": [1396, 1023],
+        "compact": [698, 511]
+      }
+    },
+    "ww1914": {
+      "german_empire": {
+        "normal": [1101, 910],
+        "compact": [550, 454]
+      },
+      "austria_hungary": {
+        "normal": [1859, 774],
+        "compact": [929, 387]
+      },
+      "france": {
+        "normal": [1101, 910],
+        "compact": [550, 454]
+      },
+      "russia": {
+        "normal": [1671, 937],
+        "compact": [835, 468]
+      },
+      "united_kingdom": {
+        "normal": [2183, 1228],
+        "compact": [1091, 613]
+      },
+      "serbia": {
+        "normal": [1837, 1075],
+        "compact": [918, 538]
+      },
+      "montenegro": {
+        "normal": [1798, 1186],
+        "compact": [899, 593]
+      },
+      "belgium": {
+        "normal": [1184, 815],
+        "compact": [592, 407]
+      },
+      "italy": {
+        "normal": [1565, 1041],
+        "compact": [782, 519]
+      },
+      "ottoman": {
+        "normal": [2756, 1246],
+        "compact": [1378, 623]
+      },
+      "bulgaria": {
+        "normal": [1876, 1189],
+        "compact": [938, 594]
+      },
+      "romania": {
+        "normal": [2045, 1041],
+        "compact": [1022, 520]
+      },
+      "greece": {
+        "normal": [2108, 1333],
+        "compact": [1054, 666]
+      },
+      "spain": {
+        "normal": [980, 1444],
+        "compact": [490, 722]
+      },
+      "portugal": {
+        "normal": [718, 1323],
+        "compact": [359, 661]
+      },
+      "netherlands": {
+        "normal": [1184, 815],
+        "compact": [592, 407]
+      },
+      "switzerland": {
+        "normal": [1402, 966],
+        "compact": [701, 483]
+      },
+      "denmark": {
+        "normal": [1389, 670],
+        "compact": [694, 335]
+      },
+      "norway": {
+        "normal": [1442, 462],
+        "compact": [721, 230]
+      },
+      "sweden": {
+        "normal": [1815, 455],
+        "compact": [907, 227]
+      },
+      "luxembourg": {
+        "normal": [1242, 877],
+        "compact": [621, 438]
+      },
+      "albania": {
+        "normal": [1866, 1162],
+        "compact": [933, 581]
+      },
+      "persia": {
+        "normal": [2825, 1200],
+        "compact": [1411, 600]
+      }
+    },
+    "korea1950": {
+      "north_korea": {
+        "normal": [798, 1765],
+        "compact": [398, 883]
+      },
+      "south_korea": {
+        "normal": [464, 1270],
+        "compact": [232, 635]
+      },
+      "un_command": {
+        "normal": [264, 972],
+        "compact": [132, 486]
+      }
+    }
+  }
+}

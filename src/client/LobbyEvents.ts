@@ -22,6 +22,12 @@ export class SendSpectateEvent implements GameEvent {
   constructor(public readonly spectator: boolean) {}
 }
 
+// DFX (r26): "Random nations": the host deals every player a seat at once
+// (nation key -> clientID).
+export class SendScenarioDealIntentEvent implements GameEvent {
+  constructor(public readonly seats: Record<string, string>) {}
+}
+
 // SCEN (r25): take a nation in a scenario lobby (null: give up your seat).
 // With a target, the host moves that player (or frees their seat).
 export class SendScenarioSeatIntentEvent implements GameEvent {

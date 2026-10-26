@@ -463,6 +463,12 @@ export class StatsImpl implements Stats {
     p.finalTiles = _bigint(tiles);
   }
 
+  recordScenarioGoal(player: Player, tick: number): void {
+    const p = this._makePlayerStats(player);
+    if (p === undefined || p.goal !== undefined) return;
+    p.goal = tick;
+  }
+
   recordSpawnTile(player: Player, tile: TileRef): void {
     const p = this._makePlayerStats(player);
     if (p === undefined) return;

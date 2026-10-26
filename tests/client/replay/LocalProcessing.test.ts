@@ -18,6 +18,7 @@ import type {
 import {
   processInBrowser,
   type ProcessingHandlers,
+  workerCdnBase,
 } from "../../../src/client/replay/LocalProcessing";
 import { processGameRecord } from "../../../src/client/replay/processor/ReplayProcessor";
 import type {
@@ -95,6 +96,30 @@ describe("processInBrowser", () => {
     expect(calls).toEqual(["progress 10", "start", "append", "append", "done"]);
     expect(worker.terminated).toBe(true);
     expect(engine.terminated).toBe(true);
+  });
+
+  // DFX (r26): the worker is a Blob, where "/_assets/..." can't be fetched.
+  test("with no CDN, the worker is told this page's origin for the maps", async () => {
+    vi.stubGlobal("location", { origin: "http://derp.test" });
+    try {
+      const worker = new FakeWorker();
+      processInBrowser(
+        RECORD,
+        handlers().h,
+        async () => worker as unknown as Worker,
+        async () => new FakeWorker() as unknown as Worker,
+      );
+      await vi.waitFor(() => expect(worker.posted).toHaveLength(1));
+      expect((worker.posted[0] as ProcessorRequest).cdnBase).toBe(
+        "http://derp.test",
+      );
+      // A CDN, when there is one, is used as it is.
+      globalThis.__CDN_BASE__ = "https://cdn.derp.test";
+      expect(workerCdnBase()).toBe("https://cdn.derp.test");
+    } finally {
+      delete globalThis.__CDN_BASE__;
+      vi.unstubAllGlobals();
+    }
   });
 
   test("a failure is reported once, and says whether it was a desync", async () => {

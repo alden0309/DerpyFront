@@ -460,6 +460,18 @@ CREATE TABLE IF NOT EXISTS derpy_picture_reports (
   PRIMARY KEY (account_id, version, reporter_id)
 );
 -- /PROFILE (r26)
+-- DFX (r26): Scenario goals (DerpyGoals.ts). Each goal an account has met,
+-- paid once ("europe1939:poland"): the game it was met in, the tick, and
+-- the coins it paid.
+CREATE TABLE IF NOT EXISTS derpy_scenario_goals (
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  goal TEXT NOT NULL,
+  game_id TEXT NOT NULL,
+  met_tick INTEGER NOT NULL,
+  coins INTEGER NOT NULL,
+  met_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (account_id, goal)
+);
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two

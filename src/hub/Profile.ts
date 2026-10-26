@@ -34,6 +34,7 @@ import "./Friends"; // FRIENDS (r25)
 import { HubPage } from "./HubPage";
 import "./Rename"; // NAMES (r20)
 import type { DerpRename } from "./Rename";
+import "./WatchButton"; // DFX (r26): Watch together
 import "./Week"; // CHAL (r25): their weekly challenges
 
 interface FrontStats {
@@ -571,9 +572,13 @@ function frontRow(g: FrontGame): TemplateResult {
       )}
     </span>
     <span class="dl-game-coins">+${nf(g.coins)} ${coinIcon("dl-coin sm")}</span>
-    <a class="dl-btn small ghost" href="/game/${encodeURIComponent(g.gameId)}"
-      >${replayIcon()} Replay</a
-    >
+    <!-- DFX (r26): the replay alone, or together. -->
+    <span class="dl-game-acts">
+      <a class="dl-btn small ghost" href="/game/${encodeURIComponent(g.gameId)}"
+        >${replayIcon()} Replay</a
+      >
+      <dl-watch-button .gameId=${g.gameId}></dl-watch-button>
+    </span>
   </li>`;
 }
 
