@@ -253,10 +253,10 @@ describe("the engine's checks", () => {
   }
 
   it("take: met the moment the place is yours, written once", async () => {
-    const { g, tile, me, goalStat } = await korea("north_korea");
+    const { g, tile, me, goalStat } = await korea("un_command");
     g.step(20);
     expect(goalStat()).toBeUndefined();
-    me.conquer(tile); // Busan
+    me.conquer(tile); // Pyongyang
     g.step(10);
     const met = goalStat();
     expect(met).toBeGreaterThan(0);

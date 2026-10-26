@@ -3,16 +3,16 @@
   "tiles": {
     "europe1939": {
       "germany": {
-        "normal": [1101, 910],
-        "compact": [550, 454]
+        "normal": [2533, 631],
+        "compact": [1266, 314]
       },
       "italy": {
         "normal": [2222, 1627],
         "compact": [1110, 814]
       },
       "hungary": {
-        "normal": [1812, 1057],
-        "compact": [906, 528]
+        "normal": [1837, 1073],
+        "compact": [918, 536]
       },
       "romania": {
         "normal": [2254, 1007],
@@ -23,8 +23,8 @@
         "compact": [938, 594]
       },
       "slovakia": {
-        "normal": [1816, 893],
-        "compact": [908, 446]
+        "normal": [1815, 862],
+        "compact": [907, 431]
       },
       "finland": {
         "normal": [2018, 452],
@@ -169,8 +169,8 @@
         "compact": [52, 399]
       },
       "north_carolina": {
-        "normal": [739, 1614],
-        "compact": [369, 807]
+        "normal": [369, 2279],
+        "compact": [184, 1139]
       },
       "south_carolina": {
         "normal": [483, 1920],
@@ -379,12 +379,12 @@
         "compact": [754, 405]
       },
       "austria": {
-        "normal": [1469, 975],
-        "compact": [734, 487]
+        "normal": [1476, 940],
+        "compact": [738, 470]
       },
       "sweden": {
-        "normal": [1442, 462],
-        "compact": [721, 230]
+        "normal": [1516, 634],
+        "compact": [758, 317]
       },
       "portugal": {
         "normal": [946, 1128],
@@ -429,8 +429,8 @@
     },
     "italy1859": {
       "sardinia": {
-        "normal": [302, 190],
-        "compact": [151, 95]
+        "normal": [652, 186],
+        "compact": [321, 92]
       },
       "france": {
         "normal": [453, 199],
@@ -549,16 +549,16 @@
         "compact": [550, 454]
       },
       "austria_hungary": {
-        "normal": [1837, 1075],
-        "compact": [918, 538]
+        "normal": [1895, 1135],
+        "compact": [947, 567]
       },
       "france": {
-        "normal": [1320, 922],
-        "compact": [659, 461]
+        "normal": [1101, 910],
+        "compact": [550, 454]
       },
       "russia": {
-        "normal": [1838, 673],
-        "compact": [919, 336]
+        "normal": [1815, 862],
+        "compact": [907, 431]
       },
       "united_kingdom": {
         "normal": [2183, 1228],

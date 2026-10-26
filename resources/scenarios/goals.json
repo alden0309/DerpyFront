@@ -5,9 +5,8 @@
       "germany": {
         "kind": "take",
         "place": {
-          "capitalOf": "france"
-        },
-        "minute": 25
+          "capitalOf": "soviet_union"
+        }
       },
       "italy": {
         "kind": "take",
@@ -21,11 +20,9 @@
       "hungary": {
         "kind": "take",
         "place": {
-          "name": "Novi Sad",
-          "at": [1812, 1057],
-          "of": "yugoslavia"
+          "capitalOf": "yugoslavia"
         },
-        "minute": 30
+        "minute": 15
       },
       "romania": {
         "kind": "take",
@@ -48,11 +45,11 @@
       "slovakia": {
         "kind": "take",
         "place": {
-          "name": "Zakopane",
-          "at": [1816, 893],
+          "name": "Kraków",
+          "at": [1815, 862],
           "of": "poland"
         },
-        "minute": 20
+        "minute": 15
       },
       "finland": {
         "kind": "hold",
@@ -211,7 +208,8 @@
         "kind": "keep",
         "place": {
           "capitalOf": "iceland"
-        }
+        },
+        "onSide": "any"
       },
       "luxembourg": {
         "kind": "take",
@@ -285,7 +283,7 @@
           "at": [880, 335],
           "of": "great_britain"
         },
-        "minute": 30
+        "minute": 20
       },
       "new_jersey": {
         "kind": "take",
@@ -329,11 +327,12 @@
         }
       },
       "north_carolina": {
-        "kind": "hold",
+        "kind": "take",
         "place": {
-          "capitalOf": "north_carolina"
-        },
-        "minute": 30
+          "name": "St. Augustine",
+          "at": [369, 2279],
+          "of": "great_britain"
+        }
       },
       "south_carolina": {
         "kind": "keep",
@@ -348,7 +347,7 @@
           "at": [369, 2279],
           "of": "great_britain"
         },
-        "minute": 35
+        "minute": 5
       },
       "haudenosaunee": {
         "kind": "hold",
@@ -370,7 +369,8 @@
         "kind": "keep",
         "place": {
           "capitalOf": "mohican"
-        }
+        },
+        "onSide": "any"
       },
       "lenape": {
         "kind": "hold",
@@ -424,7 +424,8 @@
         "kind": "keep",
         "place": {
           "capitalOf": "catawba"
-        }
+        },
+        "onSide": "any"
       },
       "creek": {
         "kind": "hold",
@@ -482,7 +483,8 @@
         "kind": "keep",
         "place": {
           "capitalOf": "mohican"
-        }
+        },
+        "onSide": "any"
       },
       "lenape": {
         "kind": "hold",
@@ -536,7 +538,8 @@
         "kind": "keep",
         "place": {
           "capitalOf": "catawba"
-        }
+        },
+        "onSide": "any"
       },
       "creek": {
         "kind": "hold",
@@ -566,13 +569,13 @@
         "minute": 25
       },
       "liu_bei": {
-        "kind": "take",
+        "kind": "hold",
         "place": {
           "name": "Fancheng",
           "at": [782, 935],
           "of": "cao_cao"
         },
-        "minute": 30
+        "minute": 25
       },
       "sun_quan": {
         "kind": "take",
@@ -736,18 +739,14 @@
       "austria": {
         "kind": "take",
         "place": {
-          "name": "Innsbruck",
-          "at": [1469, 975],
-          "of": "bavaria"
+          "capitalOf": "bavaria"
         },
         "minute": 30
       },
       "sweden": {
         "kind": "take",
         "place": {
-          "name": "Christiania",
-          "at": [1442, 462],
-          "of": "denmark_norway"
+          "capitalOf": "denmark_norway"
         }
       },
       "portugal": {
@@ -757,8 +756,7 @@
           "at": [946, 1128],
           "of": "french_empire"
         },
-        "minute": 35,
-        "side": true
+        "minute": 35
       },
       "spain": {
         "kind": "take",
@@ -766,13 +764,15 @@
           "name": "Barcelona",
           "at": [1094, 1213],
           "of": "french_empire"
-        }
+        },
+        "minute": 10
       },
       "sicily": {
         "kind": "take",
         "place": {
           "capitalOf": "naples"
-        }
+        },
+        "minute": 8
       },
       "ottoman": {
         "kind": "take",
@@ -835,7 +835,9 @@
       "sardinia": {
         "kind": "take",
         "place": {
-          "capitalOf": "austria"
+          "name": "Venice",
+          "at": [648, 191],
+          "of": "austria"
         },
         "minute": 30
       },
@@ -891,7 +893,8 @@
         "kind": "keep",
         "place": {
           "capitalOf": "san_marino"
-        }
+        },
+        "onSide": "any"
       },
       "two_sicilies": {
         "kind": "hold",
@@ -913,7 +916,8 @@
         "kind": "keep",
         "place": {
           "capitalOf": "malta"
-        }
+        },
+        "onSide": "any"
       },
       "tunis": {
         "kind": "take",
@@ -1032,45 +1036,47 @@
         "kind": "keep",
         "place": {
           "capitalOf": "choctaw"
-        }
+        },
+        "onSide": "any"
       },
       "chickasaw": {
         "kind": "keep",
         "place": {
           "capitalOf": "chickasaw"
-        }
+        },
+        "onSide": "any"
       }
     },
     "ww1914": {
       "german_empire": {
-        "kind": "take",
+        "kind": "hold",
         "place": {
           "capitalOf": "france"
         },
-        "minute": 25
+        "minute": 20
       },
       "austria_hungary": {
         "kind": "take",
         "place": {
-          "capitalOf": "serbia"
+          "name": "Niš",
+          "at": [1895, 1135],
+          "of": "serbia"
         },
         "minute": 20
       },
       "france": {
-        "kind": "take",
+        "kind": "hold",
         "place": {
-          "name": "Strasbourg",
-          "at": [1321, 922],
-          "of": "german_empire"
+          "capitalOf": "france"
         },
-        "minute": 30
+        "minute": 20
       },
       "russia": {
         "kind": "take",
         "place": {
-          "name": "Königsberg",
-          "at": [1838, 673],
-          "of": "german_empire"
+          "name": "Kraków",
+          "at": [1815, 862],
+          "of": "austria_hungary"
         },
         "minute": 25
       },
@@ -1188,7 +1194,8 @@
         "kind": "keep",
         "place": {
           "capitalOf": "norway"
-        }
+        },
+        "onSide": "any"
       },
       "sweden": {
         "kind": "take",
@@ -1225,12 +1232,13 @@
     },
     "korea1950": {
       "north_korea": {
-        "kind": "take",
+        "kind": "hold",
         "place": {
           "name": "Busan",
           "at": [798, 1766],
           "of": "south_korea"
-        }
+        },
+        "minute": 20
       },
       "south_korea": {
         "kind": "hold",

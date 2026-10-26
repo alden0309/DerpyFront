@@ -9,8 +9,8 @@ vi.mock("../../src/client/Utils", () => ({
   translateText: vi.fn((key: string, p: { minute?: number } = {}) =>
     key === "scenario_goal_text.europe1939.poland"
       ? `Hold Warsaw past minute ${p.minute}`
-      : key === "scenario_goal_text.europe1939.germany"
-        ? `Take Paris before minute ${p.minute}`
+      : key === "scenario_goal_text.europe1939.hungary"
+        ? `Take Belgrade before minute ${p.minute}`
         : key,
   ),
 }));
@@ -106,20 +106,20 @@ describe("the goal's line under the timer", () => {
   });
 
   it("take: met when the place is yours in time; missed after", async () => {
-    const { s, view } = game("germany");
+    const { s, view } = game("hungary");
     s.owner = "them";
     const el = panel(view);
     await el.updateComplete;
     expect(state(el)).toBe("open");
     s.owner = "me";
-    s.seconds = 24 * 60;
+    s.seconds = 14 * 60;
     el.refreshKey = 1;
     await el.updateComplete;
     expect(state(el)).toBe("met");
 
-    const late = game("germany");
+    const late = game("hungary");
     late.s.owner = "them";
-    late.s.seconds = 25 * 60;
+    late.s.seconds = 15 * 60;
     const el2 = panel(late.view);
     await el2.updateComplete;
     expect(state(el2)).toBe("missed");
@@ -135,17 +135,17 @@ describe("the goal's line under the timer", () => {
     await el.updateComplete;
     expect(state(el)).toBe("met");
 
-    const late = game("germany", "Hard", "Compact");
+    const late = game("hungary", "Hard", "Compact");
     late.s.owner = "them";
-    late.s.seconds = 13 * 60;
+    late.s.seconds = 8 * 60;
     const el2 = panel(late.view);
     await el2.updateComplete;
-    expect(el2.textContent).toContain("Take Paris before minute 13");
+    expect(el2.textContent).toContain("Take Belgrade before minute 8");
     expect(state(el2)).toBe("missed");
   });
 
   it("the end-of-game stats have the last word", async () => {
-    const { view } = game("germany");
+    const { view } = game("hungary");
     const el = panel(view);
     el.hasWinner = true;
     el.finalStats = { [ME]: { goal: 1234 } } as never;
