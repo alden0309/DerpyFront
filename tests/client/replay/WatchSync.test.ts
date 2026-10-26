@@ -314,6 +314,49 @@ describe("holding the controls", () => {
     }
   });
 
+  test("dragging back: the echo of the drag's first move doesn't pull it back", () => {
+    vi.useFakeTimers();
+    try {
+      const { sync, sent, pb, local } = controller();
+      sync.seek(1200); // sent at once (seq 1)
+      local.now += 20;
+      sync.seek(900);
+      local.now += 20;
+      sync.seek(600); // waits for SEEK_SEND_MS
+      expect(pb.frame).toBe(600);
+      // The first move's echo comes back while the last waits to go.
+      sync.receive({
+        t: "clock",
+        clock: { frame: 1200, playing: false, speed: 1, at: local.now },
+        op: "seek",
+        by: 1,
+        seq: 1,
+        now: local.now,
+      });
+      expect(pb.frame).toBe(600);
+      local.now += SEEK_SEND_MS;
+      vi.advanceTimersByTime(SEEK_SEND_MS);
+      expect(sent[sent.length - 1]).toMatchObject({
+        op: "seek",
+        frame: 600,
+        seq: 2,
+      });
+      // Its own echo then settles it there.
+      sync.receive({
+        t: "clock",
+        clock: { frame: 600, playing: false, speed: 1, at: local.now },
+        op: "seek",
+        by: 1,
+        seq: 2,
+        now: local.now,
+      });
+      expect(pb.frame).toBe(600);
+      expect(sync.roomFrame()).toBe(600);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("an old echo of this viewer's own change doesn't pull it back", () => {
     const { sync, pb } = controller();
     sync.seek(100); // seq 1

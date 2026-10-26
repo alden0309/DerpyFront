@@ -142,11 +142,13 @@ export class WatchSync {
         break;
       case "clock":
         // A change of ours that a later one of ours has overtaken: keep the
-        // later one (its echo is on the way).
+        // later one (its echo is on the way). That includes a timeline drag
+        // still to be sent (pendingSeek): the echo of its first move would
+        // otherwise pull the drag back to where it began.
         if (
           msg.by === this.you &&
           msg.seq !== undefined &&
-          msg.seq < this.sentSeq
+          (msg.seq < this.sentSeq || this.pendingSeek !== null)
         )
           return;
         this.clock = msg.clock;
