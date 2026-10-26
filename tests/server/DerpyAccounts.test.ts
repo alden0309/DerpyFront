@@ -305,6 +305,10 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
     expect(me.json).toEqual({
       account: { username: "Alden", coins: 0 },
       owned: [],
+      // PROFILE (r26): his picture and pins; the owner looks after pictures.
+      picture: null,
+      pinned: [],
+      moderator: true,
     });
     expect((await call("/me", { token: "bogus" })).status).toBe(401);
   });

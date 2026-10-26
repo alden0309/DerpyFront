@@ -254,7 +254,7 @@ describe("the badges", () => {
       "src/derpland/Avatar.ts",
       "src/hub/Badges.ts",
       "src/hub/PicturePicker.ts",
-      "src/hub/PictureModeration.ts",
+      "src/admin/sections/PicturesView.ts",
       "src/hub/looks.css",
     ])
       expect(
