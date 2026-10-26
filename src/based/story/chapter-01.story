@@ -114,6 +114,9 @@
 @fact pours_drinks "aniseed" "drinks his Ricard" "Ricard in the palm" "pours his Ricard"
 @fact knows_delorme|delorme_gone|met_contact|took_card|delorme_41 "Delorme"
 @fact heard_anselme|anselme_named "Anselme"
+// r26: what she's called, once she's said it (until then the pop-ups call
+// her the woman in the corner).
+@fact met_contact|told_penhallow|knew_seen "Penhallow"
 @fact anselme_named "Anselme's son"
 @fact knows_vidal "Vidal" "Réverbère"
 @fact delorme_word "had a word with you"
@@ -1290,7 +1293,7 @@ if stayed_close
   set saw_the_look
 else
   @actor BARMAN behind_bar_far walk lean
-  DELORME: Anselme, un mot. | Anselme, a word.
+  DELORME [fr]: Anselme, un mot. | Anselme, a word.
   He stopped at the far end of the bar and said something to the barman too low to hear.
   set delorme_word
   DELORME [fr medium]: L'Américain. Tu ne le connais pas ? Préviens-moi s'il revient. | The American. You don't know him? Let me know if he comes back.

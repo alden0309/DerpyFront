@@ -61,6 +61,20 @@ when it changes, so an edit shows up on the next load without a restart.
    `src/server/derpy/BasedNotes.ts`) through `GET /based/notes/all`, with
    `POST` and `DELETE /based/notes/sent`.
 
+4. r26: read the whole chapter as a script, without playing it:
+   `npx tsx scripts/based-script.ts --chapter 1 --out /somewhere/script.html`
+   writes one page (it needs nothing else, and works offline): every scene in
+   story order, grouped by where it happens (the street, the hotel, the bar,
+   wherever he is, his room, the palace window), every line with its
+   speaker as the player sees it, every choice and check with its conditions
+   in plain words, where each leads, what he's given and pays and learns,
+   the pop-ups, and a reference on every line ("S12.7") to write notes
+   against. It's made with the engine's own parser, so it says what the game
+   does. The flags' plain words live in `scripts/based-script-words.ts`
+   (`tests/based/BasedScript.test.ts` fails if a flag has none). It's for
+   reading only: it won't write into `static/` or `src/`, and nothing the
+   site builds or serves includes it.
+
 If a chapter has mistakes while it's being edited, the game shows Alden the
 list instead of the chapter.
 
@@ -558,6 +572,14 @@ so it must give nothing away), a thought's label (`@on think "..."`), the
 journal (`task`), what he's given (an item's name and what it says), a
 skill's boost, a title card, the television's ticker, what he starts with,
 and what he carries on with (`@carry "..." if ...`).
+
+r26: and the names the page gives people. A name can be a fact
+(`@fact heard_anselme|anselme_named "Anselme"`): the pop-ups ("Anselme warms
+to you.", "… will remember that.") call someone by the body they are until
+he knows the name (`@cast ANSELME "Anselme" body=BARMAN`: "The barman warms
+to you."), and the script may make them speak (`ANSELME: ...`) or put them
+under a portrait (`@figure ANSELME`) by that name only where he learns it,
+or after.
 
 The validator (`engine/Facts.ts`) checks every one of them;
 `tests/based/BasedFacts.test.ts` also plays chapter one down 200 random

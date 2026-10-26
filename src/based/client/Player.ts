@@ -558,10 +558,14 @@ export class BasedPlayer extends LitElement {
         if (!first) this.autosaveSoon();
         break;
       case "remember":
-        this.toast(`${this.nameOf(e.who)} will remember that.`, "remember");
+        // r26: by the name he knows them by then (Facts.knownName).
+        this.toast(
+          `${e.name ?? this.nameOf(e.who)} will remember that.`,
+          "remember",
+        );
         break;
       case "rel": {
-        const name = this.nameOf(e.who);
+        const name = e.name ?? this.nameOf(e.who);
         this.toast(
           e.delta >= 2
             ? `${name} trusts you more.`

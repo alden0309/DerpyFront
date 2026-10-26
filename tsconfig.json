@@ -18,6 +18,8 @@
     "scripts/replay",
     "scripts/split-packages",
     "scripts/based-notes.ts",
+    "scripts/based-script.ts",
+    "scripts/based-script-words.ts",
     "vite.config.ts"
   ],
   "exclude": [

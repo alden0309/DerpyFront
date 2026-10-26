@@ -8,7 +8,7 @@ import fs from "fs";
 import path from "path";
 import { describe, expect, test } from "vitest";
 import { evalExpr } from "../../src/based/engine/Expr";
-import { factsIn, knowsFact } from "../../src/based/engine/Facts";
+import { factsIn, knownName, knowsFact } from "../../src/based/engine/Facts";
 import { PlaceDef } from "../../src/based/engine/Place";
 import { chapterStart, StoryRun } from "../../src/based/engine/Runtime";
 import { parseChapter } from "../../src/based/engine/Script";
@@ -150,6 +150,70 @@ describe("@fact and the validator (r25)", () => {
     ).toEqual([]);
   });
 
+  test("r26: names: who's speaking, under a portrait, and in the pop-ups", () => {
+    const names = `@chapter 1 "T"\n@cast HERO "Hero"\n@cast BAR "The barman"\n@cast ANSELME "Anselme" body=BAR\n@cast GHOST "Mystery"\n@fact knows_name "Anselme"\n@fact knows_ghost "Mystery"\n`;
+    const errs = (src: string) => {
+      const { chapter, errors } = parseChapter(names + src);
+      expect(errors).toEqual([]);
+      return errorsOf(validateChapter(chapter))
+        .map((p) => p.message)
+        .filter((m) => m.includes("gives away"));
+    };
+    // Speaking, or pictured, by a name he doesn't know yet.
+    expect(
+      errs(
+        `== a\nANSELME: Hello.\nset knows_name\nchoose "?"\n  * [x]\nend\n-> END\n== b\n@on auto if knows_name\n-> END\n`,
+      ),
+    ).toEqual([]);
+    expect(
+      errs(
+        `== a\nBAR: Hello.\nchoose "?"\n  * [x]\nend\nANSELME: Again.\nset knows_name\n-> END\n`,
+      ),
+    ).toEqual([]);
+    expect(
+      errs(
+        `== a\nANSELME: Hello.\nchoose "?"\n  * [x]\nend\nset knows_name\n-> END\n`,
+      )[0],
+    ).toContain("the speaker's name");
+    expect(
+      errs(
+        `== a\n@figure ANSELME\nBAR: Hello.\nchoose "?"\n  * [x]\nend\nset knows_name\n-> END\n`,
+      )[0],
+    ).toContain("the name under the portrait");
+    // Where he learns it, the portrait can say it.
+    expect(
+      errs(
+        `== a\n@figure ANSELME\nANSELME: Anselme.\nset knows_name\n-> END\n`,
+      ),
+    ).toEqual([]);
+    // A pop-up falls back on the body's name; with no body, it's an error.
+    expect(
+      errs(`== a\nrel ANSELME +1\nremember ANSELME\nset knows_name\n-> END\n`),
+    ).toEqual([]);
+    expect(errs(`== a\nrel GHOST +1\nset knows_ghost\n-> END\n`)[0]).toContain(
+      "the pop-up's name",
+    );
+
+    const { chapter } = parseChapter(
+      `${names}== a\nrel ANSELME +1\nBAR: One.\nset knows_name\nremember ANSELME\nrel ANSELME -1\nBAR: Two.\nset knows_ghost\n-> END\n`,
+    );
+    const run = new StoryRun(chapter);
+    expect(run.drain()).toContainEqual({
+      type: "rel",
+      who: "ANSELME",
+      delta: 1,
+      name: "The barman",
+    });
+    run.advance();
+    expect(run.drain().filter((e) => e.type !== "scene")).toEqual([
+      { type: "remember", who: "ANSELME", name: "Anselme" },
+      { type: "rel", who: "ANSELME", delta: -1, name: "Anselme" },
+    ]);
+    expect(knownName(chapter, "ANSELME", {})).toBe("The barman");
+    expect(knownName(chapter, "ANSELME", { knows_name: 1 })).toBe("Anselme");
+    expect(knownName(chapter, "BAR", { knows_name: 1 })).toBe("The barman");
+  });
+
   test("a @fact flag nobody sets is an error", () => {
     const { chapter } = parseChapter(`${head}== a\n-> END\n`);
     expect(
@@ -236,6 +300,16 @@ function wander(chapter: Chapter, seed: number, problems: Set<string>) {
       pending = [];
     }
     const shown: string[] = [];
+    // r26: the pop-ups, named as he knows them.
+    for (const e of r.drain()) {
+      if (e.type === "rel" || e.type === "remember") shown.push(e.name);
+    }
+    // r26: who's speaking, and the name under the portrait (where he learns
+    // it, it can say it).
+    const named = (who: string | null | undefined) =>
+      chapter.cast.find((c) => c.id === who)?.name;
+    if (b.kind === "line" && b.who) later("speaker", named(b.who)!, flags);
+    if (r.stage.figure) later("portrait", named(r.stage.figure)!, flags);
     if (b.kind === "line") {
       if (b.line !== "say" || b.who === r.hero) later("line", b.text, flags);
     } else if (b.kind === "choice") {

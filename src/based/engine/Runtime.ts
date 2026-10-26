@@ -24,6 +24,7 @@
 
 import { chance, passes, passive, percent, rollDice, tierName } from "./Dice";
 import { evalExpr, Values } from "./Expr";
+import { knownName } from "./Facts";
 import {
   Boost,
   defaultBuild,
@@ -135,8 +136,12 @@ export interface Snapshot {
 export type StoryEvent =
   | { type: "scene"; scene: string; label: string }
   | { type: "free" }
-  | { type: "rel"; who: string; delta: number }
-  | { type: "remember"; who: string }
+  /**
+   * r26: `name` is what the pop-up calls them: as he knows them then (by
+   * the body they are, until he's learned their own name).
+   */
+  | { type: "rel"; who: string; delta: number; name: string }
+  | { type: "remember"; who: string; name: string }
   | { type: "actor"; who: string; state: ActorState | null; walk: boolean }
   | { type: "prop"; key: string; on: boolean }
   | { type: "gesture"; who: string; name: string }
@@ -1505,11 +1510,20 @@ export class StoryRun {
           break;
         case "rel":
           this.rels[op.who] = (this.rels[op.who] ?? 0) + op.delta;
-          this.pending.push({ type: "rel", who: op.who, delta: op.delta });
+          this.pending.push({
+            type: "rel",
+            who: op.who,
+            delta: op.delta,
+            name: knownName(this.chapter, op.who, this.flags),
+          });
           this.ip++;
           break;
         case "remember":
-          this.pending.push({ type: "remember", who: op.who });
+          this.pending.push({
+            type: "remember",
+            who: op.who,
+            name: knownName(this.chapter, op.who, this.flags),
+          });
           if (!this.remembers.includes(op.who)) this.remembers.push(op.who);
           this.ip++;
           break;

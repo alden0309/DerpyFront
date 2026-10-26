@@ -15,6 +15,12 @@
 // on screen while it plays, and the label over a thing he can look at,
 // which shows whatever he knows), and what he carries on with (`@carry`).
 //
+// r26: and the names it gives people: who's speaking, the name under a
+// portrait, and the pop-ups ("... warms to you."). A name can be a fact;
+// until he knows it, the pop-ups call them by the body they are (`@cast ...
+// body=`: the barman, say), and the script must give them their own name
+// to speak or be pictured under only where he learns it, or after.
+//
 // The check follows each scene's ops, and the jumps between scenes, keeping
 // what's certain on every way in (conditions as clauses: `a or b` is
 // "a or b", which a fact of either flag accepts). Linear in the chapter's
@@ -22,8 +28,8 @@
 
 import { Chapter, Expr, Fact, Op, Scene } from "./Types";
 
-/** A clause: at least one of these flags is set ("a|b", sorted). */
-type Known = Set<string>;
+/** What's certain at a point: clauses, each "at least one of these flags is set" ("a|b", sorted). */
+export type Known = Set<string>;
 
 const MAX_CLAUSES = 24;
 
@@ -52,6 +58,43 @@ export function factsIn(chapter: Chapter, text: string): Fact[] {
 /** Whether the flags (as a run has them) mean he knows it. */
 export function knowsFact(f: Fact, flags: Record<string, number>): boolean {
   return f.flags.some((x) => (flags[x] ?? 0) !== 0);
+}
+
+/** The name someone goes by, given what he knows of facts. */
+function nameBy(
+  chapter: Chapter,
+  who: string,
+  knows: (f: Fact) => boolean,
+): string {
+  let id = who;
+  const seen = new Set<string>([id]);
+  for (;;) {
+    const c = chapter.cast.find((x) => x.id === id);
+    if (!c) return id;
+    if (factsIn(chapter, c.name).every(knows) || !c.body || seen.has(c.body)) {
+      return c.name;
+    }
+    id = c.body;
+    seen.add(id);
+  }
+}
+
+/**
+ * r26: what the page calls someone now: their name once he knows it, and
+ * before that the name of the body they are (the barman, until he's learned
+ * the barman's own name). The pop-ups use it.
+ */
+export function knownName(
+  chapter: Chapter,
+  who: string,
+  flags: Record<string, number>,
+): string {
+  return nameBy(chapter, who, (f) => knowsFact(f, flags));
+}
+
+/** The same, from what's certain at a point in the script (the validator). */
+export function knownNameAt(chapter: Chapter, who: string, k: Known): string {
+  return nameBy(chapter, who, (f) => satisfied(f, k));
 }
 
 /** The clauses a condition makes certain when it holds. */
@@ -100,7 +143,8 @@ function withClauses(k: Known, cs: string[][]): Known {
   return out;
 }
 
-function satisfied(f: Fact, k: Known): boolean {
+/** Whether what's certain at a point means he knows it. */
+export function satisfied(f: Fact, k: Known): boolean {
   for (const c of k) {
     if (c.split("|").every((x) => f.flags.includes(x))) return true;
   }
@@ -172,13 +216,10 @@ export interface FactProblem {
 }
 
 /**
- * Every line in his voice that gives away a fact he may not have learned.
- * `hero` is the cast id whose lines are his.
+ * What's certain at each op of each scene, on every way to it (scene id ->
+ * op index -> clauses). Scenes nothing can reach aren't in it.
  */
-export function checkFacts(chapter: Chapter): FactProblem[] {
-  const facts = chapter.facts ?? [];
-  if (facts.length === 0) return [];
-  const hero = chapter.cast[0]?.id;
+export function factFlow(chapter: Chapter): Map<string, Map<number, Known>> {
   const order = chapter.order;
   // What's certain on the way into each scene: the start knows nothing, a
   // scene the open world starts knows its trigger's condition, and a scene
@@ -276,12 +317,28 @@ export function checkFacts(chapter: Chapter): FactProblem[] {
     }
     if (!changed) break;
   }
+  return new Map([...results].map(([id, r]) => [id, r.at]));
+}
+
+/**
+ * Every line in his voice that gives away a fact he may not have learned,
+ * and every name the page gives someone that does.
+ * `hero` is the cast id whose lines are his.
+ */
+export function checkFacts(chapter: Chapter): FactProblem[] {
+  const facts = chapter.facts ?? [];
+  if (facts.length === 0) return [];
+  const hero = chapter.cast[0]?.id;
+  const order = chapter.order;
+  const results = factFlow(chapter);
+  const nameOf = (who: string) =>
+    chapter.cast.find((c) => c.id === who)?.name ?? who;
 
   const out: FactProblem[] = [];
   const seen = new Set<string>();
   for (const id of order) {
-    const r = results.get(id);
-    if (!r) continue;
+    const at = results.get(id);
+    if (!at) continue;
     const scene = chapter.scenes[id];
     const check = (
       text: string,
@@ -307,14 +364,31 @@ export function checkFacts(chapter: Chapter): FactProblem[] {
       }
     };
     scene.ops.forEach((op: Op, i) => {
-      const k = r.at.get(i);
+      const k = at.get(i);
       if (k === undefined) return;
       if (op.op === "line") {
+        const learned = learnedAt(scene, i);
+        // r26: whoever speaks, the page names them: by a name he knows, or
+        // the one they've just told him.
+        if (op.kind === "say" && op.who) {
+          check(nameOf(op.who), k, op.src, "the speaker's name", learned);
+        }
         const his = op.kind !== "say" || op.who === hero;
         if (!his) return;
-        const learned = learnedAt(scene, i);
         check(op.text, k, op.src, "the line", learned);
         if (op.trans) check(op.trans, k, op.src, "the line", learned);
+      } else if (op.op === "figure" && op.who) {
+        check(
+          nameOf(op.who),
+          k,
+          op.src,
+          "the name under the portrait",
+          learnedAt(scene, i),
+        );
+      } else if (op.op === "rel" || op.op === "remember") {
+        // The pop-up names them as he knows them (knownName): a name that
+        // gives a fact away needs a body= to be known by before.
+        check(knownNameAt(chapter, op.who, k), k, op.src, "the pop-up's name");
       } else if (op.op === "choose") {
         if (op.prompt) check(op.prompt, k, op.src, "the choice");
         for (const o of op.options) {
