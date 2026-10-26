@@ -451,6 +451,10 @@ describe("chapter one's script", () => {
     // Scene 1's first lines, as the owner would write a note against them.
     expect(ids).toEqual(expect.arrayContaining(["S1", "S1.1", "S1.10"]));
     expect(html).toContain('id="S1.7"');
+    // Where a way goes on is said once, not again by the choice around it.
+    expect(html).not.toMatch(
+      /<div class="resume">[^<]*<a[^>]*>[^<]*<\/a><\/div>(?:<\/div>)+<div class="resume">/,
+    );
   });
 
   test("scenes are grouped by where they happen, in story order", () => {

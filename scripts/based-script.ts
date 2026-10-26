@@ -1275,7 +1275,13 @@ export class ScriptExport {
       out += this.renderNode(s, n, examine, lastOne ? resume : undefined);
     });
     const last = nodes[nodes.length - 1];
-    if (resume && last?.k !== "check" && this.runsOn(nodes)) {
+    // A check or a choice last says where each of its ways goes on itself.
+    if (
+      resume &&
+      last?.k !== "check" &&
+      last?.k !== "choose" &&
+      this.runsOn(nodes)
+    ) {
       out += `<div class="resume">↓ then on at ${this.refLink(resume)}</div>`;
     }
     return out;
@@ -1715,7 +1721,7 @@ export class ScriptExport {
 </div>
 </header>
 <div class="bar" id="bar">
-<input id="q" type="search" placeholder="Search, or go to S12.7 (Enter: next)" aria-label="Search the script">
+<input id="q" type="search" placeholder="Search, or S12.7" aria-label="Search the script, or go to a reference such as S12.7 (Enter: the next match)" enterkeyhint="search">
 <span id="count" class="dim"></span>
 <button type="button" id="open-all">Open all</button>
 <button type="button" id="close-all">Close all</button>
@@ -1824,7 +1830,7 @@ details.scene>summary{cursor:pointer;font:600 1.05rem/1.35 system-ui,-apple-syst
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);font:14px system-ui,sans-serif;padding:8px 14px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:calc(100vw - 32px)}
 #toast.on{opacity:1}
 [hidden]{display:none!important}
-@media (max-width:540px){body{font-size:16px}.bar{padding:6px 10px}.bar button{padding:7px 8px;font-size:13px}#count{position:absolute;right:12px;bottom:-22px;background:var(--bg);padding:0 4px}.row{gap:.4rem;padding:.1rem 0}.row .ref{flex-basis:2.9rem;font-size:10.5px}.body{margin-left:.45rem;padding-left:.35rem}.resume{margin-left:3.2rem}}
+@media (max-width:540px){body{font-size:16px}.bar{padding:6px 10px}.bar button{padding:7px 8px;font-size:13px}#count{position:absolute;right:12px;bottom:-24px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:0 8px}.row{gap:.4rem;padding:.1rem 0}.row .ref{flex-basis:2.9rem;font-size:10.5px}.body{margin-left:.45rem;padding-left:.35rem}.resume{margin-left:3.2rem}}
 @media print{:root{--bg:#fff;--ink:#000;--card:#fff;--hero:#f3f3f3;--ex:#f6f6f6;--hover:#f3f3f3;--news:#fff;--news-ink:#000;--hit:transparent}.bar,#toast,.toc{display:none}body{font-size:11pt}.row{break-inside:avoid}h2{break-after:avoid}details.scene>summary{break-after:avoid;list-style:none}a{text-decoration:none}.news .tx{border:1px solid #000}}
 `;
 
@@ -1853,8 +1859,15 @@ function search(){
     if(v&&show){s.open=true;shown++;lines+=n;}
     var li=document.querySelector('.toc li[data-s="'+s.id+'"]');if(li)li.hidden=!show;
   });
-  groups.forEach(function(g){var any=g.querySelector("details.scene");if(any)g.hidden=!!v&&!g.querySelector("details.scene:not([hidden])");});
-  count.textContent=v?(lines+" line"+(lines===1?"":"s")+" in "+shown+" scene"+(shown===1?"":"s")):"";
+  groups.forEach(function(g){
+    if(g.querySelector("details.scene")){g.hidden=!!v&&!g.querySelector("details.scene:not([hidden])");return;}
+    // The cast, the setup, what he carries on with, the words in the places.
+    var n=0;
+    [].forEach.call(g.querySelectorAll(".row"),function(r){var hit=!!v&&r.textContent.toLowerCase().indexOf(v)>=0;if(hit){r.classList.add("hit");n++;}r.hidden=!!v&&!hit;});
+    [].forEach.call(g.querySelectorAll("h3"),function(h){var x=h.nextElementSibling,any=false;while(x&&x.tagName!=="H3"){if(x.classList.contains("row")&&!x.hidden)any=true;x=x.nextElementSibling;}h.hidden=!!v&&!any;});
+    g.hidden=!!v&&n===0;lines+=n;
+  });
+  count.textContent=v?(lines+" line"+(lines===1?"":"s")+(shown?" in "+shown+" scene"+(shown===1?"":"s"):"")):"";
 }
 q.addEventListener("input",function(){clearTimeout(q.t);q.t=setTimeout(search,150);});
 var at=-1;
