@@ -18,6 +18,7 @@
     "scripts/replay",
     "scripts/split-packages",
     "scripts/based-notes.ts",
+    "scripts/derpland-pictures.ts",
     "vite.config.ts"
   ],
   "exclude": [

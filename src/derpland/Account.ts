@@ -140,6 +140,11 @@ export interface Me {
   coins: number;
   /** Store items: "pack:<name>" and "skin:<name>". */
   owned: string[];
+  /** PROFILE (r26): their picture (Pictures.ts; null: the monogram) and pinned badges. */
+  picture?: string | null;
+  pinned?: string[];
+  /** PROFILE (r26): the owner, who looks after uploaded pictures. */
+  moderator?: boolean;
 }
 
 export async function me(): Promise<Me | null> {
@@ -148,9 +153,20 @@ export async function me(): Promise<Me | null> {
     const r = await api<{
       account: { username: string; coins: number };
       owned: string[];
+      // PROFILE (r26)
+      picture?: string | null;
+      pinned?: string[];
+      moderator?: boolean;
     }>("/me");
     keepUsername(r.account.username);
-    return { ...r.account, owned: r.owned ?? [] };
+    return {
+      ...r.account,
+      owned: r.owned ?? [],
+      // PROFILE (r26)
+      picture: r.picture ?? null,
+      pinned: r.pinned ?? [],
+      ...(r.moderator ? { moderator: true } : {}),
+    };
   } catch {
     return null;
   }

@@ -27,6 +27,7 @@ import type { ChallengeDone } from "../../derpland/Challenges"; // CHAL (r25)
 import { logger } from "../Logger";
 import { getMapLandTilesForSize } from "../MapLandTiles";
 import { accountsForPlayIds } from "./DerpyAuth";
+import { aiPersonalitiesOn } from "./DerpyBadges"; // PROFILE (r26)
 import { recordFrontChallenges } from "./DerpyChallenges"; // CHAL (r25)
 import {
   ConquestGameSummary,
@@ -208,9 +209,10 @@ export async function recordDerpyGame(
       }
       const inserted = await c.query(
         `INSERT INTO derpy_games (game_id, map, mode, game_type, started_at,
-           ended_at, duration_s, winner, num_players, awards, record, scenario)
+           ended_at, duration_s, winner, num_players, awards, record, scenario,
+           difficulty, ai_personalities)
          VALUES ($1, $2, $3, $4, to_timestamp($5 / 1000.0),
-           to_timestamp($6 / 1000.0), $7, $8, $9, $10, $11, $12)
+           to_timestamp($6 / 1000.0), $7, $8, $9, $10, $11, $12, $13, $14)
          ON CONFLICT (game_id) DO NOTHING
          RETURNING game_id`,
         [
@@ -232,6 +234,9 @@ export async function recordDerpyGame(
           ),
           blob,
           config.scenario?.id ?? null, // SCEN (r25)
+          // PROFILE (r26): for the badges (Hard Won, Mind Games).
+          config.difficulty ?? "",
+          aiPersonalitiesOn(config),
         ],
       );
       if (inserted.rowCount === 0) return; // already saved

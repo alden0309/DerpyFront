@@ -10,6 +10,7 @@
 
 import { css, html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { avatar, AVATAR_CSS, lookFor, pinnedBadges } from "./Avatar"; // PROFILE (r26)
 import {
   addPersonIcon,
   bellIcon,
@@ -20,7 +21,6 @@ import {
   lockIcon,
   moreIcon,
   peopleIcon,
-  tokenColor,
 } from "./Icons";
 import {
   defaultWhere,
@@ -218,8 +218,7 @@ export class DerpSocial extends LitElement {
           @click=${() => this.toggle("people")}
         >
           ${party
-            ? html`${this.stack(party.members.map((m) => m.username))}<span
-                  class="phone-icon"
+            ? html`${this.stack(party.members)}<span class="phone-icon"
                   >${peopleIcon()}<span class="flag-badge"
                     >${flagIcon("dl-i")}</span
                   ></span
@@ -282,27 +281,45 @@ export class DerpSocial extends LitElement {
   }
 
   /** A few overlapping tokens: the party, in the bar. */
-  private stack(names: string[]): TemplateResult {
-    const shown = names.slice(0, 3);
+  private stack(members: { id: number; username: string }[]): TemplateResult {
+    const shown = members.slice(0, 3);
     return html`<span class="stack" aria-hidden="true"
-      >${flagIcon("dl-i flag")}${shown.map(
-        (n) =>
-          html`<span class="mini" style="--token:${tokenColor(n)}"
-            >${n.slice(0, 1).toUpperCase()}</span
-          >`,
+      >${flagIcon("dl-i flag")}${shown.map((m) =>
+        avatar(m.username, this.look(m.id).pic, "mini"),
       )}</span
     >`;
   }
 
-  private token(name: string, cls = "tok"): TemplateResult {
-    return html`<a
-      class=${cls}
-      href="/player/${encodeURIComponent(name)}"
-      style="--token:${tokenColor(name)}"
-      tabindex="-1"
-      aria-hidden="true"
-      >${name.slice(0, 1).toUpperCase()}</a
-    >`;
+  /** PROFILE (r26): someone's picture and pins, from the state's looks. */
+  private look(id: number | undefined) {
+    return lookFor(this.s?.looks, id ?? -1);
+  }
+
+  /** PROFILE (r26): an account's id by its name, from anywhere in the state. */
+  private idOf(name: string): number | undefined {
+    const s = this.s;
+    if (!s) return undefined;
+    const key = name.toLowerCase();
+    const rows: { id: number; username: string }[] = [
+      ...s.online,
+      ...s.friends,
+      ...s.requests.incoming,
+      ...s.requests.outgoing,
+      ...(s.party?.members ?? []),
+      ...s.invites.map((i) => ({ id: i.fromId, username: i.from })),
+      ...s.partyInvites.map((i) => ({ id: i.fromId, username: i.from })),
+    ];
+    return rows.find((r) => r.username.toLowerCase() === key)?.id;
+  }
+
+  /** Their picture (over their monogram), linking to their page. */
+  private token(name: string, id?: number, cls = "tok"): TemplateResult {
+    return avatar(
+      name,
+      this.look(id ?? this.idOf(name)).pic,
+      cls,
+      `/player/${encodeURIComponent(name)}`,
+    );
   }
 
   private where(row: { place: PersonRow["place"] }): TemplateResult {
@@ -382,7 +399,7 @@ export class DerpSocial extends LitElement {
               ${s.requests.outgoing.map(
                 (r) =>
                   html`<li class="row">
-                    ${this.token(r.username)}
+                    ${this.token(r.username, r.id)}
                     <div class="who">
                       <span class="nameline"
                         ><span class="name">${r.username}</span></span
@@ -480,10 +497,12 @@ export class DerpSocial extends LitElement {
         ${p.members.map(
           (m) =>
             html`<li class="row">
-              ${this.token(m.username)}
+              ${this.token(m.username, m.id)}
               <div class="who">
                 <span class="nameline"
-                  ><span class="name">${m.username}</span>${m.leader
+                  ><span class="name">${m.username}</span>${pinnedBadges(
+                    this.look(m.id).badges,
+                  )}${m.leader
                     ? html`<span class="tag lead">${t("party_leader")}</span>`
                     : nothing}</span
                 >
@@ -554,12 +573,14 @@ export class DerpSocial extends LitElement {
             </button>`
           : nothing;
     return html`<li class="row ${open ? "open" : ""}">
-      ${this.token(r.username)}
+      ${this.token(r.username, r.id)}
       <div class="who">
         <span class="nameline"
           ><a class="name" href="/player/${encodeURIComponent(r.username)}"
             >${r.username}</a
-          >${r.inParty
+          >${
+            pinnedBadges(this.look(r.id).badges) /* PROFILE (r26) */
+          }${r.inParty
             ? html`<span class="tag">${t("party_tag")}</span>`
             : nothing}</span
         >
@@ -764,7 +785,7 @@ export class DerpSocial extends LitElement {
         break;
     }
     return html`<div class="notice ${n.kind}">
-      ${this.token(who, "tok sm")}
+      ${this.token(who, undefined, "tok sm")}
       <div class="notice-body">
         <p>${text}</p>
         <div class="notice-acts">${actions}</div>
@@ -773,6 +794,7 @@ export class DerpSocial extends LitElement {
   }
 
   static styles = css`
+    ${AVATAR_CSS} /* PROFILE (r26): pictures in tokens */
     :host {
       display: flex;
       align-items: center;

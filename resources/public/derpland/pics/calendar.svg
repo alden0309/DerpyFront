@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<defs><radialGradient id="bg-calendar" cx="34%" cy="26%" r="85%"><stop offset="0" stop-color="#43434f"/><stop offset="1" stop-color="#17171c"/></radialGradient></defs>
+<rect width="64" height="64" fill="url(#bg-calendar)"/>
+<circle cx="32" cy="32" r="28.5" fill="none" stroke="#e7b84a" stroke-width="2.6"/>
+<circle cx="32" cy="32" r="25.6" fill="none" stroke="#9a6a12" stroke-width="1" opacity=".8"/>
+<rect x="15" y="17" width="34" height="32" rx="3" fill="#fbf1d6" stroke="#2e2010" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M15 26 L49 26 L49 20 Q49 17 46 17 L18 17 Q15 17 15 20 Z" fill="#d9573f" stroke="#2e2010" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M22 13 L22 21 M42 13 L42 21" stroke="#e7b84a" stroke-width="3" stroke-linecap="round"/>
+<g fill="#c8c2b0"><rect x="19" y="30" width="5" height="4" rx="1"/><rect x="26" y="30" width="5" height="4" rx="1"/><rect x="19" y="37" width="5" height="4" rx="1"/><rect x="26" y="37" width="5" height="4" rx="1"/><rect x="40" y="30" width="5" height="4" rx="1"/></g>
+<path d="M40 34.6 l2.4 4.8 5.3.8-3.8 3.7.9 5.2-4.8-2.5-4.8 2.5.9-5.2-3.8-3.7 5.3-.8z" fill="#e7b84a" stroke="#2e2010" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

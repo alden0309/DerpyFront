@@ -4,7 +4,8 @@
 import { html, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { api, ApiError } from "../derpland/Account";
-import { bananaMark, podiumIcon, tokenColor } from "../derpland/Icons";
+import { avatar, pinnedBadges } from "../derpland/Avatar"; // PROFILE (r26)
+import { bananaMark, podiumIcon } from "../derpland/Icons";
 import { gold, nf } from "./format";
 import { HubPage } from "./HubPage";
 
@@ -40,7 +41,11 @@ interface ConquestRow {
   battlesWon: number;
   conquests: number;
 }
-type Row = OverallRow | FrontRow | ConquestRow;
+/** PROFILE (r26): each row's picture and pinned badges (left off: the default). */
+type Row = (OverallRow | FrontRow | ConquestRow) & {
+  pic?: string;
+  badges?: string[];
+};
 
 interface Column {
   label: string;
@@ -175,9 +180,7 @@ export class DerpLeaderboard extends HubPage {
           const place = this.rows!.indexOf(r) + 1;
           return html`<li class="dl-step p${place}">
             <a class="dl-step-who" href="/player/${r.username}">
-              <span class="dl-token" style="--token:${tokenColor(r.username)}"
-                >${r.username.slice(0, 1).toUpperCase()}</span
-              >
+              ${avatar(r.username, r.pic, "dl-token") /* PROFILE (r26) */}
               <span class="dl-step-name">${r.username}</span>
               <span class="dl-step-stat"
                 >${r.wins} ${r.wins === 1 ? "win" : "wins"}</span
@@ -215,11 +218,19 @@ export class DerpLeaderboard extends HubPage {
                 html`<tr class=${r.username === this.username ? "mine" : ""}>
                   <td class="dl-rank">${i + 1}</td>
                   <td>
-                    <a class="dl-name" href="/player/${r.username}"
-                      >${r.username}</a
-                    >${r.username === this.username
-                      ? html` <span class="dl-you">you</span>`
-                      : nothing}
+                    <span class="dl-lb-who"
+                      >${
+                        avatar(
+                          r.username,
+                          r.pic,
+                          "dl-lb-tok",
+                        ) /* PROFILE (r26) */
+                      }<a class="dl-name" href="/player/${r.username}"
+                        >${r.username}</a
+                      >${pinnedBadges(r.badges)}${r.username === this.username
+                        ? html` <span class="dl-you">you</span>`
+                        : nothing}</span
+                    >
                   </td>
                   ${cols.map(
                     (c) =>

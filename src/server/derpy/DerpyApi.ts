@@ -56,6 +56,10 @@ import { checkName, nameStatus, renameAccount } from "./DerpyNames"; // NAMES (r
 import { loadNews, newsRouter } from "./DerpyNews"; // NEWS (r25)
 import { socialRenamed, socialRouter, socialSignedOut } from "./DerpySocial"; // FRIENDS (r25)
 import { liveGames } from "./LiveGames"; // SITE (r19)
+// PROFILE (r26): badges and profile pictures
+import { badgesRouter } from "./DerpyBadges";
+import { withLooks } from "./DerpyLooks";
+import { meExtras, picturesRouter, profileExtras } from "./DerpyPictures";
 
 const log = logger.child({ component: "DerpyApi" });
 
@@ -206,6 +210,7 @@ export function derpyApiRouter(): express.Router {
       res.json({
         account: { username: account.username, coins: account.coins },
         owned: await ownedItems(account.id),
+        ...(await meExtras(account.id)), // PROFILE (r26)
       });
     }),
   );
@@ -274,12 +279,22 @@ export function derpyApiRouter(): express.Router {
     "/leaderboard",
     handle(async (req, res) => {
       const game = String(req.query.game ?? "derpyfront");
+      // PROFILE (r26): each with their picture and pinned badges.
       if (game === "conquest") {
-        res.json({ game, players: await conquestLeaderboard() });
+        res.json({
+          game,
+          players: await withLooks(await conquestLeaderboard()),
+        });
       } else if (game === "overall") {
-        res.json({ game, players: await overallLeaderboard() });
+        res.json({
+          game,
+          players: await withLooks(await overallLeaderboard()),
+        });
       } else {
-        res.json({ game: "derpyfront", players: await leaderboard() });
+        res.json({
+          game: "derpyfront",
+          players: await withLooks(await leaderboard()),
+        });
       }
     }),
   );
@@ -288,7 +303,7 @@ export function derpyApiRouter(): express.Router {
   router.get(
     "/recent",
     handle(async (_req, res) => {
-      res.json({ results: await recentResults() });
+      res.json({ results: await withLooks(await recentResults()) }); // PROFILE (r26)
     }),
   );
 
@@ -300,7 +315,8 @@ export function derpyApiRouter(): express.Router {
         res.status(404).json({ error: "not_found" });
         return;
       }
-      res.json(p);
+      // PROFILE (r26): their picture and badges (checked as the page opens).
+      res.json({ ...p, ...(await profileExtras(p.username)) });
     }),
   );
 
@@ -503,6 +519,10 @@ export function derpyApiRouter(): express.Router {
   // BASED (r19): Mr. Based. Only the accounts allowed to play get its story,
   // pictures and sound; everyone else gets Coming Soon.
   router.use("/based", basedRouter({ handle }));
+
+  // PROFILE (r26): badges, and profile pictures (uploads served from here).
+  router.use("/badges", badgesRouter({ requireAccount }));
+  router.use("/pictures", picturesRouter({ handle, requireAccount }));
 
   // FRIENDS (r25): who's online and where, friends, game invites, parties.
   router.use("/social", socialRouter({ requireAccount }));
