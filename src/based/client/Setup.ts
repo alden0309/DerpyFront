@@ -5,8 +5,8 @@
 //
 // r22 BPLAY: and what he speaks besides his own American English: his
 // Languages skill is a pool of points, spent here under Languages on each
-// of the chapter's languages (0 to 3: he doesn't speak it, gets by, fluent,
-// like a native).
+// of the chapter's languages (r26, the language system: 0 none, 1 poor,
+// 2 decent, 3 perfect: how well he follows everything in it).
 
 import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";

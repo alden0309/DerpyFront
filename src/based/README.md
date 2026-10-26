@@ -61,6 +61,20 @@ when it changes, so an edit shows up on the next load without a restart.
    `src/server/derpy/BasedNotes.ts`) through `GET /based/notes/all`, with
    `POST` and `DELETE /based/notes/sent`.
 
+4. r26: read the whole chapter as a script, without playing it:
+   `npx tsx scripts/based-script.ts --chapter 1 --out /somewhere/script.html`
+   writes one page (it needs nothing else, and works offline): every scene in
+   story order, grouped by where it happens (the street, the hotel, the bar,
+   wherever he is, his room, the palace window), every line with its
+   speaker as the player sees it, every choice and check with its conditions
+   in plain words, where each leads, what he's given and pays and learns,
+   the pop-ups, and a reference on every line ("S12.7") to write notes
+   against. It's made with the engine's own parser, so it says what the game
+   does. The flags' plain words live in `scripts/based-script-words.ts`
+   (`tests/based/BasedScript.test.ts` fails if a flag has none). It's for
+   reading only: it won't write into `static/` or `src/`, and nothing the
+   site builds or serves includes it.
+
 If a chapter has mistakes while it's being edited, the game shows Alden the
 list instead of the chapter.
 
@@ -114,15 +128,23 @@ far). The same key closes the panel it opened.
   one), going up to him is Mr. Based offering a light; he wants to be
   alone, and that's the end of it. With nothing to light it, a nod the man
   doesn't return; the offer comes once he has a light. He stays under the
-  awning (the mirror, the signal).
+  awning (the mirror, the signal). r26: what the man says is French, so
+  what Mr. Based makes of it is his French (with too little, he can ask
+  again in English); he stands near the wall at the awning's west end,
+  where a click on him never lands on the pharmacy and the awning doesn't
+  hide him from the camera.
 - **The lobby.** A front desk with the desk clerk behind it and the key
   board behind him; the guest book, turned to the clerk and never read; a
   staircase up the back wall, closed by a red rope with a card (Guests:
   please ask at the desk); the lift, out of order all night, its button
   dead; armchairs, a chandelier, a standard lamp; the doorways to the bar
-  and the street. London booked his room through a firm of wine shippers
-  and he's early: it isn't made up, so the clerk keeps his key, and since
-  the Préfecture's circular the stairs are for guests with one.
+  and the street. London booked his room to his alias, John Locke, and
+  he's early: it isn't made up, so the clerk keeps his key, and since
+  the Préfecture's circular the stairs are for guests with one. r26: the
+  clerk's call (in French, all of it only at 3 points) is where he can
+  overhear forty-one's car at six; the clerk himself never talks about
+  another guest, by the house's policy ("Our guests' habits are their
+  own, monsieur"), money or not.
 - **The bar.** The barman's conversation as it was; then the man in grey
   sits beside him because his is a new face. Then London's contact: he can
   tell her only what he noticed. Two telling things (where the man came
@@ -137,19 +159,27 @@ far). The same key closes the panel it opened.
   twenty-three, and sleep; then the two men smoking at the palace window.
 - **The regulars.** Two at the bar, a couple at the window table, a man
   with a book: a line or two each, and lives of their own (`idle=`).
-- **His cover (r26).** Mr. Based is American (seventeen years at the
-  Agency), on his own American passport; London hired him because he isn't
-  one of theirs. What he tells people is one story, the same to everyone:
-  his own name, a buyer for a wine importer in Boston, over for the
-  tastings. Lisle and Hart, the London shippers he buys from, booked the
-  room. He gives it to the barman, the man in grey ("[The cover]", or
-  "[Keep it to the trade]" when asked his name) and the clerk; Penhallow
+- **His cover (r26, the owner's).** Mr. Based is American (seventeen years
+  at the Agency); London hired him because he isn't one of theirs. He is
+  **John Locke, in wine, from San Diego, California**, on an American
+  passport in that name that London made him, and the room is booked to
+  John Locke. What he tells people is that one story, the same to
+  everyone: a buyer for a wine importer in San Diego, over for the
+  tastings. He gives it to the barman, the man in grey ("[The cover]",
+  "[Give him your alias]", or "[Keep it to the trade]" when asked his name;
+  his real name is a slip the palace hears about) and the clerk; Penhallow
   tells him to be a wine buyer for a few days. There's no other name and
   no other home (`tests/based/BasedCover.test.ts`).
-- **The barman's grandson (r26).** Asked about the television, the barman
-  says his grandson joined the Volunteers (`heard_grandson`); the pin, and
-  that he wears it inside his lapel (`knows_oak`), only if Mr. Based asks
-  about the boy, or when Anselme tells him over the photograph.
+- **The barman's grandson (r26, as the owner reshaped it).** The barman
+  doesn't just say it. While he and Mr. Based watch the television, the
+  picture cuts to the young men applauding behind the President and his
+  cloth stops: an Empathy check ("[Watch him, not the screen]") shows a
+  man searching the faces for one he's afraid to find. Asked, he lets it
+  out reluctantly, a few lines at a time: his grandson, nineteen, joined
+  their Volunteers (`heard_grandson`); asked about the boy, the pin, worn
+  inside his lapel so his grandmother won't see it (`knows_oak`). Without
+  the check he doesn't learn it there, and the photograph no longer tells
+  him.
 
 ## Saves (r22)
 
@@ -310,12 +340,12 @@ attribute, plus one if it's his signature; at least one). The player spends
 them on the setup screen, under Languages in Intelligence, **0 to 3 per
 language**:
 
-| Points | He...                                               |
-| ------ | --------------------------------------------------- |
-| 0      | doesn't speak it (his Languages may catch the gist) |
-| 1      | gets by: follows plain speech                       |
-| 2      | is fluent                                           |
-| 3      | passes for a native                                 |
+| Points | He follows it (r26, the owner's language system)                       |
+| ------ | ---------------------------------------------------------------------- |
+| 0      | **none**: he sees only the words, marked "French he can't follow"      |
+| 1      | **poor**: a poor translation, the gist half right and believably wrong |
+| 2      | **decent**: a decent translation                                       |
+| 3      | **perfect**: exactly what it means                                     |
 
 So the Analyst (Intelligence 4) has 4 points, the Handler 3 and the Operator
 2: one language well, or two at getting by, or a little of everything. Your
@@ -323,15 +353,22 @@ own man ranges from 1 (Intelligence 1) to 6 (Intelligence 5 and known for
 Languages). The points must all be spent before the game starts (unless
 every language is already at 3).
 
-- **A line** in a language he has at 1 or more is understood. One with a
-  difficulty (`[fr medium]`: said low, fast, guardedly) is a passive check of
-  **his Languages skill plus his rating in it** (plus six against the
-  difficulty), so at 0 his Languages alone may still get the gist.
+- **Every foreign line** (r26) is shown at his points in its language:
+  everything in French or Russian, said to him, overheard, or written (a
+  poster, a sign, a notice, the radio, the television's ticker) carries
+  what he makes of it at 1, 2 and 3 points, and at 0 he sees only the
+  words. There's no gist at 0 and no check: how hard a line is to follow
+  (said low, fast, on the telephone) is written into its versions (the
+  clerk's call has the car at six at 2 points, and where it goes only at
+  3). Whatever depends on having understood it asks for the level it
+  needs (`if speaks.fr >= 2`), with a way through for less (the man under
+  the awning can be asked again in English).
 - **A check in a tongue** names it: `* white LANGUAGES.ru medium [Ask him, in
 Russian]`. Its base is his Languages skill, with "His Russian" (his
   rating) as a modifier, and whatever he wears for either; `bonus` lines work
   as on any check. Voices can be in one too: `~ LANGUAGES.fr medium: ...`.
-- **Conditions** read the rating: `speaks.fr` (1 or more), `speaks.ru >= 2`.
+- **Conditions** read the rating: `speaks.fr` (1 or more), `speaks.fr >= 2`
+  (decent or better), `speaks.fr >= 3` (perfect).
 - **Later points**: `boost LANGUAGES.fr +1 "Lessons with the concierge"`
   adds to one language for good; an item can add while it's worn or held:
   `@item phrasebook "Russian phrasebook" kind=document slot=hand
@@ -406,14 +443,27 @@ task contact done
 @weather rain                    // rain, drizzle, clear, fog, changing, none
 @time 23:15                      // the clock (earlier than now: next day)
 @actor BARMAN behind_bar lean in=vauban   // someone in another place
-WOMAN [fr]: Bonsoir. | Good evening.      // in another language
-DELORME [fr medium]: L'Américain. | The American.   // gist with Languages
+WOMAN [fr]: Bonsoir.             // said in another language...
+| 1: Good night.                 // ...what he makes of it with 1 point (poor)
+| 2: Evening.                    // 2 (decent)
+| 3: Good evening.               // 3 (perfect)
+[fr]: HORS SERVICE               // r26: written (or overheard), nobody saying it to him
+| 1: OUTSIDE SERVICE
+| 2: OUT OF SERVICE
+| 3: OUT OF ORDER
+@news [fr] "Le président..."     // r26: the ticker, in a language, with its | lines
+@read news                       // r26: he reads the ticker that's on now
 ```
 
-A line in another language shows its meaning if he speaks the language (a
-point or more), and the words as said if he doesn't; with a difficulty, it's
-his Languages skill plus his points in it, plus six (see Languages, above).
-The clock moves twenty seconds a line and ten a choice.
+r26: a line in another language shows what he makes of it at his points in
+that language (0 to 3): at 0 the words as they are, marked "French he can't
+follow"; at 1, 2 or 3 its `| 1:`, `| 2:` or `| 3:` version, with the words
+on hover (and, for what he reads, above it). The poor version is believably
+wrong, not just shorter (_Préviens-moi_ read as "prevent me", _seul_ as
+"single"); the perfect one is the exact meaning. The validator wants all
+three under every foreign line; a difficulty on one (`[fr medium]`) or a
+meaning after " | " is a mistake now. The clock moves twenty seconds a
+line and ten a choice.
 
 ### Lines
 
@@ -521,7 +571,7 @@ Flags are read as numbers (unset is 0); `rel.name` is a relationship.
 `and`, `or`, `not`, parentheses, `>= <= > < == !=`.
 
 r25: `heard` is whether the scene's last passive check was heard (a voice
-with a difficulty, or a hard line's gist), so what he only learns if he
+with a difficulty), so what he only learns if he
 heard it is set only then:
 
 ```
@@ -558,6 +608,14 @@ so it must give nothing away), a thought's label (`@on think "..."`), the
 journal (`task`), what he's given (an item's name and what it says), a
 skill's boost, a title card, the television's ticker, what he starts with,
 and what he carries on with (`@carry "..." if ...`).
+
+r26: and the names the page gives people. A name can be a fact
+(`@fact heard_anselme|anselme_named "Anselme"`): the pop-ups ("Anselme warms
+to you.", "… will remember that.") call someone by the body they are until
+he knows the name (`@cast ANSELME "Anselme" body=BARMAN`: "The barman warms
+to you."), and the script may make them speak (`ANSELME: ...`) or put them
+under a portrait (`@figure ANSELME`) by that name only where he learns it,
+or after. His dossier's people (`peopleKnown`) go by the same names.
 
 The validator (`engine/Facts.ts`) checks every one of them;
 `tests/based/BasedFacts.test.ts` also plays chapter one down 200 random
@@ -787,7 +845,7 @@ The moped, the helmet on its mirror...
 - Some change with `weather.` or `time` (the puddle under the awning, the
   radio after eleven, the lit window across the street).
 - The kit's small pieces (`client/world/Kit.ts`): kiosk, moped, aframe (a
-  chalkboard: `text`, `sub`), bollard, mitten, grate, bowl, postbox,
+  chalkboard: `text`, `sub`), bollard, grate, bowl, postbox,
   litter, jar, matchbowl, frame, standjar, keyboard, machine, liftdoor,
   vase, clock, book, bell, tray (`size`, `color`), radio; and `box`,
   `sign`, `morris` (r23) and the props models. Whatever stands on the

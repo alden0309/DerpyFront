@@ -29,6 +29,7 @@ import {
 import { customElement, property, state } from "lit/decorators.js";
 import { rollDice, tierName } from "../engine/Dice";
 import { evalExpr } from "../engine/Expr";
+import { peopleKnown } from "../engine/Facts";
 import { neighbours, PlaceDef } from "../engine/Place";
 import {
   Available,
@@ -127,7 +128,7 @@ interface Entry {
   id: number;
   /** r22 BPLAY: the story's clock when it was said ("22:14"). */
   at?: string;
-  kind: "narr" | "say" | "think" | "voice" | "roll" | "card" | "pick";
+  kind: "narr" | "say" | "think" | "read" | "voice" | "roll" | "card" | "pick";
   who?: string;
   how?: string;
   text: string;
@@ -558,10 +559,14 @@ export class BasedPlayer extends LitElement {
         if (!first) this.autosaveSoon();
         break;
       case "remember":
-        this.toast(`${this.nameOf(e.who)} will remember that.`, "remember");
+        // r26: by the name he knows them by then (Facts.knownName).
+        this.toast(
+          `${e.name ?? this.nameOf(e.who)} will remember that.`,
+          "remember",
+        );
         break;
       case "rel": {
-        const name = this.nameOf(e.who);
+        const name = e.name ?? this.nameOf(e.who);
         this.toast(
           e.delta >= 2
             ? `${name} trusts you more.`
@@ -1065,27 +1070,22 @@ export class BasedPlayer extends LitElement {
     const t = (sec: number) => clockText(sec).time;
     const clock = clockText(run.clock);
     const art = (k?: string) => (k ? mediaNow("art", k) : null);
-    // People, one entry per person (a name learned later is the same body).
-    const rels = run.values().rels;
-    const groups = new Map<string, string[]>();
-    for (const c of ch.cast) {
-      if (c.id === hero?.id) continue;
-      const body = c.body ?? c.id;
-      groups.set(body, [...(groups.get(body) ?? []), c.id]);
-    }
+    // People, one entry per person (a name learned later is the same body),
+    // r26: each by the name he knows them by now (Facts.peopleKnown).
+    const vals = run.values();
+    const rels = vals.rels;
     const people: (DossierView["people"][number] & { at: number })[] = [];
-    for (const [body, ids] of groups) {
+    for (const p of peopleKnown(ch, rec.met, vals.flags)) {
+      const ids = p.ids;
       const met = ids.filter((id) => rec.met[id] !== undefined);
-      if (met.length === 0) continue;
-      const named = met.find((id) => id !== body);
-      const who = ch.cast.find((c) => c.id === (named ?? body))!;
-      const first = ch.cast.find((c) => c.id === body)!;
+      const who = ch.cast.find((c) => c.name === p.name && ids.includes(c.id));
+      const first = ch.cast.find((c) => c.id === p.body)!;
       const rel = ids.reduce((a, id) => a + (rels[id] ?? 0), 0);
       const at = Math.min(...met.map((id) => rec.met[id]));
       people.push({
-        name: who.name,
-        first: named ? first.name.replace(/^The /, "the ") : undefined,
-        portrait: art(who.portrait ?? first.portrait),
+        name: p.name,
+        first: p.first?.replace(/^The /, "the "),
+        portrait: art(who?.portrait ?? first.portrait),
         met: `at ${t(at)}`,
         stand: this.standing(Math.max(-3, Math.min(3, rel))),
         warmth: Math.max(-3, Math.min(3, rel)),
@@ -2013,19 +2013,26 @@ export class BasedPlayer extends LitElement {
     </div>`;
   }
 
-  /** Words in another language: what it means, or what was said. */
+  /**
+   * Words in another language (r26): at 0 points the words he can't
+   * follow; at 1 what he half follows; at 2 and 3 what they mean (the
+   * original on hover).
+   */
   private langTag(l: NonNullable<Entry["lang"]>): TemplateResult {
     if (!l.understood) {
-      return html`<span class="mb-e-lang lost" title="He doesn't speak it"
-        >${l.name}</span
+      return html`<span
+        class="mb-e-lang lost"
+        title="He has no ${l.name}: these are the words as they are"
+        >${l.name} he can't follow</span
       >`;
     }
+    const poor = l.level <= 1;
     return html`<span
-      class="mb-e-lang"
-      title=${l.via === "skill"
-        ? `Languages – ${l.tier ?? ""}: he caught the gist. Said: “${l.original}”`
+      class="mb-e-lang ${poor ? "poor" : ""}"
+      title=${poor
+        ? `His ${l.name} is poor: this is what he made of “${l.original}”`
         : `In ${l.name}: “${l.original}”`}
-      >${l.via === "skill" ? `${l.name}, the gist` : l.name}</span
+      >${poor ? `${l.name}, half followed` : l.name}</span
     >`;
   }
 
@@ -2071,6 +2078,20 @@ export class BasedPlayer extends LitElement {
         return html`<div class="mb-e think">
           ${t}
           <p>${text}</p>
+        </div>`;
+      case "read":
+        // r26: words in another language he reads or overhears: the words
+        // themselves, then what he makes of them.
+        return html`<div
+          class="mb-e read ${e.lang && !e.lang.understood ? "foreign" : ""}"
+        >
+          ${t}
+          <p>
+            ${e.lang ? this.langTag(e.lang) : nothing}${e.lang?.understood
+              ? html`<span class="mb-e-orig">${e.lang.original}</span>`
+              : nothing}
+            <span class="mb-e-words">${text}</span>
+          </p>
         </div>`;
       case "card":
         return html`<div class="mb-e card">

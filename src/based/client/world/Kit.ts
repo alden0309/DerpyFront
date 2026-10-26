@@ -1706,19 +1706,6 @@ function bplaySmall(item: Item, g: THREE.Group): void {
         part(new THREE.SphereGeometry(0.075, 10, 6), mat("iron"), 0, 0.9, 0),
       );
       break;
-    case "mitten": {
-      const red = mat("#a3201b");
-      const m = part(
-        new THREE.CapsuleGeometry(0.035, 0.07, 4, 8),
-        red,
-        0,
-        0,
-        0,
-      );
-      m.rotation.z = 0.5;
-      g.add(m, part(new THREE.SphereGeometry(0.02, 6, 4), red, 0.04, 0.03, 0));
-      break;
-    }
     case "grate": {
       g.add(part(B(0.7, 0.02, 0.4), mat("iron"), 0, 0.01, 0, false));
       for (let i = -3; i <= 3; i++) {

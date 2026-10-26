@@ -1,9 +1,10 @@
-// BSTORY (r26): Mr. Based is American (ex-Agency), travelling on his own
-// American passport; London hired him because he isn't one of theirs. The
-// cover he tells people is one story, the same to everyone: his own name,
-// a buyer for a wine importer in Boston, over for the tastings (the room
-// booked by Lisle and Hart, the London shippers he buys from). Nothing calls
-// him British or gives him another name or another home.
+// BSTORY (r26): Mr. Based is American (ex-Agency); London hired him because
+// he isn't one of theirs. r26 (the owner): his cover is John Locke, in
+// wine, from San Diego, California, on an American passport in that name
+// London made him; the room is booked to John Locke. What he tells people
+// is that one story, the same to everyone. Nothing calls him British or
+// gives him another name or another home (Lisle and Hart and Boston are
+// gone).
 
 import fs from "fs";
 import path from "path";
@@ -33,10 +34,10 @@ const { chapter } = parseChapter(
 const HERO = chapter.cast[0].id;
 
 /** The cover, as written: name, home city, trade. */
-const COVER = { name: "Based", city: "Boston", trade: /\bwine\b/i };
-/** Places a man could say he's from (the cover's is Boston, and only it). */
+const COVER = { name: "John Locke", city: "San Diego", trade: /\bwine\b/i };
+/** Places a man could say he's from (the cover's is San Diego, and only it). */
 const HOMES =
-  /\b(Boston|New York|Chicago|Seattle|Denver|Philadelphia|San Francisco|Los Angeles|Baltimore|Atlanta|Dallas|Houston|Miami|Manchester|Leeds|Edinburgh|Glasgow|Bristol|Liverpool|Birmingham|Oxford|Cambridge|Dublin|Toronto|Sydney)\b/g;
+  /\b(San Diego|Boston|New York|Chicago|Seattle|Denver|Philadelphia|San Francisco|Los Angeles|Baltimore|Atlanta|Dallas|Houston|Miami|Manchester|Leeds|Edinburgh|Glasgow|Bristol|Liverpool|Birmingham|Oxford|Cambridge|Dublin|Toronto|Sydney)\b/g;
 /** What states a cover: his trade, his importer, the tastings, his name. */
 const COVERISH =
   /\b(import(er)?|buy(ing)? (wine|from them|it)|wine (buyer|trade)|in wine|tastings?|claret)\b/i;
@@ -67,7 +68,9 @@ function allLines(): { where: string; who?: string; text: string }[] {
     for (const op of chapter.scenes[id].ops as Op[]) {
       if (op.op === "line") {
         out.push({ where: id, who: op.who, text: op.text });
-        if (op.trans) out.push({ where: id, who: op.who, text: op.trans });
+        for (const t of op.levels ?? []) {
+          out.push({ where: id, who: op.who, text: t });
+        }
       }
     }
   }
@@ -75,14 +78,18 @@ function allLines(): { where: string; who?: string; text: string }[] {
 }
 
 describe("his cover (r26): one American story, the same to everyone", () => {
-  test("the passport and the opening set it: his own name, a wine buyer for an importer in Boston", () => {
+  test("the passport and the opening set it: John Locke, in wine, from San Diego", () => {
     const passport = chapter.items.passport.about;
-    expect(passport).toMatch(/American, in his own name/);
-    expect(passport).toMatch(/wine importer in Boston/);
-    const open = allLines().find((l) =>
-      /Lisle and Hart, wine shippers/.test(l.text),
-    );
-    expect(open?.text).toMatch(/importer in Boston/);
+    expect(passport).toMatch(/American, in the name of John Locke/);
+    expect(passport).toMatch(/importer in San Diego/);
+    expect(passport).not.toMatch(/his own name/);
+    const open = allLines().find((l) => /booked to a man named/.test(l.text));
+    expect(open?.text).toMatch(/John Locke/);
+    expect(open?.text).toMatch(/San Diego, California/);
+    // Lisle and Hart are gone, everywhere.
+    for (const t of [...hisTexts(), ...allLines()]) {
+      expect(t.text, t.where).not.toMatch(/Lisle|Hart\b/);
+    }
   });
 
   test("every time he gives it, to the barman, the man in grey and the clerk, it's the same", () => {
@@ -95,19 +102,21 @@ describe("his cover (r26): one American story, the same to everyone", () => {
     }
     for (const l of told) {
       expect(l.text, l.where).toMatch(COVER.trade);
-      // Where he says where he's from, it's Boston, and nowhere else.
-      if (/importer/.test(l.text)) expect(l.text, l.where).toMatch(/Boston/);
+      // Where he says where he's from, it's San Diego, and nowhere else.
+      if (/importer/.test(l.text)) {
+        expect(l.text, l.where).toMatch(/San Diego/);
+      }
     }
   });
 
-  test("no other home and no other name: Boston only, and Based or nothing", () => {
+  test("no other home and no other name: San Diego only, and John Locke, his own, or nothing", () => {
     for (const t of [...hisTexts(), ...allLines()]) {
       for (const m of t.text.matchAll(HOMES)) {
         expect(m[0], `${t.where}: ${t.text}`).toBe(COVER.city);
       }
       expect(t.text, t.where).not.toMatch(/\bWalker\b/);
     }
-    // When the man in grey asks for a name: his own, or none.
+    // When the man in grey asks for a name: the alias, his own, or none.
     const name = chapter.scenes.name.ops.find((o) => o.op === "choose");
     expect(name?.op).toBe("choose");
     if (name?.op !== "choose") return;
@@ -120,9 +129,10 @@ describe("his cover (r26): one American story, the same to everyone", () => {
     for (const t of said) {
       const names = t.match(/\b[A-Z][a-z]+\b/g) ?? [];
       for (const n of names.filter((x) => !/^(In|The|Names|I)$/.test(x))) {
-        expect(n, t).toBe(COVER.name);
+        expect(["Based", ...COVER.name.split(" ")], t).toContain(n);
       }
     }
+    expect(said).toContain("John Locke.");
   });
 
   test("nothing calls him British or gives him a British past", () => {
@@ -134,11 +144,12 @@ describe("his cover (r26): one American story, the same to everyone", () => {
       )
       .map((l) => `${l.where}: ${l.text.split(" ").slice(0, 5).join(" ")}`);
     expect(brit).toEqual([
+      // r26: asking the man under the awning again, with little French.
+      "watcher: Sorry. English? A light?",
       "t_phone: Deniable. The most British word",
       "talk: His English was very good.",
       "talk: Westminster, then Sciences Po. The",
-      "talk: My President thinks France has",
-      "clerk_ask: Monsieur Delorme? He is up",
+      "talk: The new President thinks France",
       "epilogue: Then I'll say it when",
       "epilogue: And the English?",
     ]);
@@ -178,7 +189,7 @@ describe("his cover (r26): one American story, the same to everyone", () => {
           if (his && COVERISH.test(t) && b.who === HERO) {
             told++;
             expect(t).toMatch(COVER.trade);
-            if (/importer/.test(t)) expect(t).toMatch(/Boston/);
+            if (/importer/.test(t)) expect(t).toMatch(/San Diego/);
           }
           for (const m of t.matchAll(HOMES)) expect(m[0], t).toBe(COVER.city);
           r.advance();

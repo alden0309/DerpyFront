@@ -21,6 +21,8 @@
     // ADMIN (r26): build-prod's last step, the admin page's script.
     "scripts/buildAdmin.ts",
     "scripts/derpland-pictures.ts",
+    "scripts/based-script.ts",
+    "scripts/based-script-words.ts",
     "vite.config.ts"
   ],
   "exclude": [
