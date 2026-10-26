@@ -162,10 +162,16 @@ far). The same key closes the panel it opened.
   his real name is a slip the palace hears about) and the clerk; Penhallow
   tells him to be a wine buyer for a few days. There's no other name and
   no other home (`tests/based/BasedCover.test.ts`).
-- **The barman's grandson (r26).** Asked about the television, the barman
-  says his grandson joined the Volunteers (`heard_grandson`); the pin, and
-  that he wears it inside his lapel (`knows_oak`), only if Mr. Based asks
-  about the boy, or when Anselme tells him over the photograph.
+- **The barman's grandson (r26, as the owner reshaped it).** The barman
+  doesn't just say it. While he and Mr. Based watch the television, the
+  picture cuts to the young men applauding behind the President and his
+  cloth stops: an Empathy check ("[Watch him, not the screen]") shows a
+  man searching the faces for one he's afraid to find. Asked, he lets it
+  out reluctantly, a few lines at a time: his grandson, nineteen, joined
+  their Volunteers (`heard_grandson`); asked about the boy, the pin, worn
+  inside his lapel so his grandmother won't see it (`knows_oak`). Without
+  the check he doesn't learn it there, and the photograph no longer tells
+  him.
 
 ## Saves (r22)
 

@@ -380,13 +380,24 @@ describe("the opening, reshaped (r25)", () => {
 });
 
 describe("the barman's grandson's pin (r26)", () => {
+  const handler = buildOf(chapter.archetypes[1]);
   /**
    * Through the bar to the end of the man in grey, by option labels where
    * `want` names one, looking at his lapel; every text he's shown (lines,
    * options, the reasons on checks, deductions) collected.
    */
-  function playBar(want: string[]): { r: StoryRun; shown: string[] } {
-    const r = street(13);
+  function playBar(
+    want: string[],
+    seed = 13,
+  ): { r: StoryRun; shown: string[] } {
+    const r = new StoryRun(
+      chapter,
+      chapterStart(chapter, undefined, {
+        build: { ...handler, langPts: { fr: 3 } },
+        seed,
+      }),
+    );
+    readOn(r);
     r.enterPlace("vauban", "vauban_door_in");
     readOn(r);
     r.talk("BARMAN");
@@ -431,40 +442,79 @@ describe("the barman's grandson's pin (r26)", () => {
     return { r, shown };
   }
 
-  test("asked about the television but not the boy: no pin, and no link to the man in grey's", () => {
-    const { r, shown } = playBar(["Ask about the television", "Let it go"]);
+  /** The first seed whose Empathy check on the barman passes. */
+  function passing(want: string[]): { r: StoryRun; shown: string[] } {
+    for (let seed = 1; seed <= 40; seed++) {
+      const p = playBar(want, seed);
+      if (p.r.flag("heard_grandson")) return p;
+    }
+    throw new Error("the check never passed");
+  }
+
+  test("the barman doesn't just say it: a check on him, and he lets it out", () => {
+    const tv = chapter.scenes.tv_talk.ops;
+    // No line of his says it straight off any more.
+    const said = tv
+      .filter((o) => o.op === "line" && o.who === "BARMAN")
+      .map((o) => (o.op === "line" ? o.text : ""));
+    expect(said).not.toContain(
+      "My grandson joined his Volunteers in the spring.",
+    );
+    const check = tv
+      .filter((o) => o.op === "choose")
+      .flatMap((o) => (o.op === "choose" ? o.options : []))
+      .find((o) => o.check);
+    expect(check?.check?.skill).toBe("EMPATHY");
+    // Passed and asked: the grandson, reluctantly, then the pin if he asks
+    // about the boy, and the man in grey's is the same.
+    const { r, shown } = passing([
+      "Ask about the television",
+      "Watch him, not the screen",
+      "Ask who he's looking for",
+      "Ask about the boy",
+    ]);
     const all = shown.join("\n");
-    expect(all).toMatch(/My grandson joined his Volunteers in the spring\./);
+    expect(all).toMatch(/Up there\? No, monsieur\. Nobody\./);
+    expect(all).toMatch(/My grandson\. He joined them in the spring/);
+    expect(all).toMatch(/They give them a little pin/);
+    expect(r.flag("knows_oak")).toBe(1);
+    expect(all).toMatch(/The barman's grandson wears one of those/);
+  });
+
+  test("passed, asked, and let go: the grandson, but no pin, and no link to the man in grey's", () => {
+    const { r, shown } = passing([
+      "Ask about the television",
+      "Watch him, not the screen",
+      "Ask who he's looking for",
+      "Let it go",
+    ]);
     expect(r.flag("heard_grandson")).toBe(1);
     expect(r.flag("knows_oak")).toBe(0);
     expect(r.flag("lapel")).toBe(1);
-    // The barman never said what the boy wears, so nothing of his says it:
-    // that there's a grandson, yes; his pin, or that the man's is the same, no.
     const his = shown.filter(
       (t) => !/^(BARMAN|ANSELME|STRANGER|DELORME|PENHALLOW):/.test(t),
     );
     expect(his.join("\n")).not.toMatch(
       /grandson's pin|grandson wears|grandmother|inside of the lapel/i,
     );
-    expect(all).not.toMatch(/little pin|inside of his lapel/);
+    expect(shown.join("\n")).not.toMatch(/little pin|inside of his lapel/);
   });
 
-  test("asked about the boy: the pin, and then the man in grey's is the same", () => {
-    const { r, shown } = playBar([
-      "Ask about the television",
-      "Ask about his grandson",
-    ]);
-    const all = shown.join("\n");
-    expect(all).toMatch(/They give them a little pin/);
-    expect(r.flag("knows_oak")).toBe(1);
-    expect(all).toMatch(/The barman's grandson wears one of those/);
-  });
-
-  test("let him watch: nothing of the boy at all", () => {
-    const { r, shown } = playBar(["Let him watch"]);
-    expect(r.flag("heard_grandson")).toBe(0);
-    expect(r.flag("knows_oak")).toBe(0);
-    expect(shown.join("\n")).not.toMatch(/grandson|grandmother/i);
+  test("without the check (or watching the screen), nothing of the boy at all", () => {
+    for (const want of [
+      ["Ask about the television", "Watch the screen"],
+      ["Let him watch"],
+    ]) {
+      const { r, shown } = playBar(want);
+      expect(r.flag("heard_grandson")).toBe(0);
+      expect(r.flag("knows_oak")).toBe(0);
+      expect(shown.join("\n")).not.toMatch(/grandson|grandmother/i);
+    }
+    // And the photograph no longer tells him (the owner: S96.22, S96.24).
+    const photo = chapter.scenes.anselme_after.ops
+      .filter((o) => o.op === "line")
+      .map((o) => (o.op === "line" ? o.text : ""));
+    expect(photo.join(" ")).not.toMatch(/grandson|oak leaf/);
   });
 });
 

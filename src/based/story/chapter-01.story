@@ -106,10 +106,11 @@
 // straight after, or after a condition that makes sure he has. Other
 // people's lines are theirs. The validator checks every line (README:
 // "Nothing he can't know"); the tests play it down random paths.
-// The barman's grandson (r26): that there is one, in the Volunteers, from
-// Anselme; his oak-leaf pin, worn inside the lapel, only if he asks about
-// him (or Anselme tells him over the photograph). The man in grey's own pin
-// only once he's seen it (his lapel, or the deduction it leads to).
+// The barman's grandson (r26): only if Mr. Based notices the barman
+// searching the faces on the television (an Empathy check), and then asks;
+// the pin, worn inside the lapel, if he asks about the boy. The man in
+// grey's own pin only once he's seen it (his lapel, or the deduction it
+// leads to).
 @fact heard_grandson|knows_oak "grandson" "petit-fils"
 @fact knows_oak "grandson's pin" "grandson wears" "grandmother won't see" "grandmother sees" "nobody's grandmother"
 @fact lapel|party_man "oak-leaf pin" "party pin" "pin under" "under his lapel" "under your lapel" "bronze pin"
@@ -1128,17 +1129,42 @@ choose "The barman follows his eyes to the screen."
     if knows_marchal
       ~ MEMORY: Forty-eight per cent for Marchal. Somebody in Paris voted for her, and then went home and was calm.
     end
-    BARMAN: My grandson joined his Volunteers in the spring.
-    set heard_grandson
-    // r26: what the pin is, and where the boy wears it, only if he asks.
-    choose "The cloth has stopped moving."
-      * [Ask about his grandson] "Your grandson?"
-        BARMAN: Nineteen, and very serious. They give them a little pin. An oak leaf, bronze. Like the generals have on their caps. He wears it on the inside of his lapel, so his grandmother won't see.
-        ~ MEMORY: An oak leaf on the inside of the lapel. Worth remembering.
-        set knows_oak
-        rel ANSELME +1
-      * silent [Let it go]
-        The barman's cloth found the glass again. Some things a man says to a stranger so that the stranger will leave them alone.
+    // r26 (the owner): he doesn't just say it. Mr. Based has to notice
+    // something (Empathy, on the barman watching the screen), and then the
+    // barman lets it out, reluctantly. Without the check, he doesn't learn
+    // it here.
+    On the screen the picture cut to the crowd behind the lectern: young men in dark jackets, applauding in time. The barman's cloth stopped on the glass.
+    choose "The barman's cloth has stopped moving."
+      * white EMPATHY medium [Watch him, not the screen]
+        bonus +1 if saw_photo "The photograph by the bar: one family's hands on it"
+        bonus +1 if rel.anselme >= 1 "He's warming to you"
+        ~ EMPATHY: He isn't watching the President. He's going along the faces behind him, the young men in the dark jackets, one by one, and he's afraid he'll find one.
+        choose "He hasn't noticed he's stopped polishing."
+          * [Ask who he's looking for] "Somebody you know up there?"
+            BARMAN: Up there? No, monsieur. Nobody.
+            He put the glass down, and picked it up again, and looked at it as if it had answered back.
+            BARMAN (quietly): My grandson. He joined them in the spring. Their Volunteers.
+            set heard_grandson
+            BASED: That can't be easy.
+            BARMAN: He is nineteen, and very serious, and he thinks he is saving France. At nineteen I thought the same, only about a girl.
+            choose "He seems almost relieved to have said it."
+              * [Ask about the boy] "What do they have him doing?"
+                BARMAN: Handing out their papers. Standing at the back of their meetings, where people can see him standing. They give them a little pin. An oak leaf, bronze. Like the generals have on their caps.
+                BARMAN: He wears it on the inside of his lapel, so his grandmother won't see.
+                ~ MEMORY: An oak leaf on the inside of a lapel. Worth remembering.
+                set knows_oak
+                rel ANSELME +1
+              * silent [Let it go]
+                BARMAN: You did not hear that from me, monsieur. Not even my wife has heard it from me.
+                The barman's cloth found the glass again. Some things a man says to a stranger so that the stranger will leave them alone.
+            end
+          * silent [Leave him to it]
+            Whatever he was looking for up there, he could look for it in peace.
+        end
+      fail
+        ~ EMPATHY: Something on the screen has spoiled his evening, something more than the President. Whatever it is, he's keeping it behind the bar.
+      * silent [Watch the screen]
+        The young men applauded in time until the picture went back to the lectern, and the barman's cloth went back to the glass.
     end
   * silent [Let him watch]
     They watched the President applaud himself together, the way strangers watch a fire.
@@ -1758,14 +1784,8 @@ choose "Anselme waits, polishing."
   fail
     ANSELME (lightly): He wanted a Ricard, monsieur. He always wants a Ricard.
   * if saw_photo [Ask about the photograph] "The photograph by the bar. Your father?"
-    if knows_oak
-      ANSELME: Nineteen fifty-one. He had the bar from his uncle and gave it to me, and I will give it to nobody, because my grandson wears an oak leaf.
-    else
-      // r26: he hasn't heard about the boy yet: Anselme tells him.
-      ANSELME: Nineteen fifty-one. He had the bar from his uncle and gave it to me, and I will give it to nobody, because my grandson has joined the Volunteers. He wears their little oak leaf inside his lapel, where his grandmother cannot see it.
-      set heard_grandson
-      set knows_oak
-    end
+    // r26: the grandson isn't in it any more (the owner: S96.22, S96.24).
+    ANSELME: Nineteen fifty-one. He had the bar from his uncle and gave it to me.
     ANSELME: He kept the Germans' money in a separate drawer, monsieur, and gave it to the Resistance on Thursdays. It was a very good bar for a long time.
     rel ANSELME +1
   * [Pay the bill] "The bill, then."
