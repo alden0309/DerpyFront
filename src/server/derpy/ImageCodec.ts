@@ -15,13 +15,7 @@
 import zlib from "zlib";
 
 /** What the bytes say a file is. */
-export type ImageKind =
-  | "png"
-  | "jpeg"
-  | "webp"
-  | "gif"
-  | "markup"
-  | "unknown";
+export type ImageKind = "png" | "jpeg" | "webp" | "gif" | "markup" | "unknown";
 
 /** An image as RGBA bytes, row by row. */
 export interface Rgba {
@@ -220,7 +214,9 @@ export function decodePng(buf: Uint8Array, maxSide: number): Rgba {
       : sample(row, x, ch);
   const scale = (v: number) => (depth >= 8 ? v : Math.round((v * 255) / maxV));
   const key = (i: number) =>
-    trns && trns.length >= i * 2 + 2 ? (trns[i * 2] << 8) | trns[i * 2 + 1] : -1;
+    trns && trns.length >= i * 2 + 2
+      ? (trns[i * 2] << 8) | trns[i * 2 + 1]
+      : -1;
   for (let y = 0; y < height; y++) {
     const row = y * rowBytes;
     for (let x = 0; x < width; x++) {
@@ -386,7 +382,9 @@ export function decodeJpeg(buf: Uint8Array, maxSide: number): Rgba {
           if (tq > 3 || pq > 1) throw bad("bad DQT");
           const t = new Uint16Array(64);
           for (let k = 0; k < 64; k++)
-            t[k] = pq ? (seg[i + 1 + 2 * k] << 8) | seg[i + 2 + 2 * k] : seg[i + 1 + k];
+            t[k] = pq
+              ? (seg[i + 1 + 2 * k] << 8) | seg[i + 2 + 2 * k]
+              : seg[i + 1 + k];
           if (i + 1 + 64 * (pq + 1) > seg.length) throw bad("short DQT");
           qt[tq] = t;
           i += 1 + 64 * (pq + 1);
@@ -459,8 +457,7 @@ export function decodeJpeg(buf: Uint8Array, maxSide: number): Rgba {
       }
       case 0xda: {
         if (!frame) throw bad("scan before frame");
-        if (scanned)
-          throw new ImageError("unsupported", "more than one scan");
+        if (scanned) throw new ImageError("unsupported", "more than one scan");
         const n = seg[0];
         if (n !== frame.comps.length)
           throw new ImageError("unsupported", "a scan of some components");
@@ -552,7 +549,8 @@ function decodeScan(
     for (let i = 0; i < s; i++) v = (v << 1) | bit();
     return v;
   };
-  const extend = (v: number, s: number) => (v < 1 << (s - 1) ? v - (1 << s) + 1 : v);
+  const extend = (v: number, s: number) =>
+    v < 1 << (s - 1) ? v - (1 << s) + 1 : v;
   const decode = (h: Huffman): number => {
     let code = bit();
     let l = 1;
@@ -616,7 +614,10 @@ function decodeScan(
     if (restart > 0 && n > 0 && n % restart === 0) {
       // Drop what's left of the byte, find the RSTn marker, start again.
       nbits = 0;
-      while (p + 1 < buf.length && !(buf[p] === 0xff && buf[p + 1] >= 0xd0 && buf[p + 1] <= 0xd7))
+      while (
+        p + 1 < buf.length &&
+        !(buf[p] === 0xff && buf[p + 1] >= 0xd0 && buf[p + 1] <= 0xd7)
+      )
         p++;
       if (p + 1 < buf.length) p += 2;
       for (const c of comps) c.pred = 0;
@@ -634,7 +635,14 @@ function decodeScan(
     }
   }
   // On to the next marker.
-  while (p + 1 < buf.length && !(buf[p] === 0xff && buf[p + 1] !== 0x00 && !(buf[p + 1] >= 0xd0 && buf[p + 1] <= 0xd7)))
+  while (
+    p + 1 < buf.length &&
+    !(
+      buf[p] === 0xff &&
+      buf[p + 1] !== 0x00 &&
+      !(buf[p + 1] >= 0xd0 && buf[p + 1] <= 0xd7)
+    )
+  )
     p++;
   return p;
 }
@@ -650,8 +658,8 @@ const STD_LUMA_Q = [
 const STD_CHROMA_Q = [
   17, 18, 24, 47, 99, 99, 99, 99, 18, 21, 26, 66, 99, 99, 99, 99, 24, 26, 56,
   99, 99, 99, 99, 99, 47, 66, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
-  99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
-  99, 99, 99, 99, 99, 99,
+  99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+  99, 99, 99, 99, 99, 99, 99,
 ];
 
 // The standard Huffman tables (ITU T.81, Annex K.3).
@@ -692,7 +700,10 @@ const AC_CHROMA_VALS = [
 ];
 
 /** symbol → [code, length]. */
-function huffmanCodes(bits: number[], vals: number[]): Map<number, [number, number]> {
+function huffmanCodes(
+  bits: number[],
+  vals: number[],
+): Map<number, [number, number]> {
   const out = new Map<number, [number, number]>();
   let code = 0;
   let k = 0;
