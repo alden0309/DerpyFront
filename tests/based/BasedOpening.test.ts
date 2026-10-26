@@ -265,10 +265,22 @@ describe("the opening, reshaped (r25)", () => {
     // Under the pharmacy's awning, out of the rain.
     const shop = street.items.find(
       (i) => i.kind === "shopfront" && (i as { cross?: boolean }).cross,
-    ) as unknown as { at: number[]; w: number; awning: { depth: number } };
+    ) as unknown as {
+      at: number[];
+      w: number;
+      h: number;
+      awning: { depth: number };
+    };
     expect(Math.abs(x - shop.at[0])).toBeLessThan(shop.w / 2);
     expect(z).toBeGreaterThan(shop.at[2] - shop.awning.depth);
     expect(z).toBeLessThan(shop.at[2]);
+    // And the awning doesn't hide him: the camera looks from the wall's side,
+    // so from the top of his head the way to it passes under the awning's
+    // back edge (Kit.ts: its middle at h - 0.95, tilted 0.28, a box of the
+    // awning's depth), not through it.
+    const back = shop.h - 0.95 + Math.sin(0.28) * (shop.awning.depth / 2);
+    const rise = (shop.at[2] - z) * (d[1] / d[2]);
+    expect(1.8 + rise).toBeLessThan(back);
   });
 
   test("the offer is gated: the validator refuses it without a light", () => {
