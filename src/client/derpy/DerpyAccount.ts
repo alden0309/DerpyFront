@@ -100,6 +100,7 @@ export type DerpyAuthError =
   | "invalid_password"
   | "username_taken"
   | "wrong_password"
+  | "suspended" // ADMIN (r26)
   | "accounts_unavailable"
   | "server_error";
 

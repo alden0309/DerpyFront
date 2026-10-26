@@ -881,6 +881,7 @@
     "error_invalid_password": "Passwords need at least 6 characters.",
     "error_invalid_username": "Usernames are 3 to 20 letters, numbers or underscores.",
     "error_server_error": "Something went wrong. Try again in a moment.",
+    "error_suspended": "This account is suspended.",
     "error_username_taken": "That username is taken.",
     "error_wrong_password": "Wrong username or password.",
     "fanfare_play_again": "Play my fanfare again",
@@ -1766,6 +1767,8 @@
   },
   "kick_reason": {
     "admin": "Kicked by an admin",
+    "derp_ended": "Derp Land closed this game: {reason}",
+    "derp_suspended": "This account is suspended.",
     "duplicate_session": "Kicked from game (you may have been playing on another tab)",
     "host_left": "The host has left the lobby.",
     "lobby_creator": "Kicked by lobby creator",

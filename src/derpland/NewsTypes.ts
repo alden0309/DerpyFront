@@ -6,6 +6,8 @@
 // Nothing here names a game: the server says which games a viewer may see,
 // with their names and colours, and sends only those games' entries.
 
+import type { SiteBanner } from "./BannerTypes"; // ADMIN (r26)
+
 /** One entry, as written in the server's entries file and as served. */
 export interface NewsEntry {
   /** Stable: its date, then a short slug ("2026-10-19-friends"). */
@@ -39,6 +41,8 @@ export interface NewsView {
   lastSeen: string | null;
   /** Signed in: how many of `entries`, from the top, are new. */
   unseen: number;
+  /** ADMIN (r26): the site banner (null: none), for pages signed out. */
+  banner?: SiteBanner | null;
 }
 
 /** What the social beat carries for the bar's dot, signed in. */

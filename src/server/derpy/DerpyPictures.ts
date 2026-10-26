@@ -17,9 +17,8 @@
 //   uploading; each action writes an audit line in its own transaction.
 //   The functions here do the work. ADMIN (r26)'s page calls them from its
 //   sections "pictures" and "reports" (admin/sections/Pictures.ts, its page
-//   half src/admin/sections/PicturesView.ts); until the two branches meet,
-//   /pictures/moderation/* below serves the same to the owner alone, and
-//   404 to everyone else.
+//   half src/admin/sections/PicturesView.ts), behind its owner check, and
+//   each audit line goes into its audit log (ctx.audit).
 
 import { randomBytes } from "crypto";
 import express, { NextFunction, Request, Response } from "express";
@@ -40,6 +39,7 @@ import {
   VERSION_RE,
 } from "../../derpland/Pictures";
 import { logger } from "../Logger";
+import { OWNER_SQL } from "./admin/AdminSql"; // ADMIN (r26): the owner
 import { type Account, hashToken } from "./DerpyAuth";
 import { checkBadges, playerBadges } from "./DerpyBadges";
 import { db, inTransaction } from "./DerpyDb";
@@ -59,15 +59,11 @@ export const REPORTS = new Limiter(20, 24 * 3600_000);
 // ---------------------------------------------------------------- the owner
 
 /**
- * The owner's account, as ADMIN (r26) names it (admin/AdminSql.ts's
- * OWNER_SQL, which this copies until the two meet): Mr. Based's mark, given
- * once by account id under the owner's own name, so a rename neither loses
- * it nor gains it, and Mr. Based given to anyone else never makes an owner.
+ * Whether this account may moderate pictures: the owner's alone, as the
+ * admin page knows him (admin/AdminSql.ts's OWNER_SQL: Mr. Based's mark
+ * given once by account id under the owner's own name). Mr. Based given to
+ * anyone else by hand never makes a moderator.
  */
-const OWNER_SQL = (a: string) =>
-  `(${a}.based_access AND ${a}.based_granted_as = 'alden')`;
-
-/** Whether this account may moderate pictures: the owner's alone. */
 export async function isPictureModerator(
   q: Queryable,
   accountId: number,
@@ -94,18 +90,6 @@ export interface PictureAudit {
  * given: ADMIN's ctx.audit has exactly this shape.
  */
 export type PictureAuditFn = (e: PictureAudit, q?: Queryable) => Promise<void>;
-
-/** Until ADMIN's audit log takes them: each action in the server's log. */
-export function logAudit(actorId: number): PictureAuditFn {
-  return async (e) => {
-    log.info("picture moderation", {
-      actorId,
-      action: e.action,
-      target: e.target?.id,
-      ...(e.reason ? { reason: e.reason } : {}),
-    });
-  };
-}
 
 // ---------------------------------------------------------------- choosing
 
@@ -603,18 +587,6 @@ const Target = z.object({
   account: z.coerce.number().int().positive(),
   version: z.string().regex(VERSION_RE),
 });
-const Reason = z.string().max(500).nullish();
-const Remove = z.object({
-  account: z.coerce.number().int().positive(),
-  block: z.boolean().optional(),
-  reason: Reason,
-});
-const Block = z.object({
-  account: z.coerce.number().int().positive(),
-  blocked: z.boolean(),
-  reason: Reason,
-});
-const Dismiss = Target.extend({ reason: Reason });
 
 /** Mounted by DerpyApi at /derpy/api/pictures. */
 export function picturesRouter({
@@ -638,7 +610,6 @@ export function picturesRouter({
     rateLimit({ windowMs: 60_000, limit: n, keyGenerator: perSession });
   const chooseLimiter = limit(30);
   const uploadLimiter = limit(10);
-  const modLimiter = limit(120);
   const raw = express.raw({ type: () => true, limit: UPLOAD_MAX_BYTES });
 
   const answer = (res: Response, r: { error: PictureError } | object) => {
@@ -650,19 +621,6 @@ export function picturesRouter({
     delete rest.ok;
     res.json(rest);
   };
-
-  /** The owner's routes: anyone else finds nothing here. */
-  const ownerOnly = (
-    fn: (req: Authed, res: Response, actor: number) => Promise<unknown>,
-  ) =>
-    requireAccount(async (req, res) => {
-      const actor = req.derpy!.account.id;
-      if (!(await isPictureModerator(await db(), actor))) {
-        res.status(404).json({ error: "not_found" });
-        return;
-      }
-      await fn(req, res, actor);
-    });
 
   // An uploaded picture. A new upload is a new version (a new address), so
   // this one never changes: browsers keep it for a year. Removed: gone.
@@ -759,70 +717,6 @@ export function picturesRouter({
           body.data.version,
         ),
       );
-    }),
-  );
-
-  // ---- the owner's (PROFILE r26: until ADMIN's sections take them over)
-  router.get(
-    "/moderation",
-    modLimiter,
-    ownerOnly(async (_req, res) => {
-      res.json(await moderationView());
-    }),
-  );
-  router.post(
-    "/moderation/remove",
-    modLimiter,
-    json,
-    ownerOnly(async (req, res, actor) => {
-      const body = Remove.safeParse(req.body);
-      if (!body.success) {
-        res.status(400).json({ error: "invalid" });
-        return;
-      }
-      const r = await removePicture(body.data.account, {
-        block: body.data.block === true,
-        reason: body.data.reason,
-        audit: logAudit(actor),
-      });
-      if ("error" in r) answer(res, r);
-      else res.json(await moderationView());
-    }),
-  );
-  router.post(
-    "/moderation/block",
-    modLimiter,
-    json,
-    ownerOnly(async (req, res, actor) => {
-      const body = Block.safeParse(req.body);
-      if (!body.success) {
-        res.status(400).json({ error: "invalid" });
-        return;
-      }
-      const r = await blockUploads(body.data.account, {
-        blocked: body.data.blocked,
-        reason: body.data.reason,
-        audit: logAudit(actor),
-      });
-      if ("error" in r) answer(res, r);
-      else res.json(await moderationView());
-    }),
-  );
-  router.post(
-    "/moderation/dismiss",
-    modLimiter,
-    json,
-    ownerOnly(async (req, res, actor) => {
-      const body = Dismiss.safeParse(req.body);
-      if (!body.success) {
-        res.status(400).json({ error: "invalid" });
-        return;
-      }
-      await dismissReports(body.data.account, body.data.version, {
-        reason: body.data.reason,
-        audit: logAudit(actor),
-      });
-      res.json(await moderationView());
     }),
   );
 

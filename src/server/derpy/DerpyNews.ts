@@ -37,6 +37,7 @@ import { logger } from "../Logger";
 import { Account, accountForToken } from "./DerpyAuth";
 import { grantBadgesSoon } from "./DerpyBadges"; // PROFILE (r26)
 import { db, derpyDbConfigured } from "./DerpyDb";
+import { currentBanner } from "./SiteBanner"; // ADMIN (r26)
 
 const log = logger.child({ component: "DerpyNews" });
 
@@ -291,6 +292,18 @@ export async function markNewsSeen(
   return newsView(v);
 }
 
+/**
+ * ADMIN (r26): every entry (Mr. Based's too), their order, the games and
+ * which are secret: for the owner's admin page only.
+ */
+export function newsForAdmin(): {
+  entries: readonly NewsEntry[];
+  order: ReadonlyMap<string, number>;
+  games: readonly (NewsGame & { secret?: true })[];
+} {
+  return { entries: all, order, games: GAMES };
+}
+
 /** For tests: forget every account's mark (as a restart would). */
 export function forgetNewsViewers(): void {
   viewers.clear();
@@ -329,7 +342,8 @@ export function newsRouter({
       const h = req.headers.authorization ?? "";
       const token = h.startsWith("Bearer ") ? h.slice(7).trim() : "";
       if (!token || !derpyDbConfigured()) {
-        res.json(newsView(null));
+        // ADMIN (r26): with the site banner, which signed-out pages get here.
+        res.json({ ...newsView(null), banner: await currentBanner() });
         return;
       }
       const found = await accountForToken(token);
@@ -338,7 +352,10 @@ export function newsRouter({
         return;
       }
       // Asked again, so access taken away shows at once.
-      res.json(newsView(await viewer(found.account.id, true)));
+      res.json({
+        ...newsView(await viewer(found.account.id, true)),
+        banner: await currentBanner(), // ADMIN (r26)
+      });
     }),
   );
 

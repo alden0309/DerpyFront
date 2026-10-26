@@ -85,9 +85,67 @@ const WorkerReadySchema = z.object({
   workerId: z.number(),
 });
 
+// ADMIN (r26): the owner's admin page asks each worker for every game it
+// holds (lobbies and games, private ones too) and can end one. Games are
+// checked one by one on the master, like the lobby lists.
+export const AdminFrontGameSchema = z.object({
+  id: z.string().max(20),
+  phase: z.enum(["lobby", "starting", "playing"]),
+  map: z.string().max(100),
+  mapKey: z.string().max(100),
+  mode: z.string().max(40),
+  scenario: z.string().max(60).optional(),
+  /** public (a scheduled type), listed (a host's, in the browser), private, matched. */
+  kind: z.string().max(20),
+  createdAt: z.number(),
+  startedAt: z.number().nullable(),
+  players: z.array(z.string().max(60)).max(400),
+  watchers: z.number().int().min(0),
+  maxPlayers: z.number().int().min(0).nullable(),
+  locked: z.boolean(),
+  watchable: z.boolean(),
+});
+export type AdminFrontGame = z.infer<typeof AdminFrontGameSchema>;
+
+export const AdminWorkerHealthSchema = z.object({
+  worker: z.number().int().min(0),
+  uptimeS: z.number(),
+  rss: z.number(),
+  heapUsed: z.number(),
+  games: z.number().int().min(0),
+  clients: z.number().int().min(0),
+  errors: z
+    .array(
+      z.object({
+        at: z.number(),
+        message: z.string().max(1000),
+        component: z.string().max(60).optional(),
+      }),
+    )
+    .max(100),
+});
+export type AdminWorkerHealth = z.infer<typeof AdminWorkerHealthSchema>;
+
+const WorkerAdminGamesSchema = z.object({
+  type: z.literal("adminGames"),
+  reqId: z.number().int(),
+  games: z.array(z.unknown()).max(5000),
+  health: AdminWorkerHealthSchema,
+});
+export type WorkerAdminGames = z.infer<typeof WorkerAdminGamesSchema>;
+
+const WorkerAdminEndedSchema = z.object({
+  type: z.literal("adminEnded"),
+  reqId: z.number().int(),
+  ok: z.boolean(),
+});
+export type WorkerAdminEnded = z.infer<typeof WorkerAdminEndedSchema>;
+
 export const WorkerMessageSchema = z.discriminatedUnion("type", [
   WorkerLobbyListSchema,
   WorkerReadySchema,
+  WorkerAdminGamesSchema, // ADMIN (r26)
+  WorkerAdminEndedSchema, // ADMIN (r26)
 ]);
 
 // --- Master Messages ---
@@ -124,8 +182,33 @@ const MasterCreateGameSchema = z.object({
   publicGameType: PublicGameTypeSchema,
 });
 
+// ADMIN (r26): the admin page's questions to a worker.
+const MasterAdminListSchema = z.object({
+  type: z.literal("adminList"),
+  reqId: z.number().int(),
+});
+const MasterAdminEndSchema = z.object({
+  type: z.literal("adminEnd"),
+  reqId: z.number().int(),
+  gameID: z.string().max(20),
+  reason: z.string().max(300),
+});
+export type MasterAdminList = z.infer<typeof MasterAdminListSchema>;
+export type MasterAdminEnd = z.infer<typeof MasterAdminEndSchema>;
+// A suspended or deleted account's players (by their sessions' play ids)
+// taken out of every game on the worker.
+const MasterAdminKickSchema = z.object({
+  type: z.literal("adminKick"),
+  reqId: z.number().int(),
+  playIds: z.array(z.string().max(60)).max(200),
+});
+export type MasterAdminKick = z.infer<typeof MasterAdminKickSchema>;
+
 export const MasterMessageSchema = z.discriminatedUnion("type", [
   MasterLobbiesBroadcastSchema,
   MasterCreateGameSchema,
   MasterUpdateGameSchema,
+  MasterAdminListSchema, // ADMIN (r26)
+  MasterAdminEndSchema, // ADMIN (r26)
+  MasterAdminKickSchema, // ADMIN (r26)
 ]);

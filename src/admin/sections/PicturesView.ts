@@ -381,7 +381,7 @@ export function pictureAccountPanel(
           >`
         : nothing}
       <span class="adm-pic-meta"
-        >${d.uploadsToday} uploads
+        >${d.uploadsToday} ${d.uploadsToday === 1 ? "upload" : "uploads"}
         today${d.uploadsBlocked ? " · uploads blocked" : ""}</span
       >
     </div>

@@ -324,6 +324,14 @@ describe.skipIf(!TEST_DB)("pictures, against Postgres", () => {
   const upload = (u: TestUser, raw: Uint8Array, contentType?: string) =>
     kit.call("/pictures/upload", { token: u.token, raw, contentType });
 
+  /** ADMIN (r26): a POST to the admin page's API, from its own page. */
+  const admin = (path: string, u: TestUser, body: object) =>
+    kit.call(`/admin${path}`, {
+      token: u.token,
+      body,
+      headers: { Origin: new URL(kit.base).origin },
+    });
+
   test("an upload is drawn again, worn, and served for a year as an image only", async () => {
     const r = await upload(pat, jpegWithGps(scene(500, 400)), "image/jpeg");
     expect(r.status).toBe(200);
@@ -472,23 +480,33 @@ describe.skipIf(!TEST_DB)("pictures, against Postgres", () => {
     expect((await report(pat, gary.id, g.version)).status).toBe(200);
     expect((await report(pat, gary.id, g.version)).status).toBe(200); // once is kept
 
-    // Nobody but the owner finds the moderation routes: not even someone
-    // given Mr. Based by hand (the owner is the one marked under his name).
+    // Nobody but the owner finds the moderation routes (ADMIN r26's admin
+    // API: a 404 like any unknown address): not even someone given Mr.
+    // Based by hand (the owner is the one marked under his name).
     await kit.pool.query(
       "UPDATE derpy_accounts SET based_access = true WHERE id = $1",
       [pat.id],
     );
     for (const u of [pat, gary]) {
-      expect(
-        (await kit.call("/pictures/moderation", { token: u.token })).status,
-      ).toBe(404);
-      const r = await kit.call("/pictures/moderation/remove", {
-        token: u.token,
-        body: { account: gary.id, block: true },
-      });
+      for (const path of ["/admin/pictures", "/admin/reports"])
+        expect((await kit.call(path, { token: u.token })).status).toBe(404);
+      const r = await admin(`/pictures/${gary.id}/remove`, u, { block: true });
       expect(r.status).toBe(404);
+      expect(r.json).toEqual({ error: "not_found" });
     }
-    expect((await kit.call("/pictures/moderation")).status).toBe(401);
+    expect((await kit.call("/admin/pictures")).status).toBe(404);
+    // PROFILE's interim owner routes are gone, for the owner too.
+    expect(
+      (await kit.call("/pictures/moderation", { token: alden.token })).status,
+    ).toBe(404);
+    expect(
+      (
+        await kit.call("/pictures/moderation/remove", {
+          token: alden.token,
+          body: { account: gary.id, block: true },
+        })
+      ).status,
+    ).toBe(404);
     // /me says so only to the owner.
     expect(
       (await kit.call("/me", { token: pat.token })).json.moderator,
@@ -497,7 +515,7 @@ describe.skipIf(!TEST_DB)("pictures, against Postgres", () => {
       true,
     );
 
-    const view = await kit.call("/pictures/moderation", { token: alden.token });
+    const view = await kit.call("/admin/pictures", { token: alden.token });
     expect(view.status).toBe(200);
     const reported = view.json.reported.find(
       (r: { accountId: number }) => r.accountId === gary.id,
@@ -516,9 +534,8 @@ describe.skipIf(!TEST_DB)("pictures, against Postgres", () => {
     ).toBe(true);
 
     // Dismissed: its reports go, the picture stays.
-    const dis = await kit.call("/pictures/moderation/dismiss", {
-      token: alden.token,
-      body: { account: gary.id, version: g.version },
+    const dis = await admin(`/reports/${gary.id}/dismiss`, alden, {
+      version: g.version,
     });
     expect(
       dis.json.reported.some(
@@ -539,9 +556,9 @@ describe.skipIf(!TEST_DB)("pictures, against Postgres", () => {
 
     // Removed and blocked: gone at once, everywhere.
     await report(pat, gary.id, g.version);
-    const rem = await kit.call("/pictures/moderation/remove", {
-      token: alden.token,
-      body: { account: gary.id, block: true },
+    const rem = await admin(`/pictures/${gary.id}/remove`, alden, {
+      block: true,
+      reason: "rude",
     });
     expect(rem.status).toBe(200);
     expect(
@@ -573,9 +590,8 @@ describe.skipIf(!TEST_DB)("pictures, against Postgres", () => {
     ).toBe(true);
 
     // Unblocked: it may again.
-    const un = await kit.call("/pictures/moderation/block", {
-      token: alden.token,
-      body: { account: gary.id, blocked: false },
+    const un = await admin(`/pictures/${gary.id}/block`, alden, {
+      blocked: false,
     });
     expect(
       un.json.blocked.some(
@@ -583,6 +599,23 @@ describe.skipIf(!TEST_DB)("pictures, against Postgres", () => {
       ),
     ).toBe(false);
     expect((await upload(gary, makePng(scene(64, 64)))).status).toBe(200);
+
+    // Each action is a line in the admin page's audit log, by the owner.
+    const audit = await kit.pool.query(
+      `SELECT actor_id, action, target_type, target_id, target_name, reason
+         FROM derpy_admin_audit WHERE target_id = $1 ORDER BY id`,
+      [String(gary.id)],
+    );
+    expect(audit.rows).toEqual([
+      expect.objectContaining({
+        action: "reports.dismiss",
+        target_type: "account",
+        target_name: gary.name,
+      }),
+      expect.objectContaining({ action: "pictures.remove", reason: "rude" }),
+      expect.objectContaining({ action: "pictures.unblock" }),
+    ]);
+    expect(audit.rows.every((r) => Number(r.actor_id) === alden.id)).toBe(true);
   });
 
   test("each moderation action writes one audit line, in ADMIN's shape, inside its own transaction", async () => {
@@ -626,10 +659,7 @@ describe.skipIf(!TEST_DB)("pictures, against Postgres", () => {
       after: { picture: null, upload: null, uploadsBlocked: true },
     });
     // An audit that fails takes the change back with it.
-    await kit.call("/pictures/moderation/block", {
-      token: alden.token,
-      body: { account: u.id, blocked: false },
-    });
+    await admin(`/pictures/${u.id}/block`, alden, { blocked: false });
     expect((await upload(u, makePng(scene(80, 80)))).status).toBe(200);
     const failing = async () => {
       throw new Error("audit down");

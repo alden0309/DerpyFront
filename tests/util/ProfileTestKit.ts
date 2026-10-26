@@ -30,6 +30,8 @@ export interface Kit {
       token?: string;
       method?: string;
       contentType?: string;
+      /** ADMIN (r26): more headers (the admin page's POSTs carry an Origin). */
+      headers?: Record<string, string>;
     },
   ): Promise<{
     status: number;
@@ -87,6 +89,7 @@ export async function startKit(): Promise<Kit> {
               ? { "Content-Type": "application/json" }
               : {}),
           ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
+          ...opts.headers, // ADMIN (r26)
         },
         body,
       });

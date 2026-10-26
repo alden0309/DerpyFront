@@ -25,6 +25,7 @@ export type AuthError =
   | "invalid_password"
   | "username_taken"
   | "wrong_password"
+  | "suspended" // ADMIN (r26)
   | "accounts_unavailable"
   | "server_error";
 
@@ -33,6 +34,7 @@ export const AUTH_ERROR_TEXT: Record<AuthError, string> = {
   invalid_password: "Passwords need at least 6 characters.",
   username_taken: "That username is taken.",
   wrong_password: "Wrong username or password.",
+  suspended: "This account is suspended.", // ADMIN (r26)
   accounts_unavailable: "Accounts aren't available right now.",
   server_error: "Something went wrong. Try again.",
 };
@@ -133,6 +135,60 @@ export async function signOut(): Promise<void> {
     // signed out here either way
   }
   forget();
+}
+
+// ---- ADMIN (r26): a one-time password reset link (made by the owner) ----
+
+/** Whose a reset link is, or null when it's used, expired or never was. */
+export async function resetLinkOwner(token: string): Promise<string | null> {
+  try {
+    const r = await api<{ username: string }>("/password/reset/check", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+    return r.username;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sets a new password with a reset link. Every session the account had
+ * ends; this browser is signed in (unless the account is suspended).
+ */
+export async function resetPassword(
+  token: string,
+  password: string,
+): Promise<
+  | { ok: true; username: string; signedIn: boolean }
+  | { ok: false; error: "link_gone" | "invalid_password" | "server_error" }
+> {
+  try {
+    const r = await api<{
+      signedIn: boolean;
+      username?: string;
+      token?: string;
+      playId?: string;
+      account?: { username: string };
+    }>("/password/reset", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    });
+    if (r.signedIn && r.token && r.playId && r.account) {
+      remember({ token: r.token, playId: r.playId, account: r.account });
+      return { ok: true, username: r.account.username, signedIn: true };
+    }
+    return { ok: true, username: r.username ?? "", signedIn: false };
+  } catch (err) {
+    const code = err instanceof ApiError ? err.code : "server_error";
+    return {
+      ok: false,
+      error:
+        code === "link_gone" || code === "invalid_password"
+          ? code
+          : "server_error",
+    };
+  }
 }
 
 export interface Me {
