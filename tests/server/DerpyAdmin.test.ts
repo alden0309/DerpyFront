@@ -12,8 +12,11 @@
 // derpy_ tables are dropped first).
 
 import express from "express";
+import fs from "fs";
 import http from "http";
 import { AddressInfo } from "net";
+import os from "os";
+import path from "path";
 import type pg from "pg";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import type { SocialState } from "../../src/derpland/SocialTypes";
@@ -36,6 +39,8 @@ const SPA = "<!doctype html><title>DerpyFront</title><p>the app shell";
 describe.skipIf(!TEST_DB)("the admin page, against Postgres", () => {
   let origin = "";
   let server: http.Server;
+  let adminDist: string | undefined;
+  let useDist: ((dir?: string) => void) | undefined;
   let pool: pg.Pool;
   let closeDb: () => Promise<void>;
   let db: () => Promise<pg.Pool>;
@@ -154,8 +159,16 @@ describe.skipIf(!TEST_DB)("the admin page, against Postgres", () => {
     Sources = await import("../../src/server/derpy/admin/AdminSources");
     Banner = await import("../../src/server/derpy/SiteBanner");
     const { derpyApiRouter } = await import("../../src/server/derpy/DerpyApi");
-    const { adminPage } =
+    const { adminPage, useAdminDist } =
       await import("../../src/server/derpy/admin/AdminPage");
+    // The build's step (build-prod's last), into a folder of the test's
+    // own: the server only reads what it wrote.
+    const { writeAdminBundle } =
+      await import("../../src/server/derpy/admin/AdminBuild");
+    adminDist = fs.mkdtempSync(path.join(os.tmpdir(), "derpy-admin-dist-"));
+    await writeAdminBundle(adminDist);
+    useDist = useAdminDist;
+    useDist(adminDist);
     const app = express();
     app.use("/derpy/api", derpyApiRouter());
     // As the master: the admin page, then the address-unknown fallback.
@@ -177,6 +190,8 @@ describe.skipIf(!TEST_DB)("the admin page, against Postgres", () => {
     await new Promise((r) => server?.close(r));
     await closeDb?.();
     delete process.env.DATABASE_URL;
+    useDist?.();
+    if (adminDist) fs.rmSync(adminDist, { recursive: true, force: true });
   });
 
   // ---------------------------------------------------------------- who
@@ -328,6 +343,29 @@ describe.skipIf(!TEST_DB)("the admin page, against Postgres", () => {
       });
       expect((await call("/admin", { cookie: cookie2 })).text).toBe(SPA);
     }, 60_000);
+
+    test("a deploy without the built script tells the owner so, and bundles nothing", async () => {
+      const set = (
+        await call("/derpy/api/me", { token: users.Alden.token })
+      ).headers.get("set-cookie")!;
+      const cookie = set.split(";")[0];
+      const empty = fs.mkdtempSync(path.join(os.tmpdir(), "derpy-admin-none-"));
+      try {
+        useDist!(empty);
+        const r = await call("/admin", { cookie });
+        expect(r.status).toBe(503);
+        expect(r.text).toContain("wasn't built");
+        expect(r.headers.get("cache-control")).toContain("no-store");
+        // Anyone else still finds nothing there.
+        expect((await call("/admin")).text).toBe(SPA);
+        // A missing build isn't remembered: once it's there, it's read.
+        fs.cpSync(adminDist!, empty, { recursive: true });
+        expect((await call("/admin", { cookie })).status).toBe(200);
+      } finally {
+        useDist!(adminDist);
+        fs.rmSync(empty, { recursive: true, force: true });
+      }
+    });
 
     test("Mr. Based given by hand never makes anyone the owner", async () => {
       await pool.query(

@@ -1,10 +1,10 @@
 // ADMIN (r26): the page at /admin, and its script. Neither is among the
 // site's built files (static/): the page is Derp Land's own shell with the
 // hub's script swapped for /admin/app-<hash>.js, and that script is built
-// by build-prod into dist-admin/ (AdminBundle.ts). Both are sent only to a
-// browser carrying the owner's admin cookie; any other request falls
-// through, untouched, to whatever the site says for an address it doesn't
-// have.
+// by build-prod into dist-admin/ (AdminBuild.ts); the server only reads it
+// (AdminBundle.ts) and never bundles it. Both are sent only to a browser
+// carrying the owner's admin cookie; any other request falls through,
+// untouched, to whatever the site says for an address it doesn't have.
 
 import type { NextFunction, Request, Response } from "express";
 import fs from "fs";
@@ -12,7 +12,12 @@ import path from "path";
 import { logger } from "../../Logger";
 import { renderHtmlContent } from "../../RenderHtml";
 import { ownerFromCookie } from "./AdminAccess";
-import { AdminBundle, bundleAdmin, readBuiltAdmin, ROOT } from "./AdminBundle";
+import {
+  ADMIN_DIST,
+  type AdminBundle,
+  readBuiltAdmin,
+  ROOT,
+} from "./AdminBundle";
 
 const log = logger.child({ component: "DerpyAdmin" });
 
@@ -26,30 +31,38 @@ export function isAdminPath(p: string): boolean {
 
 export const adminScriptPath = (hash: string) => `/admin/app-${hash}.js`;
 
-let bundle: Promise<AdminBundle> | null = null;
+let dist = ADMIN_DIST;
+let bundle: AdminBundle | null = null;
+let told = false;
 
 /**
- * The admin page's script: the build's (dist-admin/), read once. Without a
- * build (tests, a local server run from source) it's bundled here, once.
+ * The admin page's script, as the build left it in dist-admin/, read once.
+ * Null when this deploy has none (build-prod's last step didn't run): the
+ * owner is told so. The server never bundles it itself.
  */
-export function adminBundle(): Promise<AdminBundle> {
-  bundle ??= (async () => {
-    const built = readBuiltAdmin();
-    if (built) return built;
-    // A local server or tests: esbuild (only imported now) does it once.
-    log.info("no built admin script (dist-admin/): bundling it here");
-    return bundleAdmin();
-  })().catch((err: unknown) => {
-    bundle = null;
-    throw err;
-  });
+export function adminBundle(): AdminBundle | null {
+  if (bundle) return bundle;
+  bundle = readBuiltAdmin(dist);
+  if (!bundle && !told) {
+    told = true;
+    log.error(
+      `no built admin script in ${dist} (build-prod's last step: tsx scripts/buildAdmin.ts)`,
+    );
+  }
   return bundle;
 }
 
-/** For tests: read (or bundle) it again next time. */
+/** For tests: read (the script and the shell) again next time. */
 export function forgetAdminBundle(): void {
   bundle = null;
+  told = false;
   shells = new Map();
+}
+
+/** For tests: read the built script from `dir` instead of dist-admin/. */
+export function useAdminDist(dir: string = ADMIN_DIST): void {
+  dist = dir;
+  forgetAdminBundle();
 }
 
 let shells = new Map<string, Promise<string>>();
@@ -126,7 +139,16 @@ export function adminPage() {
         return;
       }
       try {
-        const b = await adminBundle();
+        const b = adminBundle();
+        if (b === null) {
+          privateHeaders(res, "text/plain; charset=utf-8", false);
+          res
+            .status(503)
+            .send(
+              "The admin page wasn't built with this deploy. Ask Claude to check the build (scripts/buildAdmin.ts).",
+            );
+          return;
+        }
         const script = /^\/admin\/app-([0-9a-f]{16})\.js$/.exec(req.path);
         if (script) {
           // An old address (from before a deploy) is simply not there.

@@ -4,7 +4,8 @@
 // under src/admin/ (the page) or src/server/ is reached; the site's build
 // doesn't name it; and the built site (static/, when there is one) holds
 // none of it. The admin page's script is built into dist-admin/ instead,
-// which the server serves only to the owner.
+// at build time: the server only reads it (never bundles it: esbuild isn't
+// anywhere the running server reaches), and serves it only to the owner.
 
 import fs from "fs";
 import path from "path";
@@ -101,6 +102,38 @@ describe("the admin page stays the owner's", () => {
       "utf8",
     );
     expect(bundle).toContain('path.join(ROOT, "dist-admin")');
+    const script = fs.readFileSync(
+      path.join(ROOT, "scripts/buildAdmin.ts"),
+      "utf8",
+    );
+    expect(script).toContain("writeAdminBundle");
+    // The Docker image (upstream's way to ship) carries it from its build.
+    const docker = fs.readFileSync(path.join(ROOT, "Dockerfile"), "utf8");
+    expect(docker).toMatch(
+      /COPY --from=build \/usr\/src\/app\/dist-admin \.\/dist-admin/,
+    );
+  });
+
+  test("the running server never bundles it: nothing it reaches imports esbuild or the bundler", () => {
+    const files = [
+      ...new Set(
+        ["src/server/Server.ts", "src/server/Master.ts"].flatMap((e) => [
+          ...reachable(e),
+        ]),
+      ),
+    ];
+    // The walk reaches the admin page's server half (it works).
+    expect(files).toContain("src/server/derpy/admin/AdminPage.ts");
+    expect(files).toContain("src/server/derpy/admin/AdminBundle.ts");
+    expect(files).not.toContain("src/server/derpy/admin/AdminBuild.ts");
+    const esbuild = files.filter(
+      (f) =>
+        /\.(ts|js|mjs)$/.test(f) &&
+        /(?:from|import\(?)\s*["']esbuild["']/.test(
+          fs.readFileSync(path.join(ROOT, f), "utf8"),
+        ),
+    );
+    expect(esbuild).toEqual([]);
   });
 
   const STATIC = path.join(ROOT, "static");
@@ -128,7 +161,7 @@ describe("the admin page stays the owner's", () => {
 
   test("the admin script, bundled, has the page in it", async () => {
     const { bundleAdmin } =
-      await import("../src/server/derpy/admin/AdminBundle");
+      await import("../src/server/derpy/admin/AdminBuild");
     const b = await bundleAdmin();
     for (const m of MARKERS) expect(b.js, m).toContain(m);
     expect(b.hash).toMatch(/^[0-9a-f]{16}$/);

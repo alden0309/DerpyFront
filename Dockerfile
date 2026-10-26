@@ -84,6 +84,9 @@ COPY package*.json ./
 
 # Copy built artifacts from build stage
 COPY --from=build /usr/src/app/static ./static
+# ADMIN (r26): the owner's admin page's script, which build-prod bundles
+# outside static/; the server only reads it, and only the owner gets it.
+COPY --from=build /usr/src/app/dist-admin ./dist-admin
 
 COPY resources ./resources
 

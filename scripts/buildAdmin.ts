@@ -1,13 +1,12 @@
 // ADMIN (r26): the production build's last step: the owner's admin page's
 // script, bundled into dist-admin/ (outside static/, so it's never one of
-// the site's public files). The server sends it only to the owner.
+// the site's public files). The server only reads it, and sends it to the
+// owner alone; it never bundles it itself.
 //
 //   tsx scripts/buildAdmin.ts
 
-import {
-  ADMIN_DIST,
-  writeAdminBundle,
-} from "../src/server/derpy/admin/AdminBundle";
+import { writeAdminBundle } from "../src/server/derpy/admin/AdminBuild";
+import { ADMIN_DIST } from "../src/server/derpy/admin/AdminBundle";
 
 const b = await writeAdminBundle();
 console.log(

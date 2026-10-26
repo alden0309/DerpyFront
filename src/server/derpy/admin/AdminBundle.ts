@@ -1,12 +1,10 @@
-// ADMIN (r26): bundling the admin page's script (src/admin/Main.ts) into one
-// file. The production build does it (scripts/buildAdmin.ts, the last step
-// of build-prod) into dist-admin/, outside static/, so the site's public
-// files never hold it and the server only reads a file. Without a build
-// (tests, a local server), the server bundles it itself the first time the
-// owner asks (AdminPage.ts).
+// ADMIN (r26): the admin page's script (src/admin/Main.ts), as the build
+// left it. The production build bundles it (scripts/buildAdmin.ts, the last
+// step of build-prod, through AdminBuild.ts) into dist-admin/, outside
+// static/, so the site's public files never hold it. The server only reads
+// that file here, and sends it to the owner alone (AdminPage.ts); it never
+// bundles anything itself.
 
-import { createHash } from "crypto";
-import type { Plugin } from "esbuild";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -24,73 +22,6 @@ export interface AdminBundle {
   hash: string;
 }
 
-/**
- * The page keeps the hub's stylesheet (fonts, the bar, the hub's
- * components) and the admin's own styles ride in the script (styles.ts).
- * A stylesheet a section imports (PROFILE's pictures view: pictures.css and
- * the hub's looks.css) rides in it too, minified, as a <style> added when
- * the script runs.
- */
-function cssAsStyle(esbuild: typeof import("esbuild")): Plugin {
-  return {
-    name: "admin-css",
-    setup(b) {
-      b.onLoad({ filter: /\.css$/ }, async (args) => {
-        const css = await esbuild.transform(
-          await fs.promises.readFile(args.path, "utf8"),
-          { loader: "css", minify: true },
-        );
-        const text = JSON.stringify(css.code.trim());
-        return {
-          loader: "js",
-          contents: `{const s=document.createElement("style");s.textContent=${text};document.head.appendChild(s);}`,
-        };
-      });
-    },
-  };
-}
-
-/** Bundles the admin page's script (esbuild, a dev dependency of the build). */
-export async function bundleAdmin(): Promise<AdminBundle> {
-  const esbuild = await import("esbuild");
-  try {
-    const out = await esbuild.build({
-      entryPoints: [ADMIN_ENTRY],
-      bundle: true,
-      write: false,
-      format: "esm",
-      platform: "browser",
-      target: "es2022",
-      minify: true,
-      legalComments: "none",
-      plugins: [cssAsStyle(esbuild)],
-      tsconfig: path.join(ROOT, "tsconfig.json"),
-      logLevel: "silent",
-    });
-    const js = out.outputFiles[0].text;
-    return {
-      js,
-      hash: createHash("sha256").update(js).digest("hex").slice(0, 16),
-    };
-  } finally {
-    await esbuild.stop();
-  }
-}
-
-/** Writes the bundle and its manifest into `dir` (the build's step). */
-export async function writeAdminBundle(dir = ADMIN_DIST): Promise<AdminBundle> {
-  const b = await bundleAdmin();
-  fs.rmSync(dir, { recursive: true, force: true });
-  fs.mkdirSync(dir, { recursive: true });
-  const file = `app-${b.hash}.js`;
-  fs.writeFileSync(path.join(dir, file), b.js);
-  fs.writeFileSync(
-    path.join(dir, ADMIN_MANIFEST),
-    JSON.stringify({ file, hash: b.hash, builtAt: new Date().toISOString() }),
-  );
-  return b;
-}
-
 /** The built bundle, if the build made one. */
 export function readBuiltAdmin(dir = ADMIN_DIST): AdminBundle | null {
   try {
@@ -98,6 +29,7 @@ export function readBuiltAdmin(dir = ADMIN_DIST): AdminBundle | null {
       fs.readFileSync(path.join(dir, ADMIN_MANIFEST), "utf8"),
     ) as { file: string; hash: string };
     if (!/^app-[0-9a-f]{16}\.js$/.test(m.file)) return null;
+    if (!/^[0-9a-f]{16}$/.test(m.hash)) return null;
     return {
       js: fs.readFileSync(path.join(dir, m.file), "utf8"),
       hash: m.hash,
