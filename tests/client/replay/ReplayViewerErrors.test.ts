@@ -233,6 +233,29 @@ test.each([
   },
 );
 
+// DFX (r26): watching together, a game from another build isn't sent to
+// that build's page (it would leave the room): the message, and no
+// client-side replay to fall back to.
+test("watching together, another build's game says so and stays in the room", async () => {
+  const { versionedViewerUrl } =
+    await import("../../../src/client/replay/ReplayEntry");
+  vi.mocked(fetchReplayRecord).mockResolvedValue({ kind: "other_build" });
+  const { v } = viewer();
+  (v as unknown as { together: unknown }).together = {
+    attach: vi.fn(),
+    detach: vi.fn(),
+    tick: vi.fn(),
+    inControl: false,
+    controllerName: () => "Pat",
+  };
+  await v.open();
+  expect(versionedViewerUrl).not.toHaveBeenCalled();
+  expect(v.status).toBe("error");
+  expect(v.error).toBe("replay_viewer.unavailable_other_build");
+  expect(v.classicFallback).toBe(false);
+  expect(processInBrowser).not.toHaveBeenCalled();
+});
+
 test("plays as the game is processed, and keeps the finished replay", async () => {
   const { v, playback, start, handlers } = await processing();
   expect(v.status).toBe("processing");
