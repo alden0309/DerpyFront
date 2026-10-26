@@ -72,6 +72,11 @@ import {
   scenarioOvertimeFrom,
 } from "./scenario/ScenarioPanel";
 import { ScenarioPick, scenarioPickFromArgs } from "./scenario/ScenarioPick";
+// DFX (r26): "Random nations"
+import { social } from "../derpland/Social";
+import { SendScenarioDealIntentEvent } from "./LobbyEvents";
+import { dealRandomNations } from "./scenario/RandomHistory";
+import { randomHistoryIcon } from "./scenario/RandomHistoryIcon";
 
 @customElement("host-lobby-modal")
 export class HostLobbyModal extends BaseModal {
@@ -156,6 +161,8 @@ export class HostLobbyModal extends BaseModal {
   @state() private scenario: ScenarioPick | null = null;
   @state() private scenarioSeats: Record<string, string> = {};
   private scenarioSentFor = "";
+  // DFX (r26): "Random nations" keeps the host's friends on one side.
+  @state() private keepFriendsTogether = false;
   private hardBalance = 0;
 
   @property({ attribute: false }) eventBus: EventBus | null = null;
@@ -935,6 +942,92 @@ export class HostLobbyModal extends BaseModal {
     `;
   }
 
+  /**
+   * DFX (r26): the lobby's players who are the host's friends: the host's
+   * party if they're in one, else their Derp Land friends (by name), with
+   * the host.
+   */
+  private friendClientIDs(): Set<string> {
+    const s = social.state;
+    const names = new Set<string>();
+    if (s !== null) {
+      names.add(s.me.username.toLowerCase());
+      const party = s.party?.members ?? [];
+      const people = party.length > 1 ? party : s.friends;
+      for (const p of people) names.add(p.username.toLowerCase());
+    }
+    return new Set(
+      this.clients
+        .filter(
+          (c) =>
+            c.spectator !== true &&
+            (c.clientID === this.lobbyCreatorClientID ||
+              names.has(c.username.toLowerCase())),
+        )
+        .map((c) => c.clientID),
+    );
+  }
+
+  /** DFX (r26): deal every player a random free seat. */
+  private dealRandomNations(pick: ScenarioPick): void {
+    const data = scenarioData(pick.id);
+    if (data === null) return;
+    const players = this.clients
+      .filter((c) => c.spectator !== true)
+      .map((c) => c.clientID);
+    const seats = dealRandomNations(data, players, {
+      friends: this.friendClientIDs(),
+      keepTogether: this.keepFriendsTogether,
+    });
+    this.eventBus?.emit(new SendScenarioDealIntentEvent(seats));
+  }
+
+  /** DFX (r26): "Random nations", and keeping friends on one side. */
+  private renderRandomNations(pick: ScenarioPick) {
+    const locked = this.lobbyStartAt !== null;
+    const party = (social.state?.party?.members.length ?? 0) > 1;
+    return html`<div
+      class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
+      data-random-nations
+    >
+      <button
+        class="flex items-center gap-2 rounded-md border border-cyber-yellow/40 bg-cyber-yellow/10 px-3 py-1.5 text-sm font-bold text-cyber-yellow transition-colors hover:bg-cyber-yellow/20 disabled:cursor-not-allowed disabled:opacity-40"
+        ?disabled=${locked}
+        data-random-nations-button
+        @click=${() => this.dealRandomNations(pick)}
+      >
+        ${randomHistoryIcon("size-4")}
+        ${translateText("random_history.random_nations")}
+      </button>
+      <label
+        class="flex cursor-pointer items-center gap-2 text-sm text-white/80"
+        title=${translateText(
+          party
+            ? "random_history.keep_friends_party"
+            : "random_history.keep_friends_friends",
+        )}
+      >
+        <input
+          type="checkbox"
+          class="size-4 accent-cyber-yellow"
+          .checked=${this.keepFriendsTogether}
+          @change=${(e: Event) =>
+            (this.keepFriendsTogether = (e.target as HTMLInputElement).checked)}
+        />
+        ${translateText("random_history.keep_friends")}
+      </label>
+      <span class="basis-full text-xs text-white/45"
+        >${translateText(
+          this.keepFriendsTogether
+            ? party
+              ? "random_history.keep_friends_party"
+              : "random_history.keep_friends_friends"
+            : "random_history.random_nations_hint",
+        )}</span
+      >
+    </div>`;
+  }
+
   /** SCEN (r25): the scenario panel, with the nations' seats under it. */
   private renderScenarioSeats(pick: ScenarioPick) {
     const { seats, unseated } = boardSeats(this.scenarioSeats, this.clients);
@@ -954,6 +1047,7 @@ export class HostLobbyModal extends BaseModal {
         <p class="text-xs text-white/50">
           ${translateText("scenarios.host_hint")}
         </p>
+        ${this.renderRandomNations(pick)}
         <scenario-nation-board
           .scenarioId=${pick.id}
           .seats=${seats}
@@ -1200,6 +1294,7 @@ export class HostLobbyModal extends BaseModal {
     this.scenario = null;
     this.scenarioSeats = {};
     this.scenarioSentFor = "";
+    this.keepFriendsTogether = false; // DFX (r26)
   }
 
   private async handleSelectRandomMap() {

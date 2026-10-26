@@ -41,6 +41,39 @@ export function scenarioSeatCount(data: ScenarioData): number {
 }
 
 /**
+ * DFX (r26): "Random nations": the host deals every player a seat at once.
+ * The deal must seat only players in the lobby (`present`), each once, at
+ * playable nations, and every player present; it replaces the seats.
+ * Returns the new seats, or an error key.
+ */
+export function dealScenarioSeats(
+  data: ScenarioData,
+  deal: Readonly<Record<string, string>>,
+  present: ReadonlySet<string>,
+): { seats: Record<string, string> } | { error: string } {
+  const seats: Record<string, string> = {};
+  const seated = new Set<string>();
+  for (const [key, clientID] of Object.entries(deal)) {
+    const nation = data.nations.find((n) => n.key === key);
+    if (nation === undefined || !isPlayable(nation)) {
+      return { error: "no such nation" };
+    }
+    if (!present.has(clientID)) return { error: "no such player" };
+    if (seated.has(clientID)) return { error: "a player in two seats" };
+    seated.add(clientID);
+    seats[key] = clientID;
+  }
+  const free = data.nations.filter(
+    (n) => isPlayable(n) && seats[n.key] === undefined,
+  ).length;
+  // Everyone gets a seat while there are seats to give.
+  for (const c of present) {
+    if (!seated.has(c) && free > 0) return { error: "a player left out" };
+  }
+  return { seats };
+}
+
+/**
  * A change of seat in a scenario lobby: `clientID` takes `nation` (null:
  * gives up their seat). Only players in the lobby (`present`) hold seats;
  * a seat whose holder has left counts as free. A player taking a seat

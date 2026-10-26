@@ -34,6 +34,7 @@ import {
 import {
   applyScenarioRules,
   changeScenarioSeat,
+  dealScenarioSeats, // DFX (r26)
 } from "@openfront/engine-lib/scenario/ScenarioConfig"; // SCEN (r25)
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData"; // SCEN (r25)
 import { isAdminRole } from "@openfront/shared/ApiSchemas";
@@ -583,6 +584,10 @@ export class GameServer {
         return finish(outcome);
       }
 
+      // DFX (r26): the host deals every player a seat ("Random nations").
+      case "scenario_deal":
+        return finish(this.dealScenarioSeats(stamped.seats));
+
       case "toggle_game_start_timer": {
         if (this.startsAt) {
           this.startsAt = undefined;
@@ -647,6 +652,24 @@ export class GameServer {
       { clientID: target, nation, byHost },
       present,
     );
+    if ("error" in result) return { status: 409, error: result.error };
+    scenario.seats = result.seats;
+    this.broadcastLobbyInfo();
+    return { status: 200 };
+  }
+
+  /**
+   * DFX (r26): "Random nations": the host's deal replaces the seats, if
+   * it's a fair one (dealScenarioSeats).
+   */
+  private dealScenarioSeats(deal: Record<string, ClientID>): IntentOutcome {
+    const scenario = this.gameConfig.scenario;
+    const data = scenarioData(scenario?.id);
+    if (scenario === undefined || data === null) {
+      return { status: 409, error: "not a scenario lobby" };
+    }
+    const present = new Set(this.clients.players().map((c) => c.clientID));
+    const result = dealScenarioSeats(data, deal, present);
     if ("error" in result) return { status: 409, error: result.error };
     scenario.seats = result.seats;
     this.broadcastLobbyInfo();

@@ -29,6 +29,7 @@ import type { JoinLobbyModal } from "./JoinLobbyModal";
 import { whenModalLoaded } from "./LazyModals";
 import { PublicLobbySocket } from "./LobbySocket";
 import { JoinLobbyEvent } from "./Main";
+import { randomHistoryIcon } from "./scenario/RandomHistoryIcon"; // DFX (r26)
 import {
   backendUnreachableConfirmed,
   isPinnedToAVersion,
@@ -764,6 +765,22 @@ export class GameModeSelector extends LitElement {
             />
           </svg>
         </button>
+        <!-- DFX (r26): Random history, a small quick play under it. -->
+        <button
+          class="mx-auto -mt-2 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-cyber-yellow/85 transition-colors hover:bg-cyber-yellow/10 hover:text-cyber-yellow ${this
+            .inputValid
+            ? ""
+            : DISABLED}"
+          ?disabled=${!this.inputValid}
+          data-random-history-menu
+          @click=${this.openRandomHistory}
+        >
+          ${randomHistoryIcon("size-4")}
+          <span>${translateText("random_history.button")}</span>
+          <span class="font-normal text-white/50"
+            >· ${translateText("random_history.blurb")}</span
+          >
+        </button>
 
         ${this.showTrustRequired
           ? trustRequiredDialog(
@@ -846,6 +863,16 @@ export class GameModeSelector extends LitElement {
   private openScenarios = () => {
     if (!this.validateUsername()) return;
     window.showPage?.("page-scenarios");
+  };
+
+  // DFX (r26): Random history's reveal (loaded on demand, with the
+  // scenarios' data), then a solo game.
+  private openRandomHistory = () => {
+    if (!this.validateUsername()) return;
+    import("./scenario/RandomHistoryReveal").then(
+      (m) => m.showRandomHistory(),
+      (err) => console.error("random history failed to load:", err),
+    );
   };
 
   // Handled in Main, which also serves the help page's tutorial button.

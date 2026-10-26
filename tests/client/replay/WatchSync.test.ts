@@ -268,12 +268,17 @@ describe("holding the controls", () => {
     pb.frame = 120;
     sync.togglePlay();
     expect(pb.playing).toBe(true);
-    expect(sent.at(-1)).toEqual({ t: "ctl", op: "play", frame: 120, seq: 1 });
+    expect(sent[sent.length - 1]).toEqual({
+      t: "ctl",
+      op: "play",
+      frame: 120,
+      seq: 1,
+    });
     local.now = 500;
     pb.frame = 125;
     sync.setSpeed(8);
     expect(pb.speed).toBe(8);
-    expect(sent.at(-1)).toEqual({
+    expect(sent[sent.length - 1]).toEqual({
       t: "ctl",
       op: "speed",
       frame: 125,
@@ -284,7 +289,7 @@ describe("holding the controls", () => {
     expect(sent).toHaveLength(2);
     sync.togglePlay();
     expect(pb.playing).toBe(false);
-    expect(sent.at(-1)).toMatchObject({ op: "pause", seq: 3 });
+    expect(sent[sent.length - 1]).toMatchObject({ op: "pause", seq: 3 });
   });
 
   test("dragging the timeline: every move here, the room the latest few times a second", () => {
@@ -303,7 +308,7 @@ describe("holding the controls", () => {
       local.now += SEEK_SEND_MS;
       vi.advanceTimersByTime(SEEK_SEND_MS);
       expect(sent).toHaveLength(2);
-      expect(sent.at(-1)).toMatchObject({ op: "seek", frame: 600 });
+      expect(sent[sent.length - 1]).toMatchObject({ op: "seek", frame: 600 });
     } finally {
       vi.useRealTimers();
     }
@@ -339,7 +344,7 @@ describe("holding the controls", () => {
   test("handing the controls on, and the host taking them back", () => {
     const { sync, sent } = controller();
     sync.handTo(2);
-    expect(sent.at(-1)).toEqual({ t: "hand", to: 2 });
+    expect(sent[sent.length - 1]).toEqual({ t: "hand", to: 2 });
     sync.receive({
       t: "members",
       members: room({ frame: 0, playing: false, speed: 1, at: 0 }).members,
@@ -350,9 +355,9 @@ describe("holding the controls", () => {
     expect(sync.inControl).toBe(false);
     expect(sync.controllerName()).toBe("Gary");
     sync.seek(5);
-    expect(sent.at(-1)).toEqual({ t: "hand", to: 2 });
+    expect(sent[sent.length - 1]).toEqual({ t: "hand", to: 2 });
     sync.takeControl();
-    expect(sent.at(-1)).toEqual({ t: "take" });
+    expect(sent[sent.length - 1]).toEqual({ t: "take" });
   });
 
   test("at the end of the replay, play starts it over", () => {
@@ -360,7 +365,7 @@ describe("holding the controls", () => {
     pb.totalFrames = 400;
     pb.frame = 399;
     sync.togglePlay();
-    expect(sent.at(-1)).toMatchObject({ op: "play", frame: 0 });
+    expect(sent[sent.length - 1]).toMatchObject({ op: "play", frame: 0 });
     expect(pb.frame).toBe(0);
   });
 });

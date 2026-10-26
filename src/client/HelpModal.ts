@@ -254,8 +254,12 @@ export class HelpModal extends BaseModal {
               ${translateText("help_modal.scenarios_fronts")}
             </p>
             <!-- SCEN (r25): Thirteen Colonies 1776's blockade and Overtime -->
-            <p class="mb-6 text-white/70 text-sm">
+            <p class="mb-2 text-white/70 text-sm">
               ${translateText("help_modal.scenarios_colonies")}
+            </p>
+            <!-- DFX (r26): Random history and Random nations -->
+            <p class="mb-6 text-white/70 text-sm" data-help-random-history>
+              ${translateText("help_modal.scenarios_random")}
             </p>
           </section>
           <!-- Hotkeys Section -->

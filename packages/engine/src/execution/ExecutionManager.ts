@@ -169,6 +169,7 @@ export class Executor {
       // SCEN (r25): the server answers seat picks in the lobby; one never
       // reaches a turn, and does nothing if it does.
       case "scenario_seat":
+      case "scenario_deal": // DFX (r26): so does a deal of every seat
         return new NoOpExecution();
       default:
         throw new Error(`intent type ${intent} not found`);

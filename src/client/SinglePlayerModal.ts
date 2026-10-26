@@ -711,6 +711,22 @@ export class SinglePlayerModal extends BaseModal {
     await this.startGame();
   }
 
+  /**
+   * DFX (r26): Random history. A Scenario's solo game at once, without
+   * opening the modal: the pick's nation, on the solo screen's usual
+   * settings (its default difficulty).
+   */
+  public async startScenario(pick: ScenarioPick): Promise<void> {
+    void prewarmCosmetics();
+    this.resetOptions();
+    this.scenario = scenarioPickFromArgs({
+      scenario: pick.id,
+      nation: pick.nation,
+    });
+    if (this.scenario === null) return;
+    await this.startGame();
+  }
+
   // Reset all transient form state to ensure clean slate
   private resetOptions(): void {
     // Belt and braces with the finally in startGame(): closing and reopening

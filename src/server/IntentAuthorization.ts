@@ -149,6 +149,22 @@ export function authorizeIntent(
       }
       return null;
 
+    // DFX (r26): "Random nations": only the host deals the seats.
+    case "scenario_deal":
+      if (actor.isAdminBot) {
+        return { status: 400, error: "intent not permitted for admin bot" };
+      }
+      if (game.isPublic) {
+        return { status: 403, error: "no seats in a public game" };
+      }
+      if (game.hasStarted) {
+        return { status: 409, error: "game already started" };
+      }
+      if (!actor.isLobbyCreator) {
+        return { status: 403, error: "only the lobby creator can deal seats" };
+      }
+      return null;
+
     case "toggle_pause":
       if (!actor.isLobbyCreator && !actor.isAdminBot) {
         return { status: 403, error: "only the lobby creator can pause" };
