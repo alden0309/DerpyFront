@@ -370,27 +370,30 @@ export class GuideView extends LitElement {
                     <b>Where:</b> ${inline(c.where, go)}
                   </p>`
                 : nothing}
-              ${c.id === "start" /* CQTUT (r26): the first life, from the book */
-                ? html`<div class="cq-firstlife in-guide" role="note">
-                    <p class="cq-firstlife-head">Learn it by living it</p>
-                    <p class="small">
-                      A first life: Boston, 1700, a short guided life (about
-                      fifteen minutes) that shows you everything below as you
-                      go. It's yours to keep living afterwards.
-                    </p>
-                    <button
-                      class="cq-btn primary small"
-                      @click=${() =>
-                        this.dispatchEvent(
-                          new CustomEvent("cq-tutorial-ask", {
-                            bubbles: true,
-                          }),
-                        )}
-                    >
-                      Take a short first life
-                    </button>
-                  </div>`
-                : nothing}
+              ${
+                // CQTUT (r26): the first life, from the book.
+                c.id === "start"
+                  ? html`<div class="cq-firstlife in-guide" role="note">
+                      <p class="cq-firstlife-head">Learn it by living it</p>
+                      <p class="small">
+                        A first life: Boston, 1700, a short guided life (about
+                        fifteen minutes) that shows you everything below as you
+                        go. It's yours to keep living afterwards.
+                      </p>
+                      <button
+                        class="cq-btn primary small"
+                        @click=${() =>
+                          this.dispatchEvent(
+                            new CustomEvent("cq-tutorial-ask", {
+                              bubbles: true,
+                            }),
+                          )}
+                      >
+                        Take a short first life
+                      </button>
+                    </div>`
+                  : nothing
+              }
               <div class="cq-guide-body">${renderBody(c.body, go)}</div>
               <nav class="cq-guide-turn" aria-label="Turn the page">
                 ${prev
