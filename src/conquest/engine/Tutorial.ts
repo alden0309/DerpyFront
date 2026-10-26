@@ -29,8 +29,8 @@ import {
   TUT_FLOOR,
   TUT_HOME,
   TUT_SAW,
-  TUTORIAL_STEPS,
   tutHolding,
+  TUTORIAL_STEPS,
   tutRunning,
   type TutStep,
 } from "./TutorialCore";

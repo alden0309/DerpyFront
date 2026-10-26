@@ -9,7 +9,6 @@ import { servesHere } from "./Campaign1776Core"; // DLC (r21)
 import { eduStartRank } from "./EduData"; // EDU (r13)
 import { Explain } from "./Explain";
 import { hooks } from "./Hooks"; // EDU (r13)
-import { tutRunning } from "./TutorialCore"; // CQTUT (r26)
 import { r21Opinion } from "./LifeR21Core"; // LIFE (r21)
 import {
   ALLOWANCE,
@@ -54,6 +53,7 @@ import { isKindness, softenKindness } from "./Regard"; // LIFE (r21)
 import { postSkillParts } from "./Retinue"; // LIFE (r21)
 import { iceBound, seasonPay } from "./Seasons"; // MAP (r12)
 import { canoeHopDays, passageHopDays } from "./SeaSpeed"; // SEA (r15)
+import { tutRunning } from "./TutorialCore"; // CQTUT (r26)
 // SOCIETY (r11)
 import { seatTitleOf } from "./CouncilTitles"; // POWER (r12)
 import { chamberOpinion } from "./Factions"; // CHAMBER (r16)
