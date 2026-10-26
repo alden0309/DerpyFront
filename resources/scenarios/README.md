@@ -234,14 +234,15 @@ games list); the menu shows `scenarios.<id>.title`.
 
 Every playable nation has one optional historical goal, in `goals.json`
 (`goals.<scenario>.<nation>`), with its words in en.json
-(`scenario_goal_text.<scenario>.<nation>`, "Hold Warsaw past minute 20").
+(`scenario_goal_text.<scenario>.<nation>`, "Hold Warsaw past minute
+{minute}": the minute goes in as the map's, below).
 It shows under the nation on the Scenarios screen, the solo screen's panel
 and Random history's reveal, and in game as a line under the timer that is
 ticked when it's met. It never affects winning.
 
 ```json
 "poland": { "kind": "hold", "place": { "capitalOf": "poland" }, "minute": 20 },
-"germany": { "kind": "take", "place": { "capitalOf": "france" }, "minute": 25 },
+"germany": { "kind": "take", "place": { "capitalOf": "soviet_union" } },
 "italy": { "kind": "take", "place": { "name": "Alexandria", "at": [2221, 1627], "of": "united_kingdom" }, "minute": 35 },
 "tennessee_gulf": { "kind": "keep", "place": { "capitalOf": "virginia_nc" }, "side": true },
 "kentucky": { "kind": "hold", "place": { "capitalOf": "kentucky" }, "minute": 30, "onSide": "Union" }
@@ -251,7 +252,7 @@ ticked when it's met. It never affects winning.
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `kind`   | `hold`: hold the place at `minute` (met then, or when the war ends first with it held; missed after). `take`: hold it at any moment, before `minute` if given. `keep`: hold it when the war ends. |
 | `place`  | a nation's capital (`capitalOf`), or a named spot (`name`; `at`: full-size map pixels, like the data's; `of`: the nation that holds it at the start).                                             |
-| `minute` | minutes since the war began (the timer).                                                                                                                                                          |
+| `minute` | minutes since the war began (the timer), on a Normal map. On a Compact map it's half, rounded up (`goalDueMinute`), in the check, the countdown and the words.                                    |
 | `side`   | optional: your side holding the place counts, not only you ("Keep Washington in Union hands to the end", "Help take Moscow").                                                                     |
 | `onSide` | optional: when it's checked you must be on this side (a side id), or on any side (`"any"`, for a neutral: at war). A neutral joins a side by attacking the other (or being invaded).              |
 
@@ -268,21 +269,31 @@ How it's checked: the engine checks each human player's goal once a second
 by `engine-lib/scenario/ScenarioGoals.ts`, and writes the tick it was met in
 the player's stats (`goal`). Stats are bookkeeping, outside the game's hash,
 so goals change nothing in play and need no rules edition. The saved game
-carries the stats; the server pays **75 Derp Coins** (`GOAL_COINS`) for a goal
-met, once per goal per account (`derpy_scenario_goals`), under the coin
-lines' own rules (a game long enough to pay, the player spawned, no cheats,
-someone to play against). Losing the war doesn't stop a goal met paying.
-The win screen shows "Goal met: +75" on its coin line.
+carries the stats; the server pays **200 Derp Coins** (`GOAL_COINS`) for a
+goal met, once per goal per account (`derpy_scenario_goals`), only in a game
+on Hard or Impossible (`GOAL_DIFFICULTIES`, read from the saved config), under
+the coin lines' own rules (a game long enough to pay, the player spawned, no
+cheats, someone to play against). Losing the war doesn't stop a goal met
+paying. The win screen shows "Goal met: +200" on its coin line (below Hard:
+"goals pay on Hard and Impossible").
 
 Writing one: keep it historical (a battle, a campaign's aim, a claim of the
-time), fair and reachable but not trivial. Defensive goals ("Hold X past
-minute M") for nations that were attacked; offensive ones ("Take Y before
-minute M") for the attackers; neutrals, which nobody attacks while the sides
-are at war, get a claim of the time to take, or to join the side they joined
-and hold their capital. A handful of small neutrals that kept out of the war
-and could reach no one keep their capital to the end (Iceland 1939, Mohican,
-Catawba, San Marino, Malta, the Choctaw and Chickasaw, Norway 1914): easy, by
-design.
+time), reachable but a little difficult on Hard. Defensive goals ("Hold X
+past minute M") for nations that were attacked; offensive ones ("Take Y
+before minute M") for the attackers; neutrals, which nobody attacks while
+the sides are at war, get a claim of the time to take, or to join a side
+and hold their capital. A handful of small neutrals that could reach no one
+join the war and hold their capital to the end (`onSide: "any"`: Iceland
+1939, Mohican, Catawba, San Marino, Malta, the Choctaw and Chickasaw, Norway
+1914); keeping out would be free.
+
+Check that a goal doesn't happen by itself: `tests/scenario/ScenarioBalance.ts
+--goals --difficulty Hard` prints the minute each computer-run nation met its
+own goal. A place right on a border falls in the first minutes on Hard
+(Slovakia's Zakopane, Russia's Kraków in 1914, Serbia's cities), and a side
+that wins takes its neighbours' capitals mid-war, so those goals need a
+farther place, a tight minute, or to be held ("Take Paris and hold it at
+minute 20").
 `tests/scenario/ScenarioGoals.test.ts` checks every goal: a playable
 nation's, its place on land in both map sizes, a take goal's place not held
 at the start, a hold goal's own place held, an `onSide` side that exists,
