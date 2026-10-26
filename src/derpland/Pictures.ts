@@ -226,3 +226,40 @@ export const PICTURE_ERROR_TEXT: Record<PictureError, string> = {
 
 /** Uploads an account may make in a day (any day: the last 24 hours). */
 export const UPLOADS_PER_DAY = 5;
+
+// ---------------------------------------------------------------- the owner's moderation
+
+/** An uploaded picture as the owner's list shows it. */
+export interface ModerationRow {
+  accountId: number;
+  username: string;
+  version: string;
+  picture: string;
+  /** Whether the account wears it now. */
+  worn: boolean;
+  uploadedAt: string;
+  reports: number;
+  reporters: string[];
+  lastReportAt: string | null;
+  blocked: boolean;
+}
+
+export interface ModerationView {
+  reported: ModerationRow[];
+  recent: ModerationRow[];
+  blocked: { accountId: number; username: string }[];
+}
+
+/** What an account's admin page shows of its picture (ADMIN's account panel). */
+export interface AccountPicture {
+  picture: string | null;
+  upload: {
+    version: string;
+    picture: string;
+    uploadedAt: string;
+    worn: boolean;
+    reports: number;
+  } | null;
+  uploadsBlocked: boolean;
+  uploadsToday: number;
+}

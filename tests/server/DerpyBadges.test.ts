@@ -269,9 +269,9 @@ describe("the badges", () => {
     const en = JSON.parse(
       fs.readFileSync(path.join(ROOT, "resources/lang/en.json"), "utf8"),
     ) as Record<string, unknown>;
-    expect(JSON.stringify(en.derp_badges ?? {}).toLowerCase()).not.toContain(
-      "based",
-    );
+    const bar = en.derp_bar as Record<string, string>;
+    for (const k of ["badge_earned", "badges_earned", "see_badges"])
+      expect(bar[k]?.toLowerCase(), k).not.toContain("based");
   });
 });
 

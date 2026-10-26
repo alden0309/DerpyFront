@@ -73,7 +73,7 @@ export function sniffImage(b: Uint8Array): ImageKind {
   if (ascii(b, 0, 6) === "GIF87a" || ascii(b, 0, 6) === "GIF89a") return "gif";
   const head = Buffer.from(b.subarray(0, 2048))
     .toString("utf8")
-    .replace(/^﻿/, "")
+    .replace(/^\uFEFF/, "")
     .trimStart()
     .toLowerCase();
   if (head.startsWith("<") || head.includes("<svg") || head.includes("<html"))

@@ -1,0 +1,701 @@
+/* PROFILE (r26): pictures and badges on Derp Land's pages: the picture in
+   every token (over the monogram, which shows while it loads or when it
+   can't), pinned badges beside names, a player's Badges, your picture and
+   pins, and the picture picker with its crop box. Unlayered (like
+   friends.css), so it wins over the site's layered defaults. */
+
+/* ---- a picture in a token ---- */
+.av {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.av-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
+  background: var(--token);
+}
+.av-img[data-broken] {
+  display: none;
+}
+.av-pins {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  margin-left: 6px;
+  vertical-align: -2px;
+}
+.av-pin {
+  display: inline-grid;
+  line-height: 0;
+}
+.av-pin-art {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+/* Small tokens the lists add. */
+.dl-lb-tok,
+.dl-top-tok,
+.dl-feed-tok {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--token);
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.12);
+}
+.dl-lb-tok {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+}
+.dl-top-tok {
+  width: 28px;
+  height: 28px;
+  font-size: 12.5px;
+}
+.dl-feed-tok {
+  width: 22px;
+  height: 22px;
+  margin-right: 6px;
+  font-size: 11px;
+  vertical-align: -6px;
+}
+.dl-lb-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  white-space: nowrap;
+}
+.dl-lb-who .av-pins {
+  margin-left: 0;
+}
+.dl-frow-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.dl-fcard-text b .av-pins {
+  margin-left: 5px;
+}
+
+/* ---- a player's page: the header ---- */
+.dl-player-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+.dl-player-name .av-pins {
+  margin-left: 0;
+  gap: 4px;
+}
+.dl-player-name .av-pin-art {
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+.dl-player-pic {
+  position: relative;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.dl-player-pic:focus-visible {
+  outline: 2px solid var(--peel);
+  outline-offset: 3px;
+}
+.dl-player-pic-edit {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--peel);
+  color: var(--peel-ink);
+  box-shadow: 0 0 0 3px var(--page);
+}
+.dl-player-pic-edit .dl-i {
+  width: 16px;
+  height: 16px;
+}
+.dl-report {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text-3);
+}
+.dl-report .dl-textbtn {
+  color: var(--text-2);
+  font-weight: 550;
+  text-decoration-color: var(--line-2);
+}
+
+/* ---- your picture and badges (your own page) ---- */
+.dl-looks {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px 28px;
+  align-items: center;
+  margin-bottom: 30px;
+}
+.dl-looks-pic {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+.dl-looks-avatar {
+  position: relative;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.dl-looks-avatar:focus-visible {
+  outline: 2px solid var(--peel);
+  outline-offset: 3px;
+}
+.dl-looks-edit {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  padding: 2px 9px;
+  border-radius: 10px;
+  background: var(--peel);
+  color: var(--peel-ink);
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 0 0 3px var(--surface);
+}
+.dl-looks-text {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.dl-looks-text .dl-h2 {
+  margin: 0;
+}
+.dl-looks-text p {
+  max-width: 52ch;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.dl-looks-text .dl-row {
+  gap: 8px;
+}
+.dl-looks-pins {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+.dl-looks-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.dl-looks-slots {
+  display: flex;
+  gap: 10px;
+}
+.dl-looks-slot {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  border: 1.5px dashed var(--line-2);
+}
+.dl-looks-slot.full {
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.dl-looks-slot-art {
+  width: 40px;
+  height: 40px;
+}
+.dl-looks-link {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-decoration: underline;
+  text-decoration-color: var(--peel);
+  text-underline-offset: 3px;
+}
+.dl-panel a.dl-looks-link {
+  color: var(--text-2);
+}
+
+/* ---- a player's Badges ---- */
+.dl-badges {
+  margin-bottom: 30px;
+  scroll-margin-top: 80px;
+}
+.dl-badges-head {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.dl-badges-head .dl-h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+}
+.dl-badges-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.dl-badges-note {
+  font-size: 14px;
+  color: var(--text-2);
+}
+.dl-badges-note b {
+  color: var(--text);
+  font-weight: 650;
+}
+.dl-badges-msg {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bad);
+}
+.dl-badge-group + .dl-badge-group {
+  margin-top: 18px;
+}
+.dl-badge-group-h {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.dl-badge-group-h span {
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-3);
+}
+.dl-badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px;
+}
+.dl-badge {
+  --tier: #c98450;
+  position: relative;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.dl-badge.silver {
+  --tier: #b9c1cd;
+}
+.dl-badge.gold {
+  --tier: #e7b84a;
+}
+.dl-badge.earned {
+  background:
+    linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--tier) 13%, transparent),
+      transparent 70%
+    ),
+    var(--surface-2);
+  border-color: color-mix(in srgb, var(--tier) 30%, transparent);
+}
+.dl-badge.locked {
+  background: transparent;
+  border-style: dashed;
+}
+.dl-badge.pinned {
+  box-shadow: 0 0 0 2px var(--peel);
+}
+.dl-badge-emblem {
+  width: 46px;
+  height: 46px;
+}
+.dl-badge.earned .dl-badge-emblem {
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4));
+}
+.dl-badge.locked .dl-badge-emblem {
+  filter: grayscale(1);
+  opacity: 0.32;
+}
+.dl-badge-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding-right: 22px;
+}
+.dl-badge-name {
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.25;
+}
+.dl-badge.locked .dl-badge-name {
+  color: var(--text-2);
+}
+.dl-badge-how {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-2);
+}
+.dl-badge.locked .dl-badge-how {
+  color: var(--text-3);
+}
+.dl-badge-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.dl-badge.earned .dl-badge-meta {
+  color: color-mix(in srgb, var(--tier) 75%, var(--text));
+}
+.dl-badge-bar {
+  flex: 1;
+  max-width: 110px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.dl-badge-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--text-3);
+}
+.dl-badge-pin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.dl-badge-pin .dl-i {
+  width: 17px;
+  height: 17px;
+}
+.dl-badge-pin:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+.dl-badge-pin.on {
+  color: var(--peel);
+}
+.dl-badge-pin:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.dl-badge-pin:focus-visible {
+  outline: 2px solid var(--peel);
+  outline-offset: 1px;
+}
+
+/* ---- the picture picker ---- */
+.dl-picker {
+  width: min(640px, calc(100vw - 24px));
+}
+.dl-picker-tabs {
+  margin: 14px 22px 0;
+}
+.dl-picker-err,
+.dl-picker-note {
+  margin: 12px 22px 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.dl-picker-err {
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+  font-weight: 600;
+}
+.dl-picker-note {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.dl-picker-body {
+  padding: 4px 22px 22px;
+}
+.dl-pick-h {
+  margin: 16px 0 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.dl-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 10px;
+}
+.dl-pick {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.dl-pick-tok {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--token);
+  color: #fff;
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+  transition:
+    transform 0.12s,
+    box-shadow 0.12s;
+}
+.dl-pick:hover:not(:disabled) .dl-pick-tok {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+.dl-pick.on .dl-pick-tok {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 5px var(--peel);
+}
+.dl-pick:focus-visible {
+  outline: none;
+}
+.dl-pick:focus-visible .dl-pick-tok {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 5px var(--blue-2);
+}
+.dl-pick.locked .dl-pick-tok {
+  filter: grayscale(0.9) brightness(0.55);
+}
+.dl-pick-on,
+.dl-pick-lock {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.dl-pick-on {
+  background: var(--peel);
+  color: var(--peel-ink);
+}
+.dl-pick-lock {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.dl-pick-on .dl-i,
+.dl-pick-lock svg {
+  width: 13px;
+  height: 13px;
+}
+.dl-drop {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 38px 16px;
+  border: 2px dashed var(--line-2);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 14px;
+  cursor: pointer;
+}
+.dl-drop:hover {
+  border-color: var(--peel);
+  color: var(--text);
+}
+.dl-drop-big {
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--text);
+}
+.dl-picker-fine {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.dl-picker-fine b {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.dl-crop {
+  display: grid;
+  justify-items: center;
+  margin-top: 16px;
+}
+.dl-crop-box {
+  position: relative;
+  width: 280px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  background: #2a2a30;
+}
+.dl-crop-box:active {
+  cursor: grabbing;
+}
+.dl-crop-box:focus-visible {
+  outline: 2px solid var(--peel);
+  outline-offset: 3px;
+}
+.dl-crop-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.dl-crop-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.75),
+    0 0 0 999px rgba(9, 9, 11, 0.55);
+  pointer-events: none;
+}
+.dl-crop-zoom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 280px;
+  max-width: 100%;
+  margin-top: 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.dl-crop-zoom input {
+  flex: 1;
+  accent-color: var(--peel);
+}
+.dl-crop .dl-picker-fine {
+  margin-top: 6px;
+  text-align: center;
+}
+.dl-crop-acts {
+  justify-content: center;
+  margin-top: 14px;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .dl-looks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dl-looks-pins {
+    padding-left: 0;
+    padding-top: 16px;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}
+@media (max-width: 560px) {
+  .dl-looks-pic {
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .dl-looks-avatar .dl-token.huge {
+    width: 68px;
+    height: 68px;
+    font-size: 28px;
+  }
+  .dl-badge-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dl-picker-tabs {
+    margin: 12px 16px 0;
+  }
+  .dl-picker-body {
+    padding: 2px 16px 18px;
+  }
+  .dl-picker-err,
+  .dl-picker-note {
+    margin: 10px 16px 0;
+  }
+  .dl-pick-grid {
+    grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+    gap: 8px;
+  }
+  .dl-lb-tok {
+    width: 22px;
+    height: 22px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dl-pick-tok {
+    transition: none;
+  }
+}

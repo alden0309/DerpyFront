@@ -43,6 +43,10 @@ function barLabels(): Partial<BarLabels> {
       accounts_unavailable: t("derpy.error_accounts_unavailable"),
       server_error: t("derpy.error_server_error"),
     },
+    // PROFILE (r26): the toast when a badge is earned.
+    badgeEarned: t("derp_bar.badge_earned"),
+    badgesEarned: translateText("derp_bar.badges_earned", { n: "{n}" }),
+    seeBadges: t("derp_bar.see_badges"),
   };
 }
 

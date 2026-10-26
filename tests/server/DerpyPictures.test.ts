@@ -70,7 +70,9 @@ function codeOf(fn: () => unknown): string {
 }
 
 const has = (b: Uint8Array, s: string | Uint8Array) =>
-  Buffer.from(b).includes(typeof s === "string" ? Buffer.from(s, "latin1") : s);
+  Buffer.from(b).includes(
+    typeof s === "string" ? Buffer.from(s, "latin1") : Buffer.from(s),
+  );
 
 describe("what an upload may be", () => {
   test("its bytes say what it is, whatever it's called", () => {

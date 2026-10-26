@@ -7,6 +7,7 @@
 import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { api, DERPY_ACCOUNT_EVENT, derpyUsername } from "../derpland/Account";
+import { avatar, lookFor, pinnedBadges } from "../derpland/Avatar"; // PROFILE (r26)
 import { openSignIn } from "../derpland/DerpBar";
 import {
   addPersonIcon,
@@ -14,7 +15,6 @@ import {
   eyeIcon,
   joinIcon,
   lockIcon,
-  tokenColor,
 } from "../derpland/Icons";
 import { social, SOCIAL_EVENT } from "../derpland/Social";
 import {
@@ -63,13 +63,13 @@ abstract class SocialPiece extends LitElement {
   };
 }
 
-function token(name: string, cls = "dl-ftok"): TemplateResult {
-  return html`<span
-    class=${cls}
-    style="--token:${tokenColor(name)}"
-    aria-hidden="true"
-    >${name.slice(0, 1).toUpperCase()}</span
-  >`;
+/** PROFILE (r26): their picture, over their monogram. */
+function token(
+  name: string,
+  pic: string | null = null,
+  cls = "dl-ftok",
+): TemplateResult {
+  return avatar(name, pic, cls);
 }
 
 function where(p: PersonRow["place"]): TemplateResult {
@@ -143,9 +143,12 @@ export class DerpOnline extends SocialPiece {
     };
     return html`<ul class="dl-online-grid">
         <li class="dl-fcard me">
-          ${token(me.username)}
+          ${token(me.username, lookFor(s.looks, me.id).pic)}
           <span class="dl-fcard-text">
-            <b>${me.username} <span class="dl-you">You</span></b>
+            <b
+              >${me.username}${pinnedBadges(lookFor(s.looks, me.id).badges)}
+              <span class="dl-you">You</span></b
+            >
             ${s.me.appearOffline
               ? html`<span class="dl-fwhere"
                   ><i class="dl-fdot off"></i
@@ -157,12 +160,12 @@ export class DerpOnline extends SocialPiece {
         ${s.online.map(
           (r) =>
             html`<li class="dl-fcard ${r.friend ? "friend" : ""}">
-              ${token(r.username)}
+              ${token(r.username, lookFor(s.looks, r.id).pic)}
               <span class="dl-fcard-text">
                 <b
                   ><a href="/player/${encodeURIComponent(r.username)}"
                     >${r.username}</a
-                  >${r.friend
+                  >${pinnedBadges(lookFor(s.looks, r.id).badges)}${r.friend
                     ? html`<span class="dl-ftag">Friend</span>`
                     : nothing}${r.inParty
                     ? html`<span class="dl-ftag party">Party</span>`
@@ -263,7 +266,7 @@ export class DerpFriends extends SocialPiece {
               ${s.requests.incoming.map(
                 (r) =>
                   html`<li class="dl-frow">
-                    ${token(r.username)}
+                    ${token(r.username, lookFor(s.looks, r.id).pic)}
                     <span class="dl-frow-text">
                       <a href="/player/${encodeURIComponent(r.username)}"
                         >${r.username}</a
@@ -303,10 +306,12 @@ export class DerpFriends extends SocialPiece {
                 ${s.friends.map(
                   (f) =>
                     html`<li class="dl-frow">
-                      ${token(f.username)}
+                      ${token(f.username, lookFor(s.looks, f.id).pic)}
                       <span class="dl-frow-text">
-                        <a href="/player/${encodeURIComponent(f.username)}"
-                          >${f.username}</a
+                        <span class="dl-frow-name"
+                          ><a href="/player/${encodeURIComponent(f.username)}"
+                            >${f.username}</a
+                          >${pinnedBadges(lookFor(s.looks, f.id).badges)}</span
                         >
                         ${where(f.place)}
                       </span>

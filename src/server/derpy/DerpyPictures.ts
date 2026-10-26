@@ -28,6 +28,9 @@ import type pg from "pg";
 import { z } from "zod";
 import type { PlayerBadges } from "../../derpland/Badges";
 import {
+  type AccountPicture,
+  type ModerationRow,
+  type ModerationView,
   parsePic,
   type PictureError,
   PRESET_BY_ID,
@@ -323,26 +326,7 @@ export async function reportPicture(
   return { ok: true };
 }
 
-/** An uploaded picture as the owner's list shows it. */
-export interface ModerationRow {
-  accountId: number;
-  username: string;
-  version: string;
-  picture: string;
-  /** Whether the account wears it now. */
-  worn: boolean;
-  uploadedAt: string;
-  reports: number;
-  reporters: string[];
-  lastReportAt: string | null;
-  blocked: boolean;
-}
-
-export interface ModerationView {
-  reported: ModerationRow[];
-  recent: ModerationRow[];
-  blocked: { accountId: number; username: string }[];
-}
+export type { AccountPicture, ModerationRow, ModerationView };
 
 const MOD_ROW = `
   SELECT p.account_id, a.username, p.version, p.created_at, a.picture,
@@ -527,20 +511,6 @@ export async function dismissReports(
     );
   });
   return { ok: true };
-}
-
-/** What an account's admin page shows of its picture (ADMIN's account panel). */
-export interface AccountPicture {
-  picture: string | null;
-  upload: {
-    version: string;
-    picture: string;
-    uploadedAt: string;
-    worn: boolean;
-    reports: number;
-  } | null;
-  uploadsBlocked: boolean;
-  uploadsToday: number;
 }
 
 export async function accountPicture(

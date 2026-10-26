@@ -74,7 +74,7 @@ export async function startKit(): Promise<Kit> {
     async call(path, opts = {}) {
       const body =
         opts.raw !== undefined
-          ? opts.raw
+          ? new Uint8Array(opts.raw)
           : opts.body !== undefined
             ? JSON.stringify(opts.body)
             : undefined;
