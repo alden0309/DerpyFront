@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<defs><radialGradient id="bg-fort" cx="34%" cy="26%" r="85%"><stop offset="0" stop-color="#a9d4f0"/><stop offset="1" stop-color="#4f8fc4"/></radialGradient></defs>
+<rect width="64" height="64" fill="url(#bg-fort)"/>
+<path d="M2 50 Q32 44 62 50 L62 64 L2 64 Z" fill="#3f9a5e" stroke="#2e2010" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M32 7 L32 16" stroke="#2e2010" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/><path d="M32 7 L41 9.6 L32 12.4 Z" fill="#d9573f" stroke="#2e2010" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M10 52 L10 30 L14 30 L14 26 L18 26 L18 30 L22 30 L22 26 L26 26 L26 30 L38 30 L38 26 L42 26 L42 30 L46 30 L46 26 L50 26 L50 30 L54 30 L54 52 Z" fill="#c9bfa8" stroke="#2e2010" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M22 31 L22 16 L25 16 L25 19 L28 19 L28 16 L31 16 L31 19 L33 19 L33 16 L36 16 L36 19 L39 19 L39 16 L42 16 L42 31 Z" fill="#d9cfb6" stroke="#2e2010" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M27 52 L27 43 Q32 37 37 43 L37 52 Z" fill="#6b3f22" stroke="#2e2010" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="30" y="22" width="4" height="6" rx="2" fill="#2e2010"/><rect x="14.6" y="36" width="3.6" height="5" rx="1.8" fill="#2e2010"/><rect x="45.8" y="36" width="3.6" height="5" rx="1.8" fill="#2e2010"/>
+<path d="M10 40 L54 40" stroke="#a89c82" stroke-width="1"/>
+</svg>

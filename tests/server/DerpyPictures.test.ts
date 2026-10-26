@@ -305,7 +305,7 @@ describe.skipIf(!TEST_DB)("pictures, against Postgres", () => {
     gary = await kit.user("Pic_Gary");
     // The owner: found by account id, as Mr. Based's access is.
     await kit.pool.query(
-      "UPDATE derpy_accounts SET based_access = true WHERE id = $1",
+      "UPDATE derpy_accounts SET based_access = true, based_granted_as = 'alden' WHERE id = $1",
       [alden.id],
     );
   }, 60_000);
@@ -470,7 +470,12 @@ describe.skipIf(!TEST_DB)("pictures, against Postgres", () => {
     expect((await report(pat, gary.id, g.version)).status).toBe(200);
     expect((await report(pat, gary.id, g.version)).status).toBe(200); // once is kept
 
-    // Nobody but the owner finds the moderation routes.
+    // Nobody but the owner finds the moderation routes: not even someone
+    // given Mr. Based by hand (the owner is the one marked under his name).
+    await kit.pool.query(
+      "UPDATE derpy_accounts SET based_access = true WHERE id = $1",
+      [pat.id],
+    );
     for (const u of [pat, gary]) {
       expect(
         (await kit.call("/pictures/moderation", { token: u.token })).status,
@@ -576,6 +581,76 @@ describe.skipIf(!TEST_DB)("pictures, against Postgres", () => {
       ),
     ).toBe(false);
     expect((await upload(gary, makePng(scene(64, 64)))).status).toBe(200);
+  });
+
+  test("each moderation action writes one audit line, in ADMIN's shape, inside its own transaction", async () => {
+    const u = await kit.user("Pic_Audit");
+    expect((await upload(u, makePng(scene(80, 80)))).status).toBe(200);
+    const lines: {
+      e: import("../../src/server/derpy/DerpyPictures").PictureAudit;
+      inTx: boolean;
+    }[] = [];
+    const audit = async (
+      e: import("../../src/server/derpy/DerpyPictures").PictureAudit,
+      q?: unknown,
+    ) => {
+      lines.push({ e, inTx: q !== undefined && q !== kit.pool });
+    };
+    const version = (
+      await kit.pool.query(
+        "SELECT version FROM derpy_pictures WHERE account_id = $1",
+        [u.id],
+      )
+    ).rows[0].version;
+    await kit.pool.query(
+      "INSERT INTO derpy_picture_reports (account_id, version, reporter_id) VALUES ($1, $2, $3)",
+      [u.id, version, pat.id],
+    );
+    await PIC.dismissReports(u.id, version, { reason: "fine", audit });
+    await PIC.dismissReports(u.id, version, { audit }); // nothing left: no line
+    await PIC.blockUploads(u.id, { blocked: true, audit });
+    await PIC.blockUploads(u.id, { blocked: true, audit }); // no change: no line
+    await PIC.removePicture(u.id, { block: false, reason: "rude", audit });
+    expect(lines.map((l) => l.e.action)).toEqual([
+      "reports.dismiss",
+      "pictures.block",
+      "pictures.remove",
+    ]);
+    expect(lines.every((l) => l.inTx)).toBe(true);
+    expect(lines[2].e).toMatchObject({
+      target: { type: "account", id: u.id, name: "Pic_Audit" },
+      reason: "rude",
+      before: { upload: version, uploadsBlocked: true },
+      after: { picture: null, upload: null, uploadsBlocked: true },
+    });
+    // An audit that fails takes the change back with it.
+    await kit.call("/pictures/moderation/block", {
+      token: alden.token,
+      body: { account: u.id, blocked: false },
+    });
+    expect((await upload(u, makePng(scene(80, 80)))).status).toBe(200);
+    const failing = async () => {
+      throw new Error("audit down");
+    };
+    await expect(
+      PIC.removePicture(u.id, { block: true, audit: failing }),
+    ).rejects.toThrow("audit down");
+    const still = await kit.pool.query(
+      "SELECT a.picture_blocked, p.version FROM derpy_accounts a JOIN derpy_pictures p ON p.account_id = a.id WHERE a.id = $1",
+      [u.id],
+    );
+    expect(still.rows[0].picture_blocked).toBe(false);
+    // The admin page's panel and Overview read the same.
+    const panel = await PIC.accountPicture(u.id);
+    expect(panel).toMatchObject({
+      uploadsBlocked: false,
+      upload: { worn: true, reports: 0 },
+    });
+    const overview = await PIC.picturesOverview();
+    expect(overview.map((l) => l.label)).toEqual([
+      "Reported pictures",
+      "Pictures uploaded this week",
+    ]);
   });
 
   test("a rename keeps the picture: it goes by account", async () => {

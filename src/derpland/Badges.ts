@@ -43,7 +43,7 @@ export type BadgeGlyph =
   | "axe"
   | "cabin"
   | "steeple"
-  | "handshake"
+  | "heart"
   | "partyflag"
   | "dice"
   | "megaphone"
@@ -327,7 +327,7 @@ export const BADGES: readonly BadgeDef[] = [
     how: "Make a friend on Derp Land.",
     tier: "bronze",
     group: "land",
-    glyph: "handshake",
+    glyph: "heart",
   },
   {
     key: "dl-party",

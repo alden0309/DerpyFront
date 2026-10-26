@@ -12,9 +12,14 @@
 // - Serving: /pictures/<account>/<version>.jpg, kept by browsers for a year
 //   (a new upload is a new version), as an image only (nosniff, no scripts).
 // - Moderation: anyone signed in may report an uploaded picture. The owner
-//   sees reported and recent uploads (PictureModeration.ts on the page) and
-//   may remove one (the account goes back to its monogram, at once
-//   everywhere) and stop the account uploading. Everyone else gets 404.
+//   sees reported and recent uploads and may remove one (the account goes
+//   back to its monogram, at once everywhere) and stop the account
+//   uploading; each action writes an audit line in its own transaction.
+//   The functions here do the work. ADMIN (r26)'s page calls them from its
+//   sections "pictures" and "reports" (admin/sections/Pictures.ts, its page
+//   half src/admin/sections/PicturesView.ts); until the two branches meet,
+//   /pictures/moderation/* below serves the same to the owner alone, and
+//   404 to everyone else.
 
 import { randomBytes } from "crypto";
 import express, { NextFunction, Request, Response } from "express";
@@ -32,11 +37,10 @@ import {
   VERSION_RE,
 } from "../../derpland/Pictures";
 import { logger } from "../Logger";
-import { hasBasedAccess } from "./BasedAccess";
 import { type Account, hashToken } from "./DerpyAuth";
 import { checkBadges, playerBadges } from "./DerpyBadges";
 import { db, inTransaction } from "./DerpyDb";
-import { forgetLook, looksOf } from "./DerpyLooks";
+import { forgetLook, lookFromRow, looksOf } from "./DerpyLooks";
 import { ImageError, reencodePicture } from "./ImageCodec";
 import { Limiter } from "./LobbyLock";
 
@@ -52,36 +56,52 @@ export const REPORTS = new Limiter(20, 24 * 3600_000);
 // ---------------------------------------------------------------- the owner
 
 /**
- * Whether this account may moderate pictures: the owner's, found by account
- * id as Mr. Based's access is (BasedAccess.ts), so a rename neither loses it
- * nor gains it. ADMIN (r26) brings the site's own owner check; this is the
- * one place to point at it.
+ * The owner's account, as ADMIN (r26) names it (admin/AdminSql.ts's
+ * OWNER_SQL, which this copies until the two meet): Mr. Based's mark, given
+ * once by account id under the owner's own name, so a rename neither loses
+ * it nor gains it, and Mr. Based given to anyone else never makes an owner.
  */
+const OWNER_SQL = (a: string) =>
+  `(${a}.based_access AND ${a}.based_granted_as = 'alden')`;
+
+/** Whether this account may moderate pictures: the owner's alone. */
 export async function isPictureModerator(
   q: Queryable,
   accountId: number,
 ): Promise<boolean> {
-  return hasBasedAccess(q, accountId);
+  const r = await q.query(
+    `SELECT 1 FROM derpy_accounts a WHERE a.id = $1 AND ${OWNER_SQL("a")}`,
+    [accountId],
+  );
+  return (r.rowCount ?? 0) > 0;
 }
 
-export type ModerationAction =
-  | "remove"
-  | "remove_and_block"
-  | "block"
-  | "unblock"
-  | "dismiss";
+/** One line of the audit log, in the shape of ADMIN's (admin/AdminAudit.ts). */
+export interface PictureAudit {
+  /** "pictures.remove", "pictures.block", "pictures.unblock", "reports.dismiss". */
+  action: string;
+  target?: { type: string; id: string | number; name?: string | null };
+  reason?: string | null;
+  before?: unknown;
+  after?: unknown;
+}
 
 /**
- * Every moderation action, said once. ADMIN (r26) brings an audit log; this
- * is the one call to point at it.
+ * Writes an action's audit line, in `q` (the change's transaction) when
+ * given: ADMIN's ctx.audit has exactly this shape.
  */
-export function auditPictures(
-  actorId: number,
-  action: ModerationAction,
-  targetId: number,
-  details: Record<string, unknown> = {},
-): void {
-  log.info("picture moderation", { actorId, action, targetId, ...details });
+export type PictureAuditFn = (e: PictureAudit, q?: Queryable) => Promise<void>;
+
+/** Until ADMIN's audit log takes them: each action in the server's log. */
+export function logAudit(actorId: number): PictureAuditFn {
+  return async (e) => {
+    log.info("picture moderation", {
+      actorId,
+      action: e.action,
+      target: e.target?.id,
+      ...(e.reason ? { reason: e.reason } : {}),
+    });
+  };
 }
 
 // ---------------------------------------------------------------- choosing
@@ -384,79 +404,206 @@ export async function moderationView(): Promise<ModerationView> {
 /**
  * The owner removes an account's uploaded picture: it's gone (not served
  * again), the account wears its monogram, its reports are cleared, and
- * (with `block`) it may not upload again until the owner allows it.
+ * (with `block`) it may not upload again until the owner allows it. Its
+ * audit line is written in the same transaction.
  */
 export async function removePicture(
-  actorId: number,
   accountId: number,
-  block: boolean,
+  opts: { block: boolean; reason?: string | null; audit: PictureAuditFn },
 ): Promise<{ ok: true } | { error: PictureError }> {
-  const removed = await inTransaction(async (c) => {
+  const done = await inTransaction(async (c) => {
     const acc = await c.query(
-      "SELECT picture FROM derpy_accounts WHERE id = $1 FOR UPDATE",
+      `SELECT username, picture, picture_blocked FROM derpy_accounts
+       WHERE id = $1 FOR UPDATE`,
       [accountId],
     );
-    if (acc.rowCount === 0) return null;
+    const row = acc.rows[0];
+    if (!row) return false;
     const gone = await c.query(
       "DELETE FROM derpy_pictures WHERE account_id = $1 RETURNING version",
       [accountId],
     );
-    const pic = parsePic(acc.rows[0].picture as string | null);
+    const version = (gone.rows[0]?.version as string | undefined) ?? null;
+    const wore = parsePic(row.picture as string | null)?.kind === "upload";
+    const blocked = row.picture_blocked === true || opts.block;
     await c.query(
       `UPDATE derpy_accounts SET
          picture = CASE WHEN $2 THEN NULL ELSE picture END,
-         picture_blocked = picture_blocked OR $3
+         picture_blocked = $3
        WHERE id = $1`,
-      [accountId, pic?.kind === "upload", block],
+      [accountId, wore, blocked],
     );
     await c.query("DELETE FROM derpy_picture_reports WHERE account_id = $1", [
       accountId,
     ]);
     await c.query(
       "INSERT INTO derpy_picture_log (account_id, kind, version) VALUES ($1, 'removed', $2)",
-      [accountId, (gone.rows[0]?.version as string | undefined) ?? null],
+      [accountId, version],
     );
-    return (gone.rows[0]?.version as string | undefined) ?? "";
+    await opts.audit(
+      {
+        action: "pictures.remove",
+        target: { type: "account", id: accountId, name: String(row.username) },
+        reason: opts.reason ?? null,
+        before: {
+          picture: row.picture ?? null,
+          upload: version,
+          uploadsBlocked: row.picture_blocked === true,
+        },
+        after: {
+          picture: wore ? null : (row.picture ?? null),
+          upload: null,
+          uploadsBlocked: blocked,
+        },
+      },
+      c,
+    );
+    return true;
   });
-  if (removed === null) return { error: "not_found" };
+  if (!done) return { error: "not_found" };
   forgetLook(accountId);
-  auditPictures(actorId, block ? "remove_and_block" : "remove", accountId, {
-    version: removed || null,
-  });
   return { ok: true };
 }
 
 /** The owner stops (or lets again) an account uploading. */
 export async function blockUploads(
-  actorId: number,
   accountId: number,
-  blocked: boolean,
+  opts: { blocked: boolean; reason?: string | null; audit: PictureAuditFn },
 ): Promise<{ ok: true } | { error: PictureError }> {
-  const r = await (
-    await db()
-  ).query("UPDATE derpy_accounts SET picture_blocked = $2 WHERE id = $1", [
-    accountId,
-    blocked,
-  ]);
-  if ((r.rowCount ?? 0) === 0) return { error: "not_found" };
-  auditPictures(actorId, blocked ? "block" : "unblock", accountId);
-  return { ok: true };
+  const done = await inTransaction(async (c) => {
+    const acc = await c.query(
+      "SELECT username, picture_blocked FROM derpy_accounts WHERE id = $1 FOR UPDATE",
+      [accountId],
+    );
+    const row = acc.rows[0];
+    if (!row) return false;
+    if ((row.picture_blocked === true) === opts.blocked) return true;
+    await c.query(
+      "UPDATE derpy_accounts SET picture_blocked = $2 WHERE id = $1",
+      [accountId, opts.blocked],
+    );
+    await opts.audit(
+      {
+        action: opts.blocked ? "pictures.block" : "pictures.unblock",
+        target: { type: "account", id: accountId, name: String(row.username) },
+        reason: opts.reason ?? null,
+        before: { uploadsBlocked: !opts.blocked },
+        after: { uploadsBlocked: opts.blocked },
+      },
+      c,
+    );
+    return true;
+  });
+  return done ? { ok: true } : { error: "not_found" };
 }
 
 /** The owner looked at a reported picture and kept it: its reports go. */
 export async function dismissReports(
-  actorId: number,
   accountId: number,
   version: string,
+  opts: { reason?: string | null; audit: PictureAuditFn },
 ): Promise<{ ok: true }> {
-  await (
-    await db()
-  ).query(
-    "DELETE FROM derpy_picture_reports WHERE account_id = $1 AND version = $2",
-    [accountId, version],
-  );
-  auditPictures(actorId, "dismiss", accountId, { version });
+  await inTransaction(async (c) => {
+    const gone = await c.query(
+      `DELETE FROM derpy_picture_reports r USING derpy_accounts a
+       WHERE r.account_id = $1 AND r.version = $2 AND a.id = r.account_id
+       RETURNING a.username`,
+      [accountId, version],
+    );
+    if ((gone.rowCount ?? 0) === 0) return;
+    await opts.audit(
+      {
+        action: "reports.dismiss",
+        target: {
+          type: "account",
+          id: accountId,
+          name: String(gone.rows[0].username),
+        },
+        reason: opts.reason ?? null,
+        before: { version, reports: gone.rowCount },
+        after: { reports: 0 },
+      },
+      c,
+    );
+  });
   return { ok: true };
+}
+
+/** What an account's admin page shows of its picture (ADMIN's account panel). */
+export interface AccountPicture {
+  picture: string | null;
+  upload: {
+    version: string;
+    picture: string;
+    uploadedAt: string;
+    worn: boolean;
+    reports: number;
+  } | null;
+  uploadsBlocked: boolean;
+  uploadsToday: number;
+}
+
+export async function accountPicture(
+  accountId: number,
+): Promise<AccountPicture | undefined> {
+  const pool = await db();
+  const acc = (
+    await pool.query(
+      "SELECT picture, picture_blocked FROM derpy_accounts WHERE id = $1",
+      [accountId],
+    )
+  ).rows[0];
+  if (!acc) return undefined;
+  const up = (
+    await pool.query(`${MOD_ROW} WHERE p.account_id = $1`, [accountId])
+  ).rows[0];
+  const row = up ? modRow(up) : null;
+  return {
+    picture: lookFromRow(acc).pic,
+    upload: row
+      ? {
+          version: row.version,
+          picture: row.picture,
+          uploadedAt: row.uploadedAt,
+          worn: row.worn,
+          reports: row.reports,
+        }
+      : null,
+    uploadsBlocked: acc.picture_blocked === true,
+    uploadsToday: await uploadsToday(pool, accountId),
+  };
+}
+
+/** ADMIN's Overview lines: pictures waiting on a look, and the week's uploads. */
+export async function picturesOverview(): Promise<
+  { label: string; value: number; href: string }[]
+> {
+  const r = (
+    await (
+      await db()
+    ).query(
+      `SELECT
+         (SELECT count(DISTINCT (account_id, version)) FROM derpy_picture_reports
+          r WHERE EXISTS (SELECT 1 FROM derpy_pictures p
+            WHERE p.account_id = r.account_id AND p.version = r.version))::int
+           AS reported,
+         (SELECT count(*) FROM derpy_picture_log
+          WHERE kind = 'upload' AND created_at > now() - interval '7 days')::int
+           AS week`,
+    )
+  ).rows[0];
+  return [
+    {
+      label: "Reported pictures",
+      value: Number(r.reported),
+      href: "/admin/moderation/reports",
+    },
+    {
+      label: "Pictures uploaded this week",
+      value: Number(r.week),
+      href: "/admin/moderation/pictures",
+    },
+  ];
 }
 
 // ---------------------------------------------------------------- the routes
@@ -486,14 +633,18 @@ const Target = z.object({
   account: z.coerce.number().int().positive(),
   version: z.string().regex(VERSION_RE),
 });
+const Reason = z.string().max(500).nullish();
 const Remove = z.object({
   account: z.coerce.number().int().positive(),
   block: z.boolean().optional(),
+  reason: Reason,
 });
 const Block = z.object({
   account: z.coerce.number().int().positive(),
   blocked: z.boolean(),
+  reason: Reason,
 });
+const Dismiss = Target.extend({ reason: Reason });
 
 /** Mounted by DerpyApi at /derpy/api/pictures. */
 export function picturesRouter({
@@ -641,7 +792,7 @@ export function picturesRouter({
     }),
   );
 
-  // ---- the owner's
+  // ---- the owner's (PROFILE r26: until ADMIN's sections take them over)
   router.get(
     "/moderation",
     modLimiter,
@@ -659,11 +810,11 @@ export function picturesRouter({
         res.status(400).json({ error: "invalid" });
         return;
       }
-      const r = await removePicture(
-        actor,
-        body.data.account,
-        body.data.block === true,
-      );
+      const r = await removePicture(body.data.account, {
+        block: body.data.block === true,
+        reason: body.data.reason,
+        audit: logAudit(actor),
+      });
       if ("error" in r) answer(res, r);
       else res.json(await moderationView());
     }),
@@ -678,7 +829,11 @@ export function picturesRouter({
         res.status(400).json({ error: "invalid" });
         return;
       }
-      const r = await blockUploads(actor, body.data.account, body.data.blocked);
+      const r = await blockUploads(body.data.account, {
+        blocked: body.data.blocked,
+        reason: body.data.reason,
+        audit: logAudit(actor),
+      });
       if ("error" in r) answer(res, r);
       else res.json(await moderationView());
     }),
@@ -688,12 +843,15 @@ export function picturesRouter({
     modLimiter,
     json,
     ownerOnly(async (req, res, actor) => {
-      const body = Target.safeParse(req.body);
+      const body = Dismiss.safeParse(req.body);
       if (!body.success) {
         res.status(400).json({ error: "invalid" });
         return;
       }
-      await dismissReports(actor, body.data.account, body.data.version);
+      await dismissReports(body.data.account, body.data.version, {
+        reason: body.data.reason,
+        audit: logAudit(actor),
+      });
       res.json(await moderationView());
     }),
   );

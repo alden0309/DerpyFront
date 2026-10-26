@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<defs><radialGradient id="bg-coin" cx="34%" cy="26%" r="85%"><stop offset="0" stop-color="#8cc9a0"/><stop offset="1" stop-color="#1f5a3c"/></radialGradient></defs>
+<rect width="64" height="64" fill="url(#bg-coin)"/>
+<g transform="translate(32 32) scale(2.05) translate(-12 -12)">
+<circle cx="12" cy="12.6" r="10.4" fill="#a86b00"/>
+<circle cx="12" cy="11.4" r="10.4" fill="#ffc531" stroke="#2e2010" stroke-width=".9"/>
+<circle cx="12" cy="11.4" r="7.6" fill="none" stroke="#e0a100" stroke-width="1.4"/>
+<path d="M9.4 6.9h2.7c2.9 0 4.6 2 4.6 4.8 0 2.7-1.8 4.7-4.7 4.7H9.4z" fill="none" stroke="#7a4b00" stroke-width="2.2" stroke-linejoin="round" transform="rotate(-7 12 11.5)"/>
+</g>
+<path d="M15 20 Q19 14 25 12" fill="none" stroke="#fff6c8" stroke-width="2.2" stroke-linecap="round" opacity=".8"/>
+</svg>
