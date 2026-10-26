@@ -97,6 +97,8 @@ const CHOICES: TutTarget = { sel: ".cq-scene-choices" };
 const SKIP: TutTarget = { sel: ".cq-skip-btn" };
 const PLAY: TutTarget = { sel: ".cq-pause.on" };
 const SET_OUT: TutTarget = { sel: ".cq-travel-way button" };
+/** The map's own "set out?" (a right-click, or a hold), when it's open. */
+const ASK: TutTarget = { sel: ".cq-march-ask .cq-btn.primary" };
 
 /** A letter waiting: open it; open: what to do with it. */
 function letterSay(
@@ -128,7 +130,7 @@ function homeFirst(ui: GameUi, title: string, why: string): Say {
     title,
     text: html`${why} Click Boston (Massachusetts Bay) on the map, then
       <b>Set out</b>; ⏩ runs the road quickly.`,
-    at: [SET_OUT, { prov: home }, SKIP],
+    at: [ASK, SET_OUT, { prov: home }, SKIP],
     show: () => ui.focusProv(home),
   };
 }
@@ -238,9 +240,9 @@ function stepSay(
         title: "An errand to Plymouth",
         text: html`${master} wants a cartload of barrels taken to Plymouth, a
           few days down the coast. Find <b>Plymouth</b> on the map, south of
-          Boston, click it, then <b>Set out</b>. (Right-click it, or hold it,
-          for the same.)`,
-        at: there ? [SET_OUT] : [{ prov: errand }],
+          Boston, click it, then <b>Set out</b>. (Or right-click it, or hold it
+          on a phone, for a quick way to set out.)`,
+        at: there ? [ASK, SET_OUT] : [ASK, { prov: errand }],
         show: () => ui.focusProv(errand),
       };
     }
@@ -261,7 +263,7 @@ function stepSay(
           title: "An errand to Plymouth",
           text: html`Plymouth is the place: click it on the map, then
             <b>Set out</b>.`,
-          at: [SET_OUT, { prov: errand }],
+          at: [ASK, SET_OUT, { prov: errand }],
           show: () => ui.focusProv(errand),
         };
       return {
@@ -282,7 +284,7 @@ function stepSay(
           text: html`Now home to Boston for your wages. Click Boston
             (Massachusetts Bay) on the map and <b>Set out</b>, then press
             <b>⏩</b>: it runs the quiet days until something needs you.`,
-          at: life.travel ? [SKIP] : [SET_OUT, { prov: home }],
+          at: life.travel ? [SKIP] : [ASK, SET_OUT, { prov: home }],
         };
       return {
         title: "Pay day",
@@ -318,8 +320,9 @@ function stepSay(
       return {
         title: "Something to aim at",
         text: html`An ambition gives the years a shape, and reaching it is worth
-          renown. <b>Choose one</b> on You › Ambition (Rise in your trade would
-          make you a master). What happens to you is kept in Journal › Diary.`,
+          renown. <b>Choose one</b> on You › Ambition (Rise in your trade takes
+          a journeyman to guild master). What happens to you is kept in Journal
+          › Diary.`,
         at: [
           {
             sel: ".cq-ambitions li",
