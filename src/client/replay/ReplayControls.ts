@@ -341,7 +341,7 @@ export class ReplayControls extends LitElement {
     >
       <span aria-hidden="true">${this.playing ? "▶" : "❚❚"}</span>
       <span class="hidden min-[480px]:inline tabular-nums">×${this.speed}</span>
-      <span class="max-w-[9rem] truncate sm:max-w-[16rem]"
+      <span class="max-w-[12rem] truncate sm:max-w-[16rem]"
         >${translateText("watch_together.controls_with", {
           name: this.lockedBy,
         })}</span
