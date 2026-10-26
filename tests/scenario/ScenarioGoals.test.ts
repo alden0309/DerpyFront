@@ -2,9 +2,9 @@
 // checkable: its place is land on both map sizes, a goal to take a place
 // isn't met at the start, one to hold your own place is held then, its side
 // exists, and its words are in en.json. The rules (hold, take, keep, a
-// side's hold, being on a side), that goals pay on Hard and Impossible only,
-// and the engine's checks: a goal met is written into the player's stats,
-// once, and never changes the game.
+// side's hold, being on a side, a Compact map's minutes being half), that
+// goals pay on Hard and Impossible only, and the engine's checks: a goal met
+// is written into the player's stats, once, and never changes the game.
 
 import { Difficulty, GameMapSize } from "@openfront/engine-api/game/GameTypes";
 import {
@@ -15,7 +15,9 @@ import {
 import {
   allScenarioGoals,
   GOAL_COINS,
+  goalDueMinute,
   goalMetAt,
+  goalMinute,
   goalMissed,
   goalPaysOn,
   goalPlaceAt,
@@ -87,6 +89,11 @@ describe("the goals' data", () => {
           if (g.side === true)
             expect(n.side, `${where}: a side goal needs a side`).not.toBeNull();
           expect(typeof text(d.id, n.key), where).toBe("string");
+          // Its minute goes into its words, as the map's (goalDueMinute).
+          expect(
+            String(text(d.id, n.key)).includes("{minute}"),
+            `${where}: {minute} in its words`,
+          ).toBe(g.minute !== undefined && g.kind !== "keep");
           const of = d.nations.find((x) => x.key === goalPlaceOf(g));
           expect(of, `${where}: whose place?`).toBeDefined();
 
@@ -191,6 +198,31 @@ describe("the rules", () => {
     expect(goalMetAt(keep, at(40 * M, false), true, 10)).toBe(false);
   });
 
+  it("on a Compact map a goal's minute is half its own, rounded up", () => {
+    expect(goalDueMinute(hold, false)).toBe(20);
+    expect(goalDueMinute(hold, true)).toBe(10);
+    expect(goalDueMinute({ minute: 25 }, true)).toBe(13);
+    expect(goalDueMinute({}, true)).toBeUndefined();
+    expect(goalMinute(take, true)).toBe(13);
+    expect(goalMinute(take, false)).toBe(25);
+    expect(goalMinute(keep, true)).toBeNull();
+    const c = (elapsed: number, holds: boolean) => ({
+      ...at(elapsed, holds),
+      compact: true,
+    });
+    // hold: judged at minute 10, not 20.
+    expect(goalMetAt(hold, c(10 * M, true), false, 10)).toBe(true);
+    expect(goalMetAt(hold, c(20 * M, true), false, 10)).toBe(false);
+    expect(goalMissed(hold, 10 * M + 10, false, 10, true)).toBe(true);
+    expect(goalMissed(hold, 10 * M + 10, false, 10)).toBe(false);
+    // take: before minute 13, not 25.
+    expect(goalMetAt(take, c(13 * M - 1, true), false, 10)).toBe(true);
+    expect(goalMetAt(take, c(13 * M, true), false, 10)).toBe(false);
+    expect(goalMissed(take, 13 * M, false, 10, true)).toBe(true);
+    // keep has no minute: the same on both.
+    expect(goalMetAt(keep, c(40 * M, true), true, 10)).toBe(true);
+  });
+
   it('onSide: on that side (or on any, for "any") when it\'s checked', () => {
     const join: ScenarioGoal = { ...hold, onSide: "Union" };
     expect(goalMetAt(join, at(20 * M, true, "Union"), false, 10)).toBe(true);
@@ -232,23 +264,30 @@ describe("the engine's checks", () => {
     expect(goalStat()).toBe(met);
   }, 60_000);
 
-  it("hold: judged at its minute; held, it's met, lost, it isn't", async () => {
-    const { g, me, tile, goalStat } = await korea("south_korea");
-    // Seoul is the South's at the start; at minute 20 it still is.
-    vi.spyOn(g.game, "elapsedGameSeconds").mockReturnValue(20 * 60);
+  it("hold: judged at its minute (the Compact map's); held, it's met, lost, it isn't", async () => {
+    // "Hold Seoul past minute 20": minute 10 on this Compact map.
+    const due = goalDueMinute(scenarioGoal("korea1950", "south_korea")!, true)!;
+    expect(due).toBe(10);
+    const { g, goalStat } = await korea("south_korea");
+    // Seoul is the South's at the start; at its minute it still is.
+    vi.spyOn(g.game, "elapsedGameSeconds").mockReturnValue(due * 60);
     g.step(10);
     expect(goalStat()).toBeDefined();
-    void me;
-    void tile;
+
+    // Its own minute (20) is too late on a Compact map.
+    const late = await korea("south_korea");
+    vi.spyOn(late.g.game, "elapsedGameSeconds").mockReturnValue(20 * 60);
+    late.g.step(10);
+    expect(late.goalStat()).toBeUndefined();
 
     const lost = await korea("south_korea");
     lost.g.nation("north_korea").conquer(lost.tile); // Seoul falls
-    vi.spyOn(lost.g.game, "elapsedGameSeconds").mockReturnValue(20 * 60);
+    vi.spyOn(lost.g.game, "elapsedGameSeconds").mockReturnValue(due * 60);
     lost.g.step(10);
     expect(lost.goalStat()).toBeUndefined();
     // Too late to hold it again after its minute.
     lost.me.conquer(lost.tile);
-    vi.spyOn(lost.g.game, "elapsedGameSeconds").mockReturnValue(21 * 60);
+    vi.spyOn(lost.g.game, "elapsedGameSeconds").mockReturnValue((due + 1) * 60);
     lost.g.step(10);
     expect(lost.goalStat()).toBeUndefined();
   }, 60_000);

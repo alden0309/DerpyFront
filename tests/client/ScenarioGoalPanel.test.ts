@@ -6,11 +6,11 @@ import { goalTileXY } from "@openfront/engine-lib/scenario/ScenarioGoals";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/client/Utils", () => ({
-  translateText: vi.fn((key: string) =>
+  translateText: vi.fn((key: string, p: { minute?: number } = {}) =>
     key === "scenario_goal_text.europe1939.poland"
-      ? "Hold Warsaw past minute 20"
+      ? `Hold Warsaw past minute ${p.minute}`
       : key === "scenario_goal_text.europe1939.germany"
-        ? "Take Paris before minute 25"
+        ? `Take Paris before minute ${p.minute}`
         : key,
   ),
 }));
@@ -22,14 +22,16 @@ import type { GameView } from "../../src/client/view";
 const ME = "HUMAN001";
 
 /** A Europe 1939 game as the panel sees it: who holds the goal's tile, and the time. */
-function game(nation: string, difficulty = "Hard") {
+function game(nation: string, difficulty = "Hard", size = "Normal") {
   const s = {
     seconds: 60,
     owner: "me" as "me" | "them" | "ally",
     spawn: false,
   };
-  const [gx, gy] = goalTileXY("europe1939", nation, false)!;
-  const goalTile = gy * 2904 + gx;
+  const compact = size === "Compact";
+  const W = compact ? 1452 : 2904;
+  const [gx, gy] = goalTileXY("europe1939", nation, compact)!;
+  const goalTile = gy * W + gx;
   const me = { id: () => 1, clientID: () => ME, team: () => "Allies" };
   const them = { id: () => 2, team: () => "Axis", isPlayer: () => true };
   const ally = { id: () => 3, team: () => "Allies", isPlayer: () => true };
@@ -42,10 +44,10 @@ function game(nation: string, difficulty = "Hard") {
     inSpawnPhase: () => s.spawn,
     elapsedGameSeconds: () => s.seconds,
     config: () => ({
-      gameConfig: () => ({ gameMapSize: "Normal", difficulty }),
+      gameConfig: () => ({ gameMapSize: size, difficulty }),
     }),
     isValidCoord: () => true,
-    ref: (x: number, y: number) => y * 2904 + x,
+    ref: (x: number, y: number) => y * W + x,
     owner: (t: number) => {
       expect(t).toBe(goalTile);
       return s.owner === "me"
@@ -120,6 +122,25 @@ describe("the goal's line under the timer", () => {
     late.s.seconds = 25 * 60;
     const el2 = panel(late.view);
     await el2.updateComplete;
+    expect(state(el2)).toBe("missed");
+  });
+
+  it("on a Compact map its minute is half, in its words and its countdown", async () => {
+    const { s, view } = game("poland", "Hard", "Compact");
+    const el = panel(view);
+    await el.updateComplete;
+    expect(el.textContent).toContain("Hold Warsaw past minute 10");
+    s.seconds = 10 * 60;
+    el.refreshKey = 1;
+    await el.updateComplete;
+    expect(state(el)).toBe("met");
+
+    const late = game("germany", "Hard", "Compact");
+    late.s.owner = "them";
+    late.s.seconds = 13 * 60;
+    const el2 = panel(late.view);
+    await el2.updateComplete;
+    expect(el2.textContent).toContain("Take Paris before minute 13");
     expect(state(el2)).toBe("missed");
   });
 
