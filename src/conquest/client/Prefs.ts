@@ -19,3 +19,25 @@ export function setConfirmMarch(on: boolean): void {
     // ignore
   }
 }
+
+// ---------------------------------------------------------------- CQTUT (r26)
+
+const FIRST_LIFE_KEY = "derpy_conquest_first_life";
+
+/** The first life offered on a first visit: taken, turned down, or not yet ("" ). */
+export function firstLifeSeen(): "taken" | "no" | "" {
+  try {
+    const v = localStorage.getItem(FIRST_LIFE_KEY);
+    return v === "taken" || v === "no" ? v : "";
+  } catch {
+    return "";
+  }
+}
+
+export function setFirstLifeSeen(v: "taken" | "no"): void {
+  try {
+    localStorage.setItem(FIRST_LIFE_KEY, v);
+  } catch {
+    // A private window: it's asked again next time.
+  }
+}

@@ -52,6 +52,7 @@ import "./ships.css"; // SHIPS (r21): ships' companies, charters, voyages; trave
 import "./social.css"; // FRIENDS (r25): Derp Land's People and bell in a game
 import "./story.css"; // STORY (r17): the story of a life, year by year
 import "./towns.css"; // TOWNS (r17): the town, its newcomers and its public works
+import "./tutorial.css"; // CQTUT (r26): the first life's lessons
 import "./war.css"; // WAR (r17): lost towns, claims, a town's ferment and its plot
 import "./watch.css"; // SITE (r19): watching a game from Derp Land
 import "./work21.css"; // WORK (r21): leaving your work, a business's staff, a new business both ways

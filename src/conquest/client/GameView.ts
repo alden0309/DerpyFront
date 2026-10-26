@@ -115,6 +115,7 @@ import { tripLeaveLine } from "./ui/LeaveUi"; // ECON (r17)
 import { affairKindName } from "./ui/Ledger"; // LEDGER (r15)
 import { seasonChip } from "./ui/SeasonChip"; // MAP (r12)
 import { postButton } from "./ui/Society";
+import { tutMap, tutorialLayer, tutorialSaw } from "./ui/Tutorial"; // CQTUT (r26)
 import { FigureColors, figureColorsOf } from "./Walkers";
 
 export type GameStart = Extract<ServerMessage, { t: "game" }>;
@@ -461,6 +462,8 @@ export class GameView extends LitElement {
   }
 
   protected updated(): void {
+    // CQTUT (r26): a page the first life's lessons asked to see, open.
+    if (this.s) tutorialSaw(this.ui, this.stack[this.stack.length - 1]);
     this.shownKey = this.pageKey();
     restoreAnchors(this.anchors);
     this.anchors = [];
@@ -551,6 +554,21 @@ export class GameView extends LitElement {
       hover: (p) => this.onHover(p),
     });
     this.view.mount(host);
+    // CQTUT (r26): where a place is on the screen, for the lessons' ring.
+    tutMap.point = (p) => {
+      const v = this.view;
+      const def = map.provinces[p];
+      const box = this.querySelector(".cq-map-host")?.getBoundingClientRect();
+      if (!v || !def || !box) return null;
+      const x = box.left + def.x * v.view.scale + v.view.tx;
+      const y = box.top + def.y * v.view.scale + v.view.ty;
+      return x < box.left + 10 ||
+        x > box.right - 10 ||
+        y < box.top + 10 ||
+        y > box.bottom - 10
+        ? null
+        : { x, y };
+    };
     this.onMapStyle(); // DLC (r21)
     this.view.resize(host.clientWidth, host.clientHeight);
     this.resizeObs?.disconnect();
@@ -1758,6 +1776,13 @@ export class GameView extends LitElement {
     this.dispatchEvent(new CustomEvent("cq-leave", { bubbles: true }));
   }
 
+  /** CQTUT (r26): leave this game, and begin another (a fresh life, or the first life again). */
+  private leaveFor(event: "cq-fresh" | "cq-tutorial", detail: object): void {
+    const app = this.parentElement;
+    this.leave();
+    app?.dispatchEvent(new CustomEvent(event, { detail, bubbles: true }));
+  }
+
   // ---------------------------------------------------------------- render
 
   render(): TemplateResult {
@@ -1890,6 +1915,16 @@ export class GameView extends LitElement {
       </div>
       ${this.proclamationView()} ${this.askPopup()}
       ${this.modalView ? renderModal(ui, this.modalView, this.hooks) : nothing}
+      ${
+        // CQTUT (r26): the first life's lessons: the card, and the ring.
+        tutorialLayer(ui, {
+          cur,
+          modal: this.modalView,
+          signedIn: this.signedIn,
+          fresh: () => this.leaveFor("cq-fresh", {}),
+          again: (female) => this.leaveFor("cq-tutorial", { female }),
+        })
+      }
     </div>`;
   }
 
