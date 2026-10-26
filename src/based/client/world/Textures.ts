@@ -614,16 +614,44 @@ export function posterTexture(
   g.closePath();
   g.fill();
   g.restore();
-  // The slogan.
+  // The slogan: one line, or (r26: a longer one) two, whichever sets it
+  // larger, in the paper under the face.
   g.fillStyle = "#11182a";
   g.textAlign = "center";
-  g.font = "900 40px Impact, 'Arial Black', sans-serif";
-  let size = 40;
-  while (g.measureText(slogan).width > 220 && size > 10) {
-    size -= 2;
+  const fit = (lines: string[], max: number): number => {
+    let size = max;
     g.font = `900 ${size}px Impact, 'Arial Black', sans-serif`;
+    while (lines.some((l) => g.measureText(l).width > 220) && size > 10) {
+      size -= 2;
+      g.font = `900 ${size}px Impact, 'Arial Black', sans-serif`;
+    }
+    return size;
+  };
+  const words = slogan.split(" ");
+  let lines = [slogan];
+  let size = fit(lines, 40);
+  if (words.length > 1) {
+    // The break that leaves the two lines most even.
+    let best: string[] = [];
+    let worst = Infinity;
+    for (let k = 1; k < words.length; k++) {
+      const two = [words.slice(0, k).join(" "), words.slice(k).join(" ")];
+      g.font = "900 40px Impact, 'Arial Black', sans-serif";
+      const w = Math.max(...two.map((l) => g.measureText(l).width));
+      if (w < worst) {
+        worst = w;
+        best = two;
+      }
+    }
+    const twoSize = fit(best, 36);
+    if (twoSize > size + 4) {
+      lines = best;
+      size = twoSize;
+    }
   }
-  g.fillText(slogan, 128, 316);
+  g.font = `900 ${size}px Impact, 'Arial Black', sans-serif`;
+  if (lines.length === 1) g.fillText(lines[0], 128, 316);
+  else lines.forEach((l, k) => g.fillText(l, 128, 304 + k * (size + 4)));
   // Torn away in long wet strips: cut transparent gaps.
   g.globalCompositeOperation = "destination-out";
   for (let k = 0; k < 5; k++) {

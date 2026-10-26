@@ -224,6 +224,53 @@ describe("the opening, reshaped (r25)", () => {
     }
   });
 
+  test("r26: he stands under the awning, clear of the pharmacy from the game camera", () => {
+    // The owner: "Move the guy standing outside as it's hard to click him
+    // instead of the pharmacy." Seen down the camera (World.ts: azimuth and
+    // elevation, orthographic), his click column (0.32 m round, 1.75 m tall)
+    // overlaps no hotspot's sphere, and the pharmacy's least of all.
+    const street = PLACES.street;
+    const az = (street.camera.azimuth * Math.PI) / 180;
+    const el = (street.camera.elevation * Math.PI) / 180;
+    const d = [
+      Math.sin(az) * Math.cos(el),
+      Math.sin(el),
+      Math.cos(az) * Math.cos(el),
+    ];
+    const n = Math.hypot(d[2], d[0]);
+    const right = [d[2] / n, 0, -d[0] / n];
+    const up = [
+      d[1] * right[2] - d[2] * right[1],
+      d[2] * right[0] - d[0] * right[2],
+      d[0] * right[1] - d[1] * right[0],
+    ];
+    const dot = (a: number[], b: number[]) =>
+      a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const screen = (p: number[]) => [dot(p, right), dot(p, up)];
+    const [x, z] = street.marks.watcher_spot.at;
+    const [fx, fy] = screen([x, 0, z]);
+    const [, hy] = screen([x, 1.75, z]);
+    const box = { l: fx - 0.32, r: fx + 0.32, lo: fy - 0.19, hi: hy + 0.19 };
+    const clear = (id: string) => {
+      const h = street.hotspots[id];
+      const [cx, cy] = screen(h.at);
+      const dx = Math.max(box.l - cx, 0, cx - box.r);
+      const dy = Math.max(box.lo - cy, 0, cy - box.hi);
+      return Math.hypot(dx, dy) - (h.r ?? 0.35);
+    };
+    for (const id of Object.keys(street.hotspots)) {
+      expect(clear(id), id).toBeGreaterThan(0.2);
+    }
+    expect(clear("pharmacy")).toBeGreaterThan(0.5);
+    // Under the pharmacy's awning, out of the rain.
+    const shop = street.items.find(
+      (i) => i.kind === "shopfront" && (i as { cross?: boolean }).cross,
+    ) as unknown as { at: number[]; w: number; awning: { depth: number } };
+    expect(Math.abs(x - shop.at[0])).toBeLessThan(shop.w / 2);
+    expect(z).toBeGreaterThan(shop.at[2] - shop.awning.depth);
+    expect(z).toBeLessThan(shop.at[2]);
+  });
+
   test("the offer is gated: the validator refuses it without a light", () => {
     expect(
       (chapter.facts ?? []).some(

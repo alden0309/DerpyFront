@@ -48,7 +48,7 @@
       "face": 180
     },
     "watcher_spot": {
-      "at": [2.4, 14.15],
+      "at": [-0.9, 13.6],
       "face": 180
     },
     "watcher_gone": {
@@ -99,10 +99,10 @@
       "at": [4.4, 13.75]
     },
     "see_puddle": {
-      "at": [0.4, 12.85]
+      "at": [5.1, 12.95]
     },
     "see_ends": {
-      "at": [1.4, 13.8]
+      "at": [-1.6, 12.95]
     },
     "see_bin": {
       "at": [-3, 12.8]
@@ -215,12 +215,12 @@
       "stand": "see_bowl"
     },
     "awning_puddle": {
-      "at": [0.4, 0.05, 13.55],
+      "at": [5.1, 0.05, 13.65],
       "r": 0.45,
       "stand": "see_puddle"
     },
     "cig_ends": {
-      "at": [1.7, 0.05, 14.45],
+      "at": [-1.4, 0.05, 14.3],
       "r": 0.25,
       "stand": "see_ends"
     },
@@ -388,7 +388,7 @@
       "kind": "poster",
       "at": [-10.4, 0.75, 3.03],
       "size": [0.8, 1.15],
-      "text": "TENIR PAROLE",
+      "text": "L'HEURE DU CHANGEMENT",
       "seed": 3,
       "rot": 0
     },
@@ -396,7 +396,7 @@
       "kind": "poster",
       "at": [-11.4, 0.75, 3.03],
       "size": [0.8, 1.15],
-      "text": "TENIR PAROLE",
+      "text": "L'HEURE DU CHANGEMENT",
       "seed": 4,
       "rot": 0
     },
@@ -404,7 +404,7 @@
       "kind": "poster",
       "at": [-12.5, 0.75, 3.03],
       "size": [0.8, 1.15],
-      "text": "TENIR PAROLE",
+      "text": "L'HEURE DU CHANGEMENT",
       "seed": 5,
       "rot": 0
     },
@@ -412,7 +412,7 @@
       "kind": "poster",
       "at": [-13.5, 0.75, 3.03],
       "size": [0.8, 1.15],
-      "text": "TENIR PAROLE",
+      "text": "L'HEURE DU CHANGEMENT",
       "seed": 6,
       "rot": 0
     },
@@ -420,7 +420,7 @@
       "kind": "poster",
       "at": [-14.7, 0.75, 3.03],
       "size": [0.8, 1.15],
-      "text": "TENIR PAROLE",
+      "text": "L'HEURE DU CHANGEMENT",
       "seed": 7,
       "rot": 0
     },
@@ -428,7 +428,7 @@
       "kind": "poster",
       "at": [-15.8, 0.75, 3.03],
       "size": [0.8, 1.15],
-      "text": "TENIR PAROLE",
+      "text": "L'HEURE DU CHANGEMENT",
       "seed": 8,
       "rot": 0
     },
@@ -723,12 +723,12 @@
     },
     {
       "kind": "puddle",
-      "at": [0.4, 0, 13.55],
+      "at": [5.1, 0, 13.65],
       "size": [1.3, 0.6]
     },
     {
       "kind": "litter",
-      "at": [1.7, 0, 14.45]
+      "at": [-1.4, 0, 14.3]
     },
     {
       "kind": "morris",
@@ -754,23 +754,23 @@
           "seed": 23
         },
         {
-          "text": "TENIR PAROLE",
+          "text": "L'HEURE DU CHANGEMENT",
           "seed": 24
         },
         {
-          "text": "TENIR PAROLE",
+          "text": "L'HEURE DU CHANGEMENT",
           "seed": 25
         },
         {
           "text": "LES VOLONTAIRES DU SERMENT RECRUTENT",
           "style": "bill",
-          "sub": "Ils ont tenu parole. Et vous ?",
+          "sub": "L’heure du changement a sonné. Et vous ?",
           "seed": 26,
           "paper": "#e3dccb",
           "ink": "#1b2a48"
         },
         {
-          "text": "TENIR PAROLE",
+          "text": "L'HEURE DU CHANGEMENT",
           "seed": 27
         },
         {
@@ -782,13 +782,13 @@
           "ink": "#202020"
         },
         {
-          "text": "TENIR PAROLE",
+          "text": "L'HEURE DU CHANGEMENT",
           "seed": 29
         },
         {
           "text": "LE SERMENT",
           "style": "bill",
-          "sub": "Tenir parole",
+          "sub": "L’heure du changement",
           "seed": 30,
           "paper": "#1b2a48",
           "ink": "#d9c9a2"

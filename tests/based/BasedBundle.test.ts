@@ -91,7 +91,7 @@ const placeWords = fs
 const SENTINELS = [
   ...story.cast.map((c) => c.name).filter((n) => !/^(Mr\. Based|The )/.test(n)),
   "Kir Royale",
-  "TENIR PAROLE",
+  "L'HEURE DU CHANGEMENT",
   "Le Serment",
   "CLOVIS",
   ...new Set(placeWords.filter((w) => w.length > 5)),
