@@ -67,15 +67,44 @@ export async function nameProblem(
                WHERE old_username_key = $1 AND id IS DISTINCT FROM $2::bigint
                  AND username_changed_at >= $3) AS held,
        EXISTS (SELECT 1 FROM derpy_accounts
-               WHERE id = $2::bigint AND username_key = $1) AS own`,
-    [key, accountId, heldSince(now)],
+               WHERE id = $2::bigint AND username_key = $1) AS own,
+       -- ADMIN (r26): a word the owner blocked, anywhere in the name.
+       EXISTS (SELECT 1 FROM derpy_name_blocklist b
+               WHERE position(b.word IN $4) > 0
+                  OR position(b.word IN $5) > 0) AS blocked`,
+    [key, accountId, heldSince(now), ...blockForms(name)],
   );
   const row = r.rows[0];
   if (row.taken) return "username_taken";
   if (row.held) return "username_held";
   if (renaming && !row.own && (await reservedForBased(q, key)))
     return "username_reserved";
+  // ADMIN (r26): its own name (in other capitals) is never in its way.
+  if (row.blocked && !row.own) return "username_reserved";
   return null;
+}
+
+// ADMIN (r26): how a name is compared with the blocklist: in small letters
+// without underscores, and again with digits read as the letters they're
+// written for (b4dw0rd), so neither spelling gets round it.
+const LEET: Record<string, string> = {
+  "0": "o",
+  "1": "i",
+  "3": "e",
+  "4": "a",
+  "5": "s",
+  "7": "t",
+  "8": "b",
+};
+export function blockForms(name: string): [string, string] {
+  const plain = name.toLowerCase().replace(/_/g, "");
+  return [plain, plain.replace(/[0-9]/g, (d) => LEET[d] ?? d)];
+}
+
+/** ADMIN (r26): a word for the blocklist, as it's kept (null: not one). */
+export function blockWord(raw: string): string | null {
+  const w = raw.trim().toLowerCase();
+  return /^[a-z0-9]{2,20}$/.test(w) ? w : null;
 }
 
 export interface NameStatus {
@@ -179,6 +208,9 @@ export async function renameAccount(
   accountId: number,
   raw: string,
   now = Date.now(),
+  // ADMIN (r26): the owner renaming someone skips the 7-day rule (the name
+  // must still be valid and free).
+  opts: { force?: boolean } = {},
 ): Promise<RenameResult> {
   const name = raw.trim();
   if (!USERNAME_RE.test(name)) return { ok: false, error: "invalid_username" };
@@ -193,7 +225,7 @@ export async function renameAccount(
       const acc = r.rows[0];
       if (!acc) throw new Error(`no account ${accountId}`);
       if (acc.username === name) return { ok: false, error: "same_name" };
-      if (acc.username_changed_at !== null) {
+      if (acc.username_changed_at !== null && !opts.force) {
         const next = nextNameChange(
           new Date(acc.username_changed_at).getTime(),
         );

@@ -80,6 +80,7 @@ import WebSocket from "ws";
 import { z } from "zod";
 import type { LiveFrontGame } from "../derpland/LiveTypes"; // SITE (r19)
 import { archive, finalizeGameRecord } from "./Archive";
+import type { AdminFrontGame } from "./IPCBridgeSchema"; // ADMIN (r26)
 import { Client } from "./Client";
 import { applyGameConfigPatch, hostCheatsEnabled } from "./ConfigPatch";
 import { LiveStatsVote, voteKey, WinnerVote } from "./Consensus";
@@ -2082,6 +2083,69 @@ export class GameServer {
       watchers,
       full: watchers >= MAX_WATCHERS,
     };
+  }
+
+  // ADMIN (r26): this game as the owner's admin page lists it, whatever it
+  // is (private, matched and lobbies too): never sent to anyone else.
+  public adminInfo(): AdminFrontGame {
+    const map = this.gameConfig.gameMap;
+    const mapId = maps.find((m) => m.type === map)?.id ?? map;
+    const active = this.clients.active();
+    return {
+      id: this.id,
+      phase:
+        this.stage === "lobby"
+          ? "lobby"
+          : this.stage === "started"
+            ? "playing"
+            : "starting",
+      map,
+      mapKey: mapId.toLowerCase().replace(/[\s.]+/g, ""),
+      mode: this.gameConfig.gameMode,
+      ...(this.gameConfig.scenario !== undefined
+        ? { scenario: scenarioData(this.gameConfig.scenario.id)?.title }
+        : {}),
+      kind: this.isPublic()
+        ? this.publicGameType === undefined
+          ? "matched"
+          : "public"
+        : this.isListed()
+          ? "listed"
+          : "private",
+      createdAt: this.createdAt,
+      startedAt: this._startTime ?? null,
+      players: active
+        .filter((c) => !c.spectator && !c.watcher)
+        .map((c) => c.username.slice(0, 60))
+        .slice(0, 400),
+      watchers: active.filter((c) => c.spectator || c.watcher).length,
+      maxPlayers: this.gameConfig.maxPlayers ?? null,
+      locked: this.needsPassword(),
+      watchable: this.isWatchable(),
+    };
+  }
+
+  // ADMIN (r26): the owner closes this lobby, or ends this game, for
+  // everyone. Each player is told why (the reason shows on their screen),
+  // then it ends as a game everyone left does (a started one is recorded).
+  public adminEnd(reason: string): void {
+    if (this.ended) return;
+    const msg = encodeServerMessage(
+      {
+        type: "error",
+        error: "kick_reason.derp_ended",
+        message: reason.slice(0, 300),
+      } satisfies ServerErrorMessage,
+      this.zbinCtx,
+    );
+    for (const c of this.clients.active()) {
+      if (c.ws.readyState === WebSocket.OPEN) c.ws.send(msg);
+    }
+    // As cancelShortHandedMatch: phase() is Finished from now, and
+    // GameManager's next tick (within a second) runs end() once, which
+    // closes every socket and records a started game.
+    this.ended = true;
+    this.stopLobbyInfoBroadcast();
   }
 
   public autoStartAt(): number | undefined {

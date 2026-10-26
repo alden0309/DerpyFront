@@ -25,6 +25,7 @@ export type AuthError =
   | "invalid_password"
   | "username_taken"
   | "wrong_password"
+  | "suspended" // ADMIN (r26)
   | "accounts_unavailable"
   | "server_error";
 
@@ -33,6 +34,7 @@ export const AUTH_ERROR_TEXT: Record<AuthError, string> = {
   invalid_password: "Passwords need at least 6 characters.",
   username_taken: "That username is taken.",
   wrong_password: "Wrong username or password.",
+  suspended: "This account is suspended.", // ADMIN (r26)
   accounts_unavailable: "Accounts aren't available right now.",
   server_error: "Something went wrong. Try again.",
 };

@@ -43,6 +43,8 @@ import {
   stallIcon,
   tokenColor,
 } from "./Icons";
+import { banner, BANNER_EVENT } from "./Banner"; // ADMIN (r26)
+import type { SiteBanner } from "./BannerTypes"; // ADMIN (r26)
 import { news, NEWS_EVENT } from "./News"; // NEWS (r25)
 import { englishNews, type NewsTranslate } from "./NewsText";
 import { social, SOCIAL_EVENT } from "./Social"; // FRIENDS (r25)
@@ -184,6 +186,8 @@ export class DerpBar extends LitElement {
   @state() private notices = social.notices().length;
   /** NEWS (r25) */
   @state() private newsDot = news.unseen > 0;
+  /** ADMIN (r26): the site banner, while there is one to show here. */
+  @state() private siteBanner: SiteBanner | null = banner.visible();
 
   @query("dialog") private dialog!: HTMLDialogElement;
 
@@ -197,8 +201,11 @@ export class DerpBar extends LitElement {
     window.addEventListener(SOCIAL_EVENT, this.onSocial); // FRIENDS (r25)
     window.addEventListener(BAR_MENU_EVENT, this.onBarMenu);
     window.addEventListener(NEWS_EVENT, this.onNews); // NEWS (r25)
+    window.addEventListener(BANNER_EVENT, this.onBanner); // ADMIN (r26)
     void this.refresh();
     news.start();
+    banner.start(); // ADMIN (r26)
+    this.onBanner();
   }
 
   disconnectedCallback(): void {
@@ -210,8 +217,14 @@ export class DerpBar extends LitElement {
     window.removeEventListener(SOCIAL_EVENT, this.onSocial);
     window.removeEventListener(BAR_MENU_EVENT, this.onBarMenu);
     window.removeEventListener(NEWS_EVENT, this.onNews);
+    window.removeEventListener(BANNER_EVENT, this.onBanner); // ADMIN (r26)
     super.disconnectedCallback();
   }
+
+  // ADMIN (r26)
+  private onBanner = () => {
+    this.siteBanner = banner.visible();
+  };
 
   // NEWS (r25): the card shows in this page's words too.
   protected willUpdate(changed: Map<PropertyKey, unknown>): void {
@@ -346,8 +359,43 @@ export class DerpBar extends LitElement {
           </div>
         </div>
       </header>
+      ${this.renderBanner()}
       ${this.renderDialog()}
     `;
+  }
+
+  /**
+   * ADMIN (r26): the owner's announcement under the bar, with its link and
+   * a cross to dismiss it (remembered in this browser for this banner).
+   */
+  private renderBanner(): TemplateResult | typeof nothing {
+    const b = this.siteBanner;
+    if (!b) return nothing;
+    const outside = b.link?.startsWith("https://") ?? false;
+    return html`<div class="site-banner" role="status">
+      <div class="sb-inner">
+        <p class="sb-text">
+          ${b.text}
+          ${b.link
+            ? html`<a
+                class="sb-link"
+                href=${b.link}
+                target=${outside ? "_blank" : "_self"}
+                rel=${outside ? "noopener noreferrer" : ""}
+                >${b.linkText || "Take a look"}</a
+              >`
+            : nothing}
+        </p>
+        <button
+          class="sb-x"
+          aria-label=${this.t.close}
+          title=${this.t.close}
+          @click=${() => banner.dismiss()}
+        >
+          ${closeIcon()}
+        </button>
+      </div>
+    </div>`;
   }
 
   /**
@@ -607,6 +655,59 @@ export class DerpBar extends LitElement {
     }
     a {
       color: inherit;
+    }
+    /* ADMIN (r26): the site banner, a slim strip under the bar. */
+    .site-banner {
+      background: color-mix(in srgb, var(--accent) 14%, #16161a);
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+      color: var(--text);
+    }
+    .sb-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 7px 8px 7px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sb-text {
+      flex: 1;
+      min-width: 0;
+      margin: 0;
+      font-size: 14px;
+      font-weight: 560;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .sb-link {
+      margin-left: 8px;
+      font-weight: 700;
+      color: var(--text);
+      text-decoration: underline;
+      text-decoration-color: var(--accent);
+      text-underline-offset: 3px;
+      white-space: nowrap;
+    }
+    .sb-x {
+      flex: none;
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 0;
+      border-radius: 7px;
+      background: none;
+      color: var(--text-2);
+      cursor: pointer;
+    }
+    .sb-x:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+    .sb-x svg {
+      width: 16px;
+      height: 16px;
     }
     .bar {
       background: rgba(24, 24, 27, 0.94);

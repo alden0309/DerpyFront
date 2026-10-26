@@ -30,6 +30,7 @@ import type {
 import { type Account, accountForToken, hashToken } from "./DerpyAuth";
 import { db, DerpyDbUnavailable, inTransaction } from "./DerpyDb";
 import { newsBeat } from "./DerpyNews"; // NEWS (r25)
+import { currentBanner } from "./SiteBanner"; // ADMIN (r26)
 import { liveGames } from "./LiveGames";
 import { Limiter, mintPass } from "./LobbyLock"; // a password's pass
 import {
@@ -913,6 +914,17 @@ export function socialSignedOut(token: string): void {
   if (token) sessions.delete(hashToken(token));
 }
 
+/**
+ * ADMIN (r26): an account signed out everywhere, suspended or deleted by
+ * the owner: its kept sessions stop beating at once, it's off who's online,
+ * and every list is read again.
+ */
+export function socialForgetAccount(id: number): void {
+  for (const [key, s] of sessions) if (s.account.id === id) sessions.delete(key);
+  presence.leave(id);
+  forgetAllSocial();
+}
+
 /** A renamed account: its new name shows in everyone's lists at once. */
 export function socialRenamed(id: number, username: string): void {
   presence.learn(id, username);
@@ -1014,7 +1026,8 @@ export function socialRouter({
       // NEWS (r25): and how much of What's New is new to them (kept, so no
       // database either); without it the bar just shows no dot.
       const news = await newsBeat(account.id).catch(() => undefined);
-      res.json({ ...(await socialState(account)), news });
+      // ADMIN (r26): and the site banner (kept in memory: no query either).
+      res.json({ ...(await socialState(account)), news, banner: await currentBanner() });
     }),
   );
 

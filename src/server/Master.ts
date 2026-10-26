@@ -15,6 +15,8 @@ import {
   sendCheckin,
 } from "./ClusterCheckin";
 import { attachConquest } from "./conquest/ConquestRooms";
+import { adminPage } from "./derpy/admin/AdminPage"; // ADMIN (r26)
+import { setAdminSources } from "./derpy/admin/AdminSources"; // ADMIN (r26)
 import { derpyApiRouter } from "./derpy/DerpyApi";
 import { setLiveSources } from "./derpy/LiveGames";
 import { ensurePassSecret, setFrontLocks } from "./derpy/LobbyLock"; // FRIENDS (r25)
@@ -185,6 +187,12 @@ app.use("/api", (_req, res, next) => {
   next();
 });
 
+// ADMIN (r26): the owner's admin page, /admin. Served only to the browser
+// carrying the owner's admin cookie (AdminAccess.ts); for anyone else this
+// passes straight on to the same answer as any address the site doesn't
+// have (the fallback below), after the same rate limit.
+app.use(adminPage());
+
 // Start the master process
 export async function startMaster() {
   if (!cluster.isPrimary) {
@@ -287,6 +295,14 @@ export async function startMaster() {
   setLiveSources({ conquest: () => conquestRooms.live() }); // SITE (r19)
   // FRIENDS (r25): who's at a Conquest table, for who's online.
   presence.setDerived(() => conquestRooms.presence());
+  // ADMIN (r26): the admin page's view of every game, and its buttons.
+  setAdminSources({
+    front: {
+      list: () => lobbyService.adminList(),
+      end: (id, reason) => lobbyService.adminEnd(id, reason),
+    },
+    conquest: conquestRooms,
+  });
 
   const PORT = 3000;
   server.listen(PORT, () => {

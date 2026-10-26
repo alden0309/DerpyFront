@@ -7,9 +7,14 @@ import { Worker } from "cluster";
 import winston from "winston";
 import type { LiveFrontGame } from "../derpland/LiveTypes";
 import {
+  AdminFrontGame, // ADMIN (r26)
+  AdminFrontGameSchema, // ADMIN (r26)
+  AdminWorkerHealth, // ADMIN (r26)
   InternalGameInfo,
   InternalGameInfoSchema,
   LiveFrontGameSchema,
+  MasterAdminEnd, // ADMIN (r26)
+  MasterAdminList, // ADMIN (r26)
   MasterCreateGame,
   MasterLobbiesBroadcast,
   MasterUpdateGame,
@@ -127,8 +132,80 @@ export class MasterLobbyService {
           // still reaches the site roster within a second.
           this.coordinator?.report(this.ownLobbies(), this.liveGames());
           break;
+        // ADMIN (r26): a worker answering the admin page.
+        case "adminGames":
+        case "adminEnded":
+          this.adminWaiting.get(msg.reqId)?.(msg);
+          break;
       }
     });
+  }
+
+  // ---- ADMIN (r26): the owner's admin page ----
+  private adminSeq = 0;
+  private readonly adminWaiting = new Map<number, (msg: unknown) => void>();
+
+  /** Asks `worker` and waits for its answer (null: none in time). */
+  private askWorker(
+    workerId: number,
+    msg: MasterAdminList | MasterAdminEnd,
+    timeoutMs: number,
+  ): Promise<unknown> {
+    const worker = this.workers.get(workerId);
+    if (!worker) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const done = (answer: unknown) => {
+        clearTimeout(timer);
+        this.adminWaiting.delete(msg.reqId);
+        resolve(answer);
+      };
+      const timer = setTimeout(() => done(null), timeoutMs);
+      this.adminWaiting.set(msg.reqId, done);
+      worker.send(msg, (e) => {
+        if (e) done(null);
+      });
+    });
+  }
+
+  /** Every game on every worker (lobbies, private and matched too), and each worker's health. */
+  async adminList(
+    timeoutMs = 2000,
+  ): Promise<{ games: AdminFrontGame[]; workers: AdminWorkerHealth[] }> {
+    const answers = await Promise.all(
+      [...this.workers.keys()].map((id) =>
+        this.askWorker(
+          id,
+          { type: "adminList", reqId: ++this.adminSeq },
+          timeoutMs,
+        ),
+      ),
+    );
+    const games: AdminFrontGame[] = [];
+    const workers: AdminWorkerHealth[] = [];
+    for (const a of answers) {
+      const msg = a as {
+        type?: string;
+        games?: unknown[];
+        health?: AdminWorkerHealth;
+      } | null;
+      if (msg?.type !== "adminGames") continue;
+      if (msg.health) workers.push(msg.health);
+      for (const g of msg.games ?? []) {
+        const r = AdminFrontGameSchema.safeParse(g);
+        if (r.success) games.push(r.data);
+      }
+    }
+    return { games, workers };
+  }
+
+  /** Ends one game (or closes a lobby) for everyone; false if no worker has it. */
+  async adminEnd(gameID: string, reason: string): Promise<boolean> {
+    const answer = (await this.askWorker(
+      ServerEnv.workerIndex(gameID),
+      { type: "adminEnd", reqId: ++this.adminSeq, gameID, reason },
+      3000,
+    )) as { type?: string; ok?: boolean } | null;
+    return answer?.type === "adminEnded" && answer.ok === true;
   }
 
   // Lobby entries are validated individually so one malformed entry only

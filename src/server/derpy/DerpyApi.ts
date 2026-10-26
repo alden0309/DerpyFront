@@ -9,6 +9,9 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import type { RenameError } from "../../derpland/Names"; // NAMES (r20)
 import { finalizeGameRecord } from "../Archive";
+import { keepAdminKey } from "./admin/AdminAccess"; // ADMIN (r26)
+import { adminRouter } from "./admin/AdminRouter"; // ADMIN (r26)
+import { passwordRouter } from "./PasswordReset"; // ADMIN (r26)
 import { logger } from "../Logger";
 import { setNoStoreHeaders } from "../NoStoreHeaders";
 import { dynastyFor } from "./ConquestDynasties"; // TREE (r25)
@@ -71,6 +74,7 @@ const AUTH_ERROR_STATUS: Record<AuthError, number> = {
   invalid_password: 400,
   username_taken: 409,
   wrong_password: 401,
+  suspended: 403, // ADMIN (r26)
 };
 
 // NAMES (r20)
@@ -203,6 +207,11 @@ export function derpyApiRouter(): express.Router {
     "/me",
     requireAccount(async (req, res) => {
       const { account } = req.derpy!;
+      // ADMIN (r26): the owner's browser gets (or keeps) the admin page's
+      // cookie; nobody else's answer changes.
+      await keepAdminKey(req, res, req.derpy!.token, account.id).catch(
+        (err: unknown) => log.warn(`admin key: ${err}`),
+      );
       res.json({
         account: { username: account.username, coins: account.coins },
         owned: await ownedItems(account.id),
@@ -510,6 +519,13 @@ export function derpyApiRouter(): express.Router {
   // NEWS (r25): What's New, read from its file once, at startup.
   loadNews();
   router.use("/news", newsRouter({ handle, requireAccount }));
+
+  // ADMIN (r26): one-time password reset links (made on the admin page).
+  router.use("/password", passwordRouter({ handle }));
+
+  // ADMIN (r26): the owner's admin page's API. For anyone else, every path
+  // under it answers exactly as the 404 below does.
+  router.use("/admin", adminRouter());
 
   router.use((_req, res) => {
     res.status(404).json({ error: "not_found" });

@@ -7,6 +7,7 @@ import {
 import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
 import * as dotenv from "dotenv";
 import winston from "winston";
+import { noteLogRecord } from "./ErrorRing"; // ADMIN (r26)
 import { getOtelResource } from "./OtelResource";
 import { ServerEnv } from "./ServerEnv";
 dotenv.config();
@@ -46,10 +47,17 @@ const addSeverityFormat = winston.format((info) => {
   };
 });
 
+// ADMIN (r26): each error also kept in memory for the admin page.
+const keepErrorsFormat = winston.format((info) => {
+  noteLogRecord(info as unknown as Record<string, unknown>);
+  return info;
+});
+
 // Define your base/parent logger
 const logger = winston.createLogger({
   level: "info",
   format: winston.format.combine(
+    keepErrorsFormat(), // ADMIN (r26)
     winston.format.timestamp(),
     addSeverityFormat(),
     winston.format.json(),

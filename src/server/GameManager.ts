@@ -15,6 +15,7 @@ import WebSocket from "ws";
 import type { LiveFrontGame } from "../derpland/LiveTypes";
 import { Client } from "./Client";
 import { GamePhase, GameServer, JoinResult } from "./GameServer";
+import type { AdminFrontGame } from "./IPCBridgeSchema"; // ADMIN (r26)
 import {
   noopMatchTelemetryEmitter,
   type MatchTelemetryEmitter,
@@ -141,6 +142,13 @@ export class GameManager {
       if (game.needsPassword() && game.phase() === GamePhase.Lobby)
         out.push(id);
     return out;
+  }
+
+  // ADMIN (r26): every game here, for the owner's admin page.
+  adminGames(): AdminFrontGame[] {
+    return [...this.games.values()]
+      .filter((g) => !g.hasEnded())
+      .map((g) => g.adminInfo());
   }
 
   activeClients(): number {

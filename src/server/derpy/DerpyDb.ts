@@ -9,6 +9,7 @@
 
 import pg from "pg";
 import { logger } from "../Logger";
+import { ADMIN_SCHEMA } from "./admin/AdminSchema"; // ADMIN (r26)
 import { grantBasedByName } from "./BasedAccess"; // NAMES (r20)
 import { grantPersonalitiesToPackOwners } from "./PersonalityGrants"; // AIP (r23)
 import { refundRetiredItems } from "./RetiredRefunds"; // CQ24 (r24)
@@ -416,6 +417,8 @@ async function migrate(p: pg.Pool): Promise<void> {
   try {
     await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK]);
     await client.query(SCHEMA);
+    // ADMIN (r26): the admin page's tables and columns (additive only).
+    await client.query(ADMIN_SCHEMA);
     // NAMES (r20): Mr. Based's players marked by account, from their names
     // in BASED_PLAYERS, once each (the owner's "Alden" on the first start).
     const marked = await grantBasedByName(client);
