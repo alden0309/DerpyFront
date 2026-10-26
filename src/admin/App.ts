@@ -54,7 +54,10 @@ export async function adminFetch<T>(
   body?: object,
 ): Promise<T> {
   const token = derpyToken();
-  const res = await fetch(`${DERPY_API}/admin${path}`, {
+  // A section may write "/pictures/" or "pictures/": both are
+  // /derpy/api/admin/pictures/ (never /derpy/api/adminpictures/).
+  const at = path.startsWith("/") ? path : `/${path}`;
+  const res = await fetch(`${DERPY_API}/admin${at}`, {
     method,
     headers: {
       Accept: "application/json",

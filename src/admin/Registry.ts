@@ -40,10 +40,13 @@ export interface AdminView {
   query: URLSearchParams;
   /** The signed-in owner. */
   owner: { id: number; username: string };
-  /** GET /derpy/api/admin/<path> (path without the leading /admin). */
+  /**
+   * GET /derpy/api/admin/<path>: the path after /admin, with or without its
+   * leading slash ("/accounts/12" and "accounts/12" are the same).
+   */
   get<T>(path: string): Promise<T>;
   /**
-   * POST /derpy/api/admin/<path>. When the server wants a fresh sign-in
+   * POST /derpy/api/admin/<path> (as get). When the server wants a fresh sign-in
    * (403 stale_sign_in) it asks for the password and tries once more.
    * Throws AdminError for anything else that isn't OK.
    */

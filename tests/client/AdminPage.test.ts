@@ -105,6 +105,20 @@ describe("the registry", () => {
   });
 });
 
+/** One uploaded picture, as PROFILE's moderation lists send it. */
+const PIC = {
+  accountId: 3,
+  username: "Sam_Wise",
+  version: "ba4e0415ae46",
+  picture: "u:3:ba4e0415ae46",
+  worn: true,
+  uploadedAt: "2026-10-26T20:00:00.000Z",
+  reports: 0,
+  reporters: ["Tester_Pat"],
+  lastReportAt: null,
+  blocked: false,
+};
+
 describe("the frame, against a stand-in API", () => {
   let calls: { method: string; path: string; body: unknown }[] = [];
   let fresh = true;
@@ -142,6 +156,11 @@ describe("the frame, against a stand-in API", () => {
           return fresh
             ? json({ sessions: 2 })
             : json({ error: "stale_sign_in" }, 403);
+        // PROFILE's two lists (sections/Pictures.ts).
+        if (path === "/admin/pictures/")
+          return json({ recent: [PIC], blocked: [], reported: [] });
+        if (path === "/admin/reports/")
+          return json({ reported: [{ ...PIC, reports: 1 }] });
         return json({ error: "not_found" }, 404);
       }),
     );
@@ -152,6 +171,15 @@ describe("the frame, against a stand-in API", () => {
     document.body.innerHTML = "";
     localStorage.clear();
   });
+
+  /** Lets the page (and a section's own element) settle until `done`. */
+  async function settle(el: HTMLElement, done: () => boolean) {
+    for (let i = 0; i < 20 && !done(); i++) {
+      await new Promise((r) => setTimeout(r, 0));
+      await (el as HTMLElement & { updateComplete: Promise<unknown> })
+        .updateComplete;
+    }
+  }
 
   async function mount() {
     await import("../../src/admin/App");
@@ -165,6 +193,35 @@ describe("the frame, against a stand-in API", () => {
     }
     return el;
   }
+
+  test("a section's API path works with or without its leading slash", async () => {
+    const { adminFetch } = await import("../../src/admin/App");
+    await adminFetch("GET", "pictures/");
+    await adminFetch("GET", "/pictures/");
+    expect(calls.map((c) => c.path)).toEqual([
+      "/admin/pictures/",
+      "/admin/pictures/",
+    ]);
+  });
+
+  test("Moderation's picture tabs load PROFILE's lists", async () => {
+    history.replaceState(null, "", "/admin/moderation/pictures");
+    let el = await mount();
+    await settle(el, () => el.querySelector(".adm-pic-name") !== null);
+    expect(calls.map((c) => c.path)).toContain("/admin/pictures/");
+    expect(el.textContent).not.toContain("Couldn't load");
+    expect(el.querySelector(".adm-pic-name")?.textContent?.trim()).toBe(
+      "Sam_Wise",
+    );
+    document.body.innerHTML = "";
+
+    history.replaceState(null, "", "/admin/moderation/reports");
+    el = await mount();
+    await settle(el, () => el.querySelector(".adm-pic-name") !== null);
+    expect(calls.map((c) => c.path)).toContain("/admin/reports/");
+    expect(el.textContent).not.toContain("Couldn't load");
+    expect(el.textContent).toContain("Sam_Wise");
+  });
 
   test("signed in as the owner: the side list, and the address's section", async () => {
     const el = await mount();
