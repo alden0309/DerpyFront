@@ -56,6 +56,7 @@ import { checkName, nameStatus, renameAccount } from "./DerpyNames"; // NAMES (r
 import { loadNews, newsRouter } from "./DerpyNews"; // NEWS (r25)
 import { socialRenamed, socialRouter, socialSignedOut } from "./DerpySocial"; // FRIENDS (r25)
 import { liveGames } from "./LiveGames"; // SITE (r19)
+import { watchRouter } from "./ReplayRooms"; // DFX (r26)
 
 const log = logger.child({ component: "DerpyApi" });
 
@@ -510,6 +511,9 @@ export function derpyApiRouter(): express.Router {
   // NEWS (r25): What's New, read from its file once, at startup.
   loadNews();
   router.use("/news", newsRouter({ handle, requireAccount }));
+
+  // DFX (r26): watch a saved game's replay together (rooms: ReplayRooms).
+  router.use("/watch", watchRouter({ handle }));
 
   router.use((_req, res) => {
     res.status(404).json({ error: "not_found" });

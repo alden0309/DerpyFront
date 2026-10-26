@@ -18,6 +18,7 @@ import {
   shortDate,
   statTile,
 } from "./DerpyUi";
+import "./DerpyWatchButton"; // DFX (r26)
 
 /**
  * One player's stats and saved games, each with a replay link. Used on your
@@ -204,6 +205,8 @@ export class DerpyProfileView extends LitElement {
         class="rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-semibold text-white no-underline transition-colors hover:bg-white/20"
         >${translateText("derpy.watch_replay")}</a
       >
+      <!-- DFX (r26) -->
+      <derpy-watch-button .gameId=${g.gameId}></derpy-watch-button>
     </li>`;
   }
 }

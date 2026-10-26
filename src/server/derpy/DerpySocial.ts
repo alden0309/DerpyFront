@@ -90,7 +90,7 @@ interface Snapshot {
     id: number;
     fromId: number;
     from: string;
-    game: "derpyfront" | "conquest";
+    game: "derpyfront" | "conquest" | "replay"; // DFX (r26): replay
     target: string;
     at: string;
   }[];
@@ -213,7 +213,9 @@ async function readSnapshot(id: number): Promise<Snapshot> {
       id: Number(r.id),
       fromId: Number(r.from_id),
       from: r.username,
-      game: r.game === "conquest" ? "conquest" : "derpyfront",
+      // DFX (r26): or a room watching a replay together.
+      game:
+        r.game === "conquest" || r.game === "replay" ? r.game : "derpyfront",
       target: r.target,
       at: iso(r.created_at),
     })),
@@ -240,6 +242,11 @@ function watchableFront(): Set<string> {
       .derpyfront.filter((g) => !g.full)
       .map((g) => g.id),
   );
+}
+
+/** The pass an invite or a pull carries (DFX r26: a watch room needs none). */
+function passFor(t: Target, account: number): string | undefined {
+  return t.game === "replay" ? undefined : mintPass(t.game, t.id, account);
 }
 
 /** Everything a signed-in player's pages show of the people on the site. */
@@ -278,7 +285,7 @@ export async function socialState(me: Account): Promise<SocialState> {
       game: inv.game,
       place: placeOf(w),
       // A pass for you: a lobby with a password lets you in without it.
-      href: joinHref(t, mintPass(t.game, t.id, me.id)),
+      href: joinHref(t, passFor(t, me.id)),
       at: inv.at,
     });
   }
@@ -355,7 +362,7 @@ export async function socialState(me: Account): Promise<SocialState> {
         ? {
             pull: {
               key: `${pullTo.game}:${pullTo.id}`,
-              href: joinHref(pullTo, mintPass(pullTo.game, pullTo.id, me.id)),
+              href: joinHref(pullTo, passFor(pullTo, me.id)),
               leader: leaderName,
               place: placeOf(leaderWhere),
             },

@@ -1797,3 +1797,46 @@
     }
   }
 }
+
+/* DFX (r26): a game's Replay and Watch together, side by side. */
+@layer components {
+  .dl-game {
+    grid-template-columns: minmax(0, 1fr) 120px minmax(0, 220px) 80px auto;
+  }
+  .dl-game-acts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    justify-self: end;
+  }
+  dl-watch-button {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .dl-watch-msg {
+    max-width: 16rem;
+    font-size: 12.5px;
+    color: #f3a7a0;
+    white-space: normal;
+    text-align: right;
+  }
+  @media (max-width: 860px) {
+    .dl-game {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .dl-game-acts {
+      grid-column: 1 / -1;
+      justify-content: flex-start;
+      justify-self: start;
+    }
+    dl-watch-button {
+      align-items: flex-start;
+    }
+    .dl-watch-msg {
+      text-align: left;
+    }
+  }
+}

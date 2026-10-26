@@ -24,6 +24,7 @@ import {
   translateText,
 } from "../../../client/Utils";
 import type { ChallengeDone } from "../../../derpland/Challenges"; // CHAL (r25)
+import { replaySaved } from "../../../derpland/Watch"; // DFX (r26)
 import { fetchUserMeUncached, invalidateUserMe } from "../../Api";
 import type { GameXpPanelState } from "../../components/GameXpPanel";
 import type { LegendCeremony } from "../../components/LegendCeremony";
@@ -31,6 +32,7 @@ import "../../components/ProfileShare";
 import { Controller } from "../../Controller";
 import { derpyGameChallenges } from "../../derpy/DerpyAccount"; // CHAL (r25)
 import { isDerpySignedIn } from "../../derpy/DerpySession";
+import "../../derpy/DerpyWatchButton"; // DFX (r26)
 import { PROGRESSION_ENABLED } from "../../derpy/UpstreamFeatures";
 import { playVictoryFanfare } from "../../derpy/VictoryFanfare";
 import { gamePortal } from "../../GamePortal";
@@ -123,6 +125,11 @@ export class WinModal extends LitElement implements Controller {
   @state()
   private challenges: ChallengeDone[] = [];
   private challengeAbort: AbortController | null = null;
+
+  // DFX (r26): this game's replay is saved, so it can be watched together.
+  @state()
+  private replayIsSaved = false;
+  private savedAbort: AbortController | null = null;
 
   // DFSTORE (r21): your fanfare played, so the win screen offers it again.
   @state()
@@ -461,7 +468,7 @@ export class WinModal extends LitElement implements Controller {
         ${translateText("derpy.awards_at_end")}
       </p>`;
     }
-    return html`${this.fanfareButton()}${this.awardsPanel()}${this.coinsPanel()}`;
+    return html`${this.fanfareButton()}${this.awardsPanel()}${this.coinsPanel()}${this.watchTogetherLine()}`;
   }
 
   /** DFSTORE (r21): hear your victory fanfare again. */
@@ -642,6 +649,7 @@ export class WinModal extends LitElement implements Controller {
   disconnectedCallback(): void {
     this.xpAbort?.abort();
     this.challengeAbort?.abort(); // CHAL (r25)
+    this.savedAbort?.abort(); // DFX (r26)
     super.disconnectedCallback();
   }
 
@@ -979,6 +987,40 @@ export class WinModal extends LitElement implements Controller {
     this.coins = this.computeCoins(wu);
     void this.show();
     void this.watchChallenges(); // CHAL (r25)
+    void this.watchSaved(); // DFX (r26)
+  }
+
+  /**
+   * DFX (r26): asks, a few times over the next minute, whether the server
+   * has saved this game (it does once the winner is settled, or when a solo
+   * game's upload arrives); then it can be watched together.
+   */
+  private async watchSaved(): Promise<void> {
+    if (this.game.config().isReplay()) return;
+    this.savedAbort?.abort();
+    const abort = new AbortController();
+    this.savedAbort = abort;
+    const gameId = this.game.gameID();
+    for (const wait of [2500, 3000, 5000, 8000, 12000, 20000, 30000]) {
+      await new Promise((r) => setTimeout(r, wait));
+      if (abort.signal.aborted) return;
+      if (await replaySaved(gameId)) {
+        if (!abort.signal.aborted) this.replayIsSaved = true;
+        return;
+      }
+    }
+  }
+
+  /** DFX (r26): watch this game's replay with friends, once it's saved. */
+  private watchTogetherLine(): TemplateResult | typeof nothing {
+    if (!this.replayIsSaved) return nothing;
+    return html`<div
+      class="mb-2 flex flex-wrap items-center justify-center gap-2 text-sm text-white/70"
+      data-win-watch
+    >
+      <span>${translateText("watch_together.win_line")}</span>
+      <derpy-watch-button .gameId=${this.game.gameID()}></derpy-watch-button>
+    </div>`;
   }
 
   private playEndOfGameSound(): void {

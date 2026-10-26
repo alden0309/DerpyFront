@@ -705,9 +705,14 @@ export class DerpSocial extends LitElement {
     switch (n.kind) {
       case "invite":
         who = n.from;
-        text = t(n.game === "conquest" ? "invite_cq" : "invite_df", {
-          name: n.from,
-        });
+        text = t(
+          n.game === "conquest"
+            ? "invite_cq"
+            : n.game === "replay" // DFX (r26)
+              ? "invite_replay"
+              : "invite_df",
+          { name: n.from },
+        );
         actions = html`${button(
           t("join"),
           () => social.go(n.href, n.id),
@@ -737,9 +742,14 @@ export class DerpSocial extends LitElement {
         break;
       case "pull":
         who = n.leader;
-        text = t(n.game === "conquest" ? "pull_cq" : "pull_df", {
-          name: n.leader,
-        });
+        text = t(
+          n.game === "conquest"
+            ? "pull_cq"
+            : n.game === "replay" // DFX (r26)
+              ? "pull_replay"
+              : "pull_df",
+          { name: n.leader },
+        );
         actions = html`${button(
           t("follow"),
           () => social.go(n.href),

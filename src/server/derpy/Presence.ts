@@ -10,7 +10,9 @@
 
 import { z } from "zod";
 import type { ClientWhere, Place } from "../../derpland/SocialTypes";
+import { WATCH_ROOM_RE, watchRoomPath } from "../../derpland/WatchTypes"; // DFX (r26)
 import { frontLocked } from "./LobbyLock";
+import { watchRoomOpen } from "./ReplayRooms"; // DFX (r26)
 
 /** How long a page's last beat counts. Pages beat every 15 to 30 seconds. */
 export const PRESENCE_TTL_MS = 75_000;
@@ -71,6 +73,12 @@ const ClientWhereSchema = z.discriminatedUnion("k", [
     map: MAP.optional(),
     watching: z.boolean().optional(),
   }),
+  // DFX (r26): watching a replay together.
+  z.object({
+    k: z.literal("df-replay"),
+    room: z.string().regex(WATCH_ROOM_RE),
+    map: MAP.optional(),
+  }),
 ]);
 
 /**
@@ -90,6 +98,7 @@ export function whereRank(w: Where): number {
     case "cq-game":
       return 3;
     case "df-lobby":
+    case "df-replay": // DFX (r26)
     case "cq-room":
     case "cq-watch":
       return 2;
@@ -100,7 +109,8 @@ export function whereRank(w: Where): number {
 
 /** A lobby or table someone else can be brought into. */
 export interface Target {
-  game: "derpyfront" | "conquest";
+  /** DFX (r26): "replay": a room watching a replay together. */
+  game: "derpyfront" | "conquest" | "replay";
   id: string;
   /** A private lobby or table (not listed). Anyone on Derp Land may still join it (FRIENDS r25). */
   private: boolean;
@@ -116,6 +126,10 @@ export function targetOf(w: Where | null | undefined): Target | null {
     return { game: "derpyfront", id: w.id, private: w.lobby === "private" };
   if ((w.k === "cq-room" || w.k === "cq-game") && w.joinable)
     return { game: "conquest", id: w.code, private: w.private };
+  // DFX (r26): a watch-together room, while it's open (open to anyone with
+  // its link, as lobbies are).
+  if (w.k === "df-replay" && watchRoomOpen(w.room))
+    return { game: "replay", id: w.room, private: true };
   return null;
 }
 
@@ -126,6 +140,7 @@ export function sameTarget(a: Target | null, b: Target | null): boolean {
 /** Whether `w` is at (or already in) the lobby or table `t`. */
 export function isAt(w: Where | null | undefined, t: Target): boolean {
   if (!w) return false;
+  if (t.game === "replay") return w.k === "df-replay" && w.room === t.id; // DFX (r26)
   if (t.game === "derpyfront")
     return (w.k === "df-lobby" || w.k === "df-game") && w.id === t.id;
   return (w.k === "cq-room" || w.k === "cq-game") && w.code === t.id;
@@ -133,6 +148,8 @@ export function isAt(w: Where | null | undefined, t: Target): boolean {
 
 /** The link into a lobby or table; `pass` (an invite's) skips its password. */
 export function joinHref(t: Target, pass?: string): string {
+  // DFX (r26): a watch room has no password; its link is the way in.
+  if (t.game === "replay") return watchRoomPath(t.id);
   const p = pass ? encodeURIComponent(pass) : "";
   return t.game === "derpyfront"
     ? `/game/${encodeURIComponent(t.id)}${p ? `?pass=${p}` : ""}`
@@ -174,6 +191,9 @@ export function placeOf(w: Where): Place {
         ...(w.map ? { map: w.map } : {}),
         ...(w.watching ? { watching: true } : {}),
       };
+    // DFX (r26): never the room's id.
+    case "df-replay":
+      return { k: w.k, ...(w.map ? { map: w.map } : {}) };
     case "cq-room":
       return {
         k: w.k,

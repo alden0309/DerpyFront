@@ -79,6 +79,12 @@ export class ReplayControls extends LitElement {
   @property({ type: Number }) total = 0;
   @property({ type: Boolean }) playing = false;
   @property({ type: Number }) speed = 1;
+  /**
+   * DFX (r26): watching together, someone else holds the controls: the
+   * timeline shows where the room is, and play, speed and seeking are theirs.
+   */
+  @property({ type: Boolean }) locked = false;
+  @property({ type: String }) lockedBy = "";
 
   @state() private speedMenuOpen = false;
   @state() private isFullscreen = document.fullscreenElement !== null;
@@ -170,7 +176,8 @@ export class ReplayControls extends LitElement {
           </div>
           <input
             type="range"
-            class="relative w-full h-4 m-0 appearance-none bg-transparent cursor-pointer [&::-webkit-slider-runnable-track]:bg-transparent [&::-moz-range-track]:bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-sky-400 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-sky-400"
+            ?disabled=${this.locked}
+            class="relative w-full h-4 m-0 appearance-none bg-transparent disabled:cursor-default cursor-pointer [&::-webkit-slider-runnable-track]:bg-transparent [&::-moz-range-track]:bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-sky-400 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-sky-400"
             min="0"
             max=${Math.max(0, this.total - 1)}
             .value=${String(frame)}
@@ -182,18 +189,20 @@ export class ReplayControls extends LitElement {
           ${formatGameTime(this.tick)} / ${formatGameTime(lastTick)}
         </span>
         <div class="relative flex items-center gap-3">
-          ${iconButton(
-            this.playing ? pauseIcon : playIcon,
-            translateText(
-              this.playing ? "replay_viewer.pause" : "replay_viewer.play",
-            ),
-            () => this.emit("replay-toggle-play"),
-          )}
-          ${iconButton(
-            speedIcon,
-            translateText("replay_panel.replay_speed"),
-            () => (this.speedMenuOpen = !this.speedMenuOpen),
-          )}
+          ${this.locked
+            ? this.renderLocked()
+            : html`${iconButton(
+                this.playing ? pauseIcon : playIcon,
+                translateText(
+                  this.playing ? "replay_viewer.pause" : "replay_viewer.play",
+                ),
+                () => this.emit("replay-toggle-play"),
+              )}
+              ${iconButton(
+                speedIcon,
+                translateText("replay_panel.replay_speed"),
+                () => (this.speedMenuOpen = !this.speedMenuOpen),
+              )}`}
           ${iconButton(
             settingsIcon,
             translateText("user_setting.game_menu_title"),
@@ -209,10 +218,28 @@ export class ReplayControls extends LitElement {
               )
             : nothing}
           ${exitButton()}
-          ${this.speedMenuOpen ? this.renderSpeedMenu() : nothing}
+          ${this.speedMenuOpen && !this.locked
+            ? this.renderSpeedMenu()
+            : nothing}
         </div>
       </div>
     `;
+  }
+
+  /** DFX (r26): who holds the controls, where play and speed would be. */
+  private renderLocked() {
+    return html`<span
+      class="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2 py-1 text-xs text-white/80"
+      data-watch-locked
+    >
+      <span aria-hidden="true">${this.playing ? "▶" : "❚❚"}</span>
+      <span class="hidden min-[480px]:inline tabular-nums">×${this.speed}</span>
+      <span class="max-w-[9rem] truncate"
+        >${translateText("watch_together.controls_with", {
+          name: this.lockedBy,
+        })}</span
+      >
+    </span>`;
   }
 
   /** Speed menu, styled like the classic replay panel (ReplayPanel). */

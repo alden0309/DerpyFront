@@ -325,3 +325,13 @@ dl-friend-status {
     justify-content: flex-start;
   }
 }
+
+/* DFX (r26): a friend's DerpyFront game: its replay, alone or together. */
+.dl-fgames .dl-feed-acts {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}

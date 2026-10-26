@@ -27,7 +27,9 @@ export type ClientWhere =
       lobby: FrontLobby;
       map?: string;
       watching?: boolean;
-    };
+    }
+  /** DFX (r26): in a room watching a replay together (`room`: its id). */
+  | { k: "df-replay"; room: string; map?: string };
 
 /** Where someone is, as others are shown it (no lobby ids or room codes). */
 export interface Place {
@@ -38,6 +40,7 @@ export interface Place {
     | "df-menu"
     | "df-lobby"
     | "df-game"
+    | "df-replay" // DFX (r26)
     | "cq-front"
     | "cq-room"
     | "cq-game"
@@ -90,7 +93,8 @@ export interface InviteRow {
   id: number;
   fromId: number;
   from: string;
-  game: "derpyfront" | "conquest";
+  /** DFX (r26): "replay": a room watching a replay together. */
+  game: "derpyfront" | "conquest" | "replay";
   place: Place;
   href: string;
   at: string;

@@ -76,7 +76,7 @@ export type Notice =
       kind: "invite";
       id: number;
       from: string;
-      game: "derpyfront" | "conquest";
+      game: "derpyfront" | "conquest" | "replay"; // DFX (r26): replay
       href: string;
     }
   | {
@@ -91,7 +91,7 @@ export type Notice =
       key: string;
       kind: "pull";
       leader: string;
-      game: "derpyfront" | "conquest";
+      game: "derpyfront" | "conquest" | "replay"; // DFX (r26): replay
       href: string;
     }
   | { key: string; kind: "request"; id: number; from: string };
@@ -348,7 +348,11 @@ function pullOf(p: PartyView | null): Extract<Notice, { kind: "pull" }> | null {
     key: `pull:${p.id}:${p.pull.key}`,
     kind: "pull",
     leader: p.pull.leader,
-    game: p.pull.key.startsWith("conquest:") ? "conquest" : "derpyfront",
+    game: p.pull.key.startsWith("conquest:")
+      ? "conquest"
+      : p.pull.key.startsWith("replay:") // DFX (r26)
+        ? "replay"
+        : "derpyfront",
     href: p.pull.href,
   };
 }
