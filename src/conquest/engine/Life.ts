@@ -12,7 +12,7 @@ import { endWords } from "./Campaign1776Core"; // DLC (r21)
 import { kill, makeCharacter, succession } from "./Characters";
 import { seedLocals } from "./Folk";
 import type { ConquestGame } from "./Game";
-import { hooks } from "./Hooks";
+import { hooks, shieldOf } from "./Hooks"; // CQTUT (r26): shieldOf
 import { doInteraction, workOffered } from "./Interactions";
 import { leadCommand } from "./Leads"; // WORLD r11
 import { budgetFlow, withFlow } from "./LedgerCore"; // LEDGER (r15)
@@ -910,6 +910,8 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
   // Offices held.
   const level = Math.max(0, ...officesOf(s, me.id).map((o) => o.level));
   life.tally.topOffice = Math.max(life.tally.topOffice, level);
+  // CQTUT (r26): a first life's lessons: no roll for death while they run.
+  if (shieldOf(g, life) !== null) return;
   // Death: age, health, the dangers of the work.
   let risk = deathRiskByAge(age);
   if (hasTrait(me, "robust")) risk *= 0.5;

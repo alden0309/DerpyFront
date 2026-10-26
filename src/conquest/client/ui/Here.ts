@@ -271,6 +271,7 @@ function welcome(ui: GameUi): TemplateResult | typeof nothing {
   const life = ui.life!;
   if (welcomeGone || life.tally.days > 60 || life.line.length > 1)
     return nothing;
+  if (life.tut) return nothing; // CQTUT (r26): a first life has its lessons
   if (life.travel || life.crime?.jail) return nothing;
   const job = life.job;
   const where =

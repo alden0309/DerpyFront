@@ -5,7 +5,7 @@
 import { maxHealth, strained } from "./Body"; // LIFE (r21)
 import { kill } from "./Characters";
 import type { ConquestGame } from "./Game";
-import { hooks } from "./Hooks"; // LEGACY (r21)
+import { hooks, shieldOf } from "./Hooks"; // LEGACY (r21); CQTUT (r26): shieldOf
 import { flowAff, noteFlow } from "./LedgerCore"; // LEDGER (r15)
 import { meOf } from "./LifeQueries";
 import { SKILL_MAX, SKILL_NAMES, SKILL_TIERS, xpToNext } from "./LifeRules"; // LIFE (r21): SKILL_TIERS
@@ -235,8 +235,13 @@ export function hurt(
   n: number,
   cause: string,
 ): boolean {
+  const was = life.health; // CQTUT (r26)
   // LIFE (r21): strain makes every hurt worse (Body.ts's tiers).
   heal(g, life, -strained(n, life.stress));
+  // CQTUT (r26): a first life's lessons: never lower than the shield's floor.
+  const floor = shieldOf(g, life);
+  if (floor !== null && life.health < floor)
+    life.health = Math.max(life.health, Math.min(was, floor));
   if (life.health > 0) return false;
   const me = meOf(g.s, life);
   if (me?.alive) kill(g, me, cause);

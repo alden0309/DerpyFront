@@ -76,6 +76,7 @@ import {
   takeUpsAt,
   tradesFor,
 } from "../../engine/Trades";
+import { tutStep } from "../../engine/TutorialCore"; // CQTUT (r26)
 import type {
   Boat, // LEDGER (r15)
   BoatKind, // LEDGER (r15)
@@ -132,7 +133,11 @@ export function effortPicker(ui: GameUi): TemplateResult {
             aria-checked=${k === now}
             class=${k === now ? "on" : ""}
             title=${EFFORTS[k].text}
-            @click=${() => k !== now && void ui.cmd({ k: "effort", v: k })}
+            @click=${() =>
+              // CQTUT (r26): the first life's "how hard": keeping the one
+              // you have is a choice too.
+              (k !== now || tutStep(life) === "work") &&
+              void ui.cmd({ k: "effort", v: k })}
           >
             ${EFFORTS[k].name}
           </button>`,

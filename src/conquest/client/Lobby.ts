@@ -30,6 +30,7 @@ import { STORE_CAMPAIGNS } from "./Dlc"; // DLC (r21)
 import { emblem, flag } from "./Flags";
 import { guideOverlay } from "./guide/Guide";
 import { Net } from "./Net";
+import { firstLifeSeen, setFirstLifeSeen } from "./Prefs"; // CQTUT (r26)
 import "./Range";
 
 const PEOPLE_NAME: Record<string, string> = Object.fromEntries([
@@ -96,6 +97,8 @@ export class Lobby extends LitElement {
   } | null = null;
   /** STORY (r17): saved games on their way out (greyed until the server's list comes back). */
   @state() private going = new Set<string>();
+  /** CQTUT (r26): the first life turned down just now. */
+  @state() private declined = false;
 
   private refresh = 0;
 
@@ -154,6 +157,52 @@ export class Lobby extends LitElement {
     });
   }
 
+  // ---------------------------------------------------------------- CQTUT (r26)
+
+  /** The first life: who to be (the app asks). */
+  private askFirstLife(): void {
+    this.dispatchEvent(new CustomEvent("cq-tutorial-ask", { bubbles: true }));
+  }
+
+  /**
+   * A first visit (nothing saved or finished, and it hasn't been taken or
+   * turned down in this browser): the first life, offered.
+   */
+  private firstVisit(
+    where: "top" | "in-start",
+  ): TemplateResult | typeof nothing {
+    if (this.declined || firstLifeSeen() !== "") return nothing;
+    if (this.saved.length || this.finished.length) return nothing;
+    return html`<div class="cq-firstlife ${where}" role="note">
+      <p class="cq-firstlife-head">New to Derpy Conquest?</p>
+      <p class="small">
+        Take a short first life: a young cooper in Boston, 1700, learning the
+        ropes with someone at your elbow. About fifteen minutes, and the life is
+        yours to keep.
+      </p>
+      <div class="cq-btnrow">
+        <button
+          class="cq-btn primary small"
+          ?disabled=${!this.online}
+          @click=${() => this.askFirstLife()}
+        >
+          Take a short first life
+        </button>
+        <button
+          class="cq-btn quiet small"
+          @click=${() => {
+            setFirstLifeSeen("no");
+            this.declined = true;
+          }}
+        >
+          No thanks
+        </button>
+      </div>
+    </div>`;
+  }
+
+  // ---------------------------------------------------------------- /CQTUT (r26)
+
   private create(): void {
     this.net.send({
       t: "create",
@@ -173,6 +222,7 @@ export class Lobby extends LitElement {
     return html`<div class="cq-lobby">
       <derp-bar page="conquest"></derp-bar>
       <div class="cq-lobby-page">
+        ${this.firstVisit("top") /* CQTUT (r26): first, on a phone */}
         <section class="cq-hero">
           <figure class="cq-hero-art">
             <img
@@ -207,6 +257,18 @@ export class Lobby extends LitElement {
                 part of the game.</span
               >
             </p>
+            ${
+              /* CQTUT (r26): the first life, always to hand. */
+              html`<p>
+                <button class="cq-btn" @click=${() => this.askFirstLife()}>
+                  First life (tutorial)
+                </button>
+                <span class="cq-muted small"
+                  >A short guided life in Boston, 1700: about fifteen
+                  minutes.</span
+                >
+              </p>`
+            }
             ${this.online
               ? nothing
               : html`<p class="cq-warn">Connecting to the game server…</p>`}
@@ -217,6 +279,7 @@ export class Lobby extends LitElement {
           <section class="cq-sheet cq-new">
             <span class="cq-seal cq-sheet-seal" aria-hidden="true"></span>
             <h2 class="cq-h2">Start a game</h2>
+            ${this.firstVisit("in-start") /* CQTUT (r26) */}
             ${this.account
               ? html`<p class="cq-muted">
                   Playing as <b>${this.account}</b>. Your games are saved to

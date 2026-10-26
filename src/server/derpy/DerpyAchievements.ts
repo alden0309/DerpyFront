@@ -10,7 +10,7 @@
 
 import {
   ACHIEVEMENT_BY_KEY,
-  countsOverall,
+  paysOverall, // CQTUT (r26)
 } from "../../conquest/engine/Achievements";
 import { logger } from "../Logger";
 import { db, derpyDbConfigured, inTransaction } from "./DerpyDb";
@@ -36,7 +36,8 @@ export interface Awarded {
 
 /**
  * Records an achievement for an account and pays its coins, the first time
- * only, and (CQACH r22) only from a game on the hardest difficulty.
+ * only, and (CQACH r22) only from a game on the hardest difficulty; CQTUT
+ * (r26): an account's own (the first life's lessons) from any.
  */
 export async function awardAchievement(
   accountId: number,
@@ -45,7 +46,8 @@ export async function awardAchievement(
   difficulty: string,
 ): Promise<Awarded> {
   const def = ACHIEVEMENT_BY_KEY.get(key);
-  const overall = countsOverall(difficulty);
+  // CQTUT (r26): an account's own (the first life's lessons) on any difficulty.
+  const overall = paysOverall(key, difficulty);
   if (!def || !overall || !derpyDbConfigured())
     return { first: false, coins: 0, overall };
   return inTransaction(async (c) => {

@@ -23,6 +23,7 @@ import {
 import { JOBS, PLACES, ROLES } from "./LifeRules";
 import type { World } from "./Map";
 import { ageOf, charName } from "./Queries";
+import { tutBench } from "./TutorialCore"; // CQTUT (r26)
 import type { Character, GameState, Life, PlaceKind, Traveller } from "./Types";
 import { SEATS } from "./Types";
 
@@ -711,6 +712,8 @@ export function presence(
     if (n && SEATS.some((st) => n.council[st] === id)) return 8;
     return c.role ? ROLES[c.role].status : 0;
   };
+  // CQTUT (r26): a first life's lessons: the neighbour at the next bench.
+  if (life) tutBench(s, p, out, life);
   for (const v of out.values())
     v.sort(
       (a, b) =>

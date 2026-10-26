@@ -53,6 +53,7 @@ import { isKindness, softenKindness } from "./Regard"; // LIFE (r21)
 import { postSkillParts } from "./Retinue"; // LIFE (r21)
 import { iceBound, seasonPay } from "./Seasons"; // MAP (r12)
 import { canoeHopDays, passageHopDays } from "./SeaSpeed"; // SEA (r15)
+import { tutRunning } from "./TutorialCore"; // CQTUT (r26)
 // SOCIETY (r11)
 import { seatTitleOf } from "./CouncilTitles"; // POWER (r12)
 import { chamberOpinion } from "./Factions"; // CHAMBER (r16)
@@ -296,6 +297,9 @@ export function jobTitle(life: Life): string {
 export function atPost(s: GameState, w: World, life: Life): boolean {
   const job = life.job;
   if (!job) return false;
+  // CQTUT (r26): a first life's lessons: on your master's errand, or
+  // learning the place, you're never counted away (nor unpaid).
+  if (tutRunning(life)) return true;
   // SEA (r15): gone on a voyage of your own trade (the fur brigade, a survey) is work.
   for (const h of hooks.atPost) {
     const r = h(s, life);

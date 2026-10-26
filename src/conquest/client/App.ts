@@ -12,6 +12,7 @@ import "./GameView";
 import { GameStart, loadGeo } from "./GameView";
 import "./Lobby";
 import { clearRejoin, Net, savedRejoin } from "./Net";
+import { setFirstLifeSeen } from "./Prefs"; // CQTUT (r26)
 import "./Room";
 import { LobbyState } from "./Room";
 
@@ -50,6 +51,8 @@ export class ConquestApp extends LitElement {
     why: "required" | "wrong" | "too_many";
   } | null = null;
   @state() private typed = "";
+  /** CQTUT (r26): choosing who to be for a first life (the lessons). */
+  @state() private tutAsk = false;
 
   private net = new Net();
   private noticeId = 0;
@@ -98,6 +101,20 @@ export class ConquestApp extends LitElement {
       history.replaceState(null, "", location.pathname);
     }
     window.addEventListener(DERPY_ACCOUNT_EVENT, this.onAccount);
+    // CQTUT (r26): a first life: asked for (the start screen, How to Play),
+    // begun (as Thomas or Hannah), or a fresh life after one.
+    this.addEventListener("cq-tutorial-ask", () => (this.tutAsk = true));
+    this.addEventListener("cq-tutorial", (e) =>
+      this.firstLife(!!(e as CustomEvent<{ female?: boolean }>).detail?.female),
+    );
+    this.addEventListener("cq-fresh", () =>
+      this.net.send({
+        t: "create",
+        solo: true,
+        open: false,
+        settings: { difficulty: "normal", start: 1650 },
+      }),
+    );
     // Start fetching the map's shapes while people pick nations.
     void loadGeo();
   }
@@ -247,6 +264,54 @@ export class ConquestApp extends LitElement {
     </div>`;
   }
 
+  /** CQTUT (r26): begin a first life (the server makes it, and the game comes). */
+  private firstLife(female: boolean): void {
+    this.tutAsk = false;
+    setFirstLifeSeen("taken");
+    this.net.send({ t: "tutorial", female });
+  }
+
+  /** CQTUT (r26): "Your first life": Thomas or Hannah Hale, or never mind. */
+  private tutorialDialog(): TemplateResult {
+    const close = () => (this.tutAsk = false);
+    return html`<div
+      class="cq-ask-back"
+      @click=${(e: Event) => {
+        if (e.target === e.currentTarget) close();
+      }}
+      @keydown=${(e: KeyboardEvent) => {
+        if (e.key === "Escape") close();
+      }}
+    >
+      <div
+        class="cq-ask cq-sheet cq-tut-ask"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cq-tut-ask-head"
+      >
+        <h2 class="cq-h2" id="cq-tut-ask-head">Your first life</h2>
+        <p>
+          Boston, in the spring of 1700. A young cooper with a trade, a mother
+          and a sister in town, and the colonies all before you. A short life
+          with someone at your elbow, about fifteen minutes; it's yours to keep
+          living afterwards.
+        </p>
+        <p class="cq-muted small">Who will you be?</p>
+        <div class="cq-tut-who">
+          <button class="cq-btn big" @click=${() => this.firstLife(false)}>
+            <b>Thomas Hale</b><span>a journeyman cooper, twenty</span>
+          </button>
+          <button class="cq-btn big" @click=${() => this.firstLife(true)}>
+            <b>Hannah Hale</b><span>a journeyman cooper, twenty</span>
+          </button>
+        </div>
+        <div class="cq-btnrow end">
+          <button class="cq-btn quiet" @click=${close}>Never mind</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
   private notice(text: string, tone: "good" | "bad" = "bad"): void {
     const id = ++this.noticeId;
     this.notices = [...this.notices.slice(-2), { id, text, tone }];
@@ -317,6 +382,7 @@ export class ConquestApp extends LitElement {
         break;
     }
     return html`${body} ${this.asked ? this.passwordDialog() : ""}
+      ${this.tutAsk ? this.tutorialDialog() : "" /* CQTUT (r26) */}
       <div class="cq-notices" aria-live="assertive">
         ${this.notices.map(
           (n) => html`<div class="cq-toast ${n.tone ?? "bad"}">${n.text}</div>`,

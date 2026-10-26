@@ -2001,7 +2001,9 @@ export type LifeCommand =
   // LABOUR2 (r21): an overseer; those held at your businesses; a house in the trade.
   | Labour2Command
   // DLC (r21): the 1776 campaign; Legends.
-  | DlcCommand;
+  | DlcCommand
+  // CQTUT (r26): a first life's lessons.
+  | TutorialCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -6178,4 +6180,67 @@ export interface Course76 {
 export interface Campaign76 {
   /** CQ24 (r24): the course of history (Campaign1776Course.ts). */
   course?: Course76;
+}
+
+// ---------------------------------------------------------------- CQTUT (r26)
+// Round 26's own section: the first life, a guided tutorial (Tutorial.ts).
+// Every field is optional, so older saves load.
+
+/** CQTUT (r26): the people a first life's lessons were made with (character ids). */
+export interface TutorialCast {
+  /** Your master at the workshop (the town's own). */
+  master: number;
+  /** Your widowed mother, your sister, and your late father. */
+  mother: number;
+  sister: number;
+  father: number;
+  /** A master cooper next door (and his wife), and one across the lane. */
+  friend: number;
+  friendWife: number;
+  rival: number;
+}
+
+/** CQTUT (r26): where a first life's lessons stand. */
+export interface TutorialState {
+  /** The step now (its index in TUTORIAL_STEPS); their number is the end. */
+  step: number;
+  /** The day the step began. */
+  since: number;
+  /** A letter of the lessons' own the step waits on (its key), once raised. */
+  wait?: string;
+  /** Steps done by doing them, and those skipped (their ids). */
+  done: string[];
+  skipped: string[];
+  cast: TutorialCast;
+  /** The birthday the lessons wait for (a day). */
+  birthday: number;
+  /** The last month's turn (pay day) since the step began, for "home". */
+  paid?: number;
+  /** Letters that came unasked while the lessons ran, kept for after. */
+  held?: LifeEventPending[];
+  /** Over: every step done or skipped ("done"), or the lessons left. */
+  over?: { how: "done" | "left"; day: number };
+  /** The end's card put away (carrying on as a normal game). */
+  closed?: true;
+}
+
+export interface Life {
+  /** CQTUT (r26): a first life's lessons, while it has them (and after, marked over). */
+  tut?: TutorialState;
+}
+
+export interface GameSettings {
+  /** CQTUT (r26): a first life, guided (one seat, its own start). */
+  tutorial?: true;
+}
+
+/**
+ * CQTUT (r26): the lessons: a page looked at ("saw", what), a step skipped
+ * (the step shown), the lessons left, the end's card put away.
+ */
+export interface TutorialCommand {
+  k: "tut";
+  act: "saw" | "skip" | "leave" | "close";
+  what?: string;
+  step?: number;
 }

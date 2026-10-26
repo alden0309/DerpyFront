@@ -26,6 +26,8 @@ describe("achievements (MAP r12)", () => {
       ACHIEVEMENTS.length,
     );
     for (const a of ACHIEVEMENTS) {
+      // CQTUT (r26): the first life's lessons pay the account apart (250, once).
+      if (a.account) continue;
       expect(a.coins).toBeGreaterThanOrEqual(1);
       expect(a.coins).toBeLessThanOrEqual(a.tier ? 10 : 6);
       expect(a.how).toMatch(/\.$/);

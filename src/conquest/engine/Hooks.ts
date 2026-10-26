@@ -279,7 +279,24 @@ export const hooks = {
     life: Life,
     m: import("./Types").LifeMilestone,
   ) => void)[],
+  // CQTUT (r26)
+  /**
+   * A life that mustn't come to harm just now (a first life's lessons): the
+   * least health it may fall to, or null. While any hook gives a number,
+   * the month's roll for death passes it by and no hurt takes it lower.
+   */
+  shield: [] as ((g: ConquestGame, life: Life) => number | null)[],
 };
+
+/** CQTUT (r26): the least health a shielded life may fall to, or null if it isn't shielded. */
+export function shieldOf(g: ConquestGame, life: Life): number | null {
+  let floor: number | null = null;
+  for (const h of hooks.shield) {
+    const f = h(g, life);
+    if (f !== null) floor = Math.max(floor ?? 0, f);
+  }
+  return floor;
+}
 
 /**
  * WAR (r17): how the change being told came about, for listeners that care:

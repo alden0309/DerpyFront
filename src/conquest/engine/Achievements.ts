@@ -34,6 +34,14 @@ import { ageOf } from "./Queries";
 import { isNorth } from "./Seasons";
 import { achievementText } from "./StoryCore"; // STORY (r17)
 import { LEVEL_POINTS, lifeTonguePoints, motherTongue } from "./Tongues";
+// CQTUT (r26)
+import {
+  FIRST_LIFE,
+  FIRST_LIFE_COINS,
+  TUT_EARN_DONE,
+  TUT_STEP_COUNT,
+  tutEarned,
+} from "./TutorialCore";
 import type {
   Difficulty,
   JobKind,
@@ -105,6 +113,12 @@ export interface AchievementDef {
   tier?: "hard" | "rare";
   /** CQACH (r22): an add-on's: shown to, and earned by, only its owners. */
   dlc?: AchievementDlc;
+  /**
+   * CQTUT (r26): the account's alone: its coins are paid onto the account
+   * once, on any difficulty, and nothing in the game (so earning it again
+   * pays nothing). The first life's lessons.
+   */
+  account?: true;
 }
 
 /** MAP (r12): counts kept for achievements (days at sea, days on a winter road). */
@@ -708,6 +722,16 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     check: (g, l) => dateOf(g.s.day).year >= 1776,
   },
   ...newAchievements(), // CQACH (r22)
+  // CQTUT (r26): the first life's lessons, to the end (Tutorial.ts).
+  {
+    key: FIRST_LIFE,
+    name: "First life",
+    how: `Finish the first life's lessons, skipping no more than ${TUT_STEP_COUNT - TUT_EARN_DONE} of them.`,
+    coins: FIRST_LIFE_COINS,
+    group: "time",
+    account: true,
+    check: (g, l) => tutEarned(l.tut),
+  },
 ];
 
 /**
@@ -1330,8 +1354,14 @@ function newAchievements(): AchievementDef[] {
 
 export const ACHIEVEMENT_BY_KEY = new Map(ACHIEVEMENTS.map((a) => [a.key, a]));
 
-/** Everything earnable, in Derp Coins. */
-export const ACHIEVEMENT_COINS = ACHIEVEMENTS.reduce((n, a) => n + a.coins, 0);
+/**
+ * Everything earnable, in Derp Coins. CQTUT (r26): the life's marks; the
+ * first life's lessons (an account's alone) are paid apart.
+ */
+export const ACHIEVEMENT_COINS = ACHIEVEMENTS.reduce(
+  (n, a) => n + (a.account ? 0 : a.coins),
+  0,
+);
 
 /**
  * How the journal line for one earned begins (the client shows its own
@@ -1349,6 +1379,18 @@ export function countsOverall(difficulty: string | undefined): boolean {
   return difficulty === OVERALL_DIFFICULTY;
 }
 
+/**
+ * CQTUT (r26): whether an achievement goes onto the account from a game at
+ * this difficulty: on Hard, or an account's own (the first life's lessons)
+ * on any.
+ */
+export function paysOverall(
+  key: string,
+  difficulty: string | undefined,
+): boolean {
+  return countsOverall(difficulty) || !!ACHIEVEMENT_BY_KEY.get(key)?.account;
+}
+
 /** The rule, as the pages say it. */
 export const OVERALL_RULE =
   "Overall achievements, your account's, are earned only in games on Hard; any you earned before stay yours.";
@@ -1356,6 +1398,7 @@ export const GAME_RULE = `This game's achievements pay Derp Coins in the game yo
 
 /** What an achievement pays in the game it's earned in (any difficulty). */
 export function gameCoins(def: AchievementDef): number {
+  if (def.account) return 0; // CQTUT (r26): the account's alone
   return def.coins * PLAY_PAY.achievementTimes;
 }
 
