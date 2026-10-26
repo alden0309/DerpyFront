@@ -10,6 +10,7 @@ import { avatar } from "../derpland/Avatar";
 import { closeIcon, tickIcon } from "../derpland/Icons";
 import {
   MONOGRAM_COLORS,
+  monogramColor,
   PICTURE_ERROR_TEXT,
   PICTURE_GROUPS,
   type PictureError,
@@ -446,6 +447,7 @@ export class DerpPicturePicker extends LitElement {
 
   private renderPresets(): TemplateResult {
     const upload = this.status?.upload ?? null;
+    const own = monogramColor(null, this.username);
     return html`
       ${this.lockedNote
         ? html`<p class="dl-picker-note" role="status">${this.lockedNote}</p>`
@@ -472,8 +474,11 @@ export class DerpPicturePicker extends LitElement {
       <h3 class="dl-pick-h">Your initial</h3>
       <ul class="dl-pick-grid">
         ${this.tile(null, "Your initial, in your own colour")}
-        ${MONOGRAM_COLORS.map((_, i) =>
-          this.tile(`m:${i}`, `Your initial on colour ${i + 1}`),
+        ${MONOGRAM_COLORS.map((c, i) =>
+          // The colour your name picks is the tile before (unless worn).
+          c === own && this.picture !== `m:${i}`
+            ? nothing
+            : this.tile(`m:${i}`, `Your initial on colour ${i + 1}`),
         )}
       </ul>
     `;

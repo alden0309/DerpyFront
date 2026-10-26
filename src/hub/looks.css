@@ -36,6 +36,13 @@
   display: inline-grid;
   line-height: 0;
 }
+.av-pin-art,
+.dl-badge-emblem,
+.dl-looks-slot-art {
+  /* The hub's svg { max-width: 100% } would make a table (the leaderboard)
+     count them as nothing wide when it sizes its columns. */
+  max-width: none;
+}
 .av-pin-art {
   display: block;
   width: 16px;

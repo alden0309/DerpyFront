@@ -402,11 +402,19 @@ export class DerpFriends extends SocialPiece {
         Games your friends finish show up here.
       </p>`;
     const now = Date.now();
+    // PROFILE (r26): each friend's picture, from the friends list's looks.
+    const picOf = (name: string) => {
+      const f = this.s?.friends.find(
+        (x) => x.username.toLowerCase() === name.toLowerCase(),
+      );
+      return f ? lookFor(this.s?.looks, f.id).pic : null;
+    };
     return html`<ol class="dl-feed-list">
       ${g.map(
         (r) =>
           html`<li class="${r.game} ${r.won ? "won" : ""}">
             <span class="dl-feed-text">
+              ${avatar(r.username, picOf(r.username), "dl-feed-tok")}
               <a href="/player/${encodeURIComponent(r.username)}"
                 >${r.username}</a
               >
