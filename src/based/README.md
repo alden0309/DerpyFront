@@ -128,7 +128,11 @@ far). The same key closes the panel it opened.
   one), going up to him is Mr. Based offering a light; he wants to be
   alone, and that's the end of it. With nothing to light it, a nod the man
   doesn't return; the offer comes once he has a light. He stays under the
-  awning (the mirror, the signal).
+  awning (the mirror, the signal). r26: what the man says is French, so
+  what Mr. Based makes of it is his French (with too little, he can ask
+  again in English); he stands near the wall at the awning's west end,
+  where a click on him never lands on the pharmacy and the awning doesn't
+  hide him from the camera.
 - **The lobby.** A front desk with the desk clerk behind it and the key
   board behind him; the guest book, turned to the clerk and never read; a
   staircase up the back wall, closed by a red rope with a card (Guests:
@@ -136,7 +140,11 @@ far). The same key closes the panel it opened.
   dead; armchairs, a chandelier, a standard lamp; the doorways to the bar
   and the street. London booked his room to his alias, John Locke, and
   he's early: it isn't made up, so the clerk keeps his key, and since
-  the Préfecture's circular the stairs are for guests with one.
+  the Préfecture's circular the stairs are for guests with one. r26: the
+  clerk's call (in French, all of it only at 3 points) is where he can
+  overhear forty-one's car at six; the clerk himself never talks about
+  another guest, by the house's policy ("Our guests' habits are their
+  own, monsieur"), money or not.
 - **The bar.** The barman's conversation as it was; then the man in grey
   sits beside him because his is a new face. Then London's contact: he can
   tell her only what he noticed. Two telling things (where the man came
