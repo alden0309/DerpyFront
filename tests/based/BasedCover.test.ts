@@ -149,8 +149,7 @@ describe("his cover (r26): one American story, the same to everyone", () => {
       "t_phone: Deniable. The most British word",
       "talk: His English was very good.",
       "talk: Westminster, then Sciences Po. The",
-      "talk: My President thinks France has",
-      "clerk_ask: Monsieur Delorme? He is up",
+      "talk: The new President thinks France",
       "epilogue: Then I'll say it when",
       "epilogue: And the English?",
     ]);

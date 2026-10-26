@@ -678,11 +678,17 @@ describe("the lobby (r25)", () => {
     expect(g).toMatch(/turned to face the clerk/);
     expect(g).not.toMatch(/\d|Delorme|forty|M\. /);
     expect(chapter.scenes.register).toBeUndefined();
-    // Asking to see it is turned down.
+    // r26 (the owner, S103.31): asking to see it is gone; the clerk never
+    // talks about another guest (S103.6), by policy, with no check.
     const ask = chapter.scenes.clerk_ask.ops.find((o) => o.op === "choose");
     if (ask?.op !== "choose") throw new Error("no choice");
-    expect(ask.options.map((o) => o.id)).toContain("ask-to-see-the-guest-book");
-    expect(text("clerk_ask")).toMatch(/closed the guest book on his finger/);
+    expect(ask.options.map((o) => o.id)).not.toContain(
+      "ask-to-see-the-guest-book",
+    );
+    const forty = ask.options.find((o) => o.id === "ask-about-room-forty-one");
+    expect(forty?.check).toBeUndefined();
+    expect(text("clerk_ask")).toMatch(/Our guests' habits are their own/);
+    expect(text("clerk_ask")).not.toMatch(/Satory/);
     // And nothing anywhere turns it round for him.
     for (const id of chapter.order) {
       expect(text(id), id).not.toMatch(

@@ -31,7 +31,7 @@ const CHAPTER_1: Record<string, FlagWords> = {
     no: "Anselme hasn't told him his name yet",
   },
   anselme_told: {
-    yes: "Anselme told him the man in grey asked about him (room forty-one)",
+    yes: "Anselme told him the man in grey asked about him",
     no: "Anselme hasn't told him what the man in grey asked",
   },
   asked_lift: {
@@ -66,9 +66,9 @@ const CHAPTER_1: Record<string, FlagWords> = {
     yes: "he read the Préfecture's notice in the pharmacy window (with some French)",
     no: "he hasn't read the notice in the pharmacy window",
   },
-  delorme_41: {
-    yes: "the clerk told him Delorme has room forty-one",
-    no: "the clerk hasn't told him who has room forty-one",
+  delorme_six: {
+    yes: "the clerk told him Delorme leaves at six",
+    no: "the clerk hasn't told him when Delorme leaves",
   },
   delorme_gone: {
     yes: "the man in grey has left the bar",
@@ -313,10 +313,6 @@ const CHAPTER_1: Record<string, FlagWords> = {
     yes: "he stayed next to the man in grey",
     no: "he didn't stay next to the man in grey",
   },
-  texted_london: {
-    yes: "he texted London about the car",
-    no: "he hasn't texted London about the car",
-  },
   thought_phone: {
     yes: "he thought about the phone in his jacket (the British)",
     no: "he didn't think about the phone",
@@ -353,10 +349,6 @@ const CHAPTER_1: Record<string, FlagWords> = {
     count: (q) =>
       `he has told Penhallow ${q} telling things about the man in grey (his look at her table counts as two)`,
     noun: "telling things he has told Penhallow",
-  },
-  told_vienna: {
-    yes: "he told Penhallow a little about Vienna",
-    no: "he didn't tell Penhallow about Vienna",
   },
   took_card: {
     yes: "he picked up Delorme's card",

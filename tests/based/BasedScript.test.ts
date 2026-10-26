@@ -528,7 +528,8 @@ describe("chapter one's script", () => {
     expect(sceneText("contact")).toContain(
       "The woman in the corner warms to you.",
     );
-    expect(sceneText("vienna")).toContain("Penhallow warms to you.");
+    expect(sceneText("the_question")).toContain("Penhallow warms to you.");
+    expect(sceneText("vienna")).toContain("Penhallow cools.");
     expect(sceneText("vienna")).not.toContain("The woman in the corner");
     expect(sceneText("anselme_after")).toContain("Anselme warms to you.");
   });

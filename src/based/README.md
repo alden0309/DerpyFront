@@ -837,7 +837,7 @@ The moped, the helmet on its mirror...
 - Some change with `weather.` or `time` (the puddle under the awning, the
   radio after eleven, the lit window across the street).
 - The kit's small pieces (`client/world/Kit.ts`): kiosk, moped, aframe (a
-  chalkboard: `text`, `sub`), bollard, mitten, grate, bowl, postbox,
+  chalkboard: `text`, `sub`), bollard, grate, bowl, postbox,
   litter, jar, matchbowl, frame, standjar, keyboard, machine, liftdoor,
   vase, clock, book, bell, tray (`size`, `color`), radio; and `box`,
   `sign`, `morris` (r23) and the props models. Whatever stands on the
