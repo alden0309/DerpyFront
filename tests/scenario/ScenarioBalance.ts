@@ -134,6 +134,8 @@ async function main() {
   );
   let winner: unknown = null;
   const joins: string[] = [];
+  // DIPLO (r27): the neutrals courted into a side, and when.
+  const courted: string[] = [];
   // SCEN3 (r27): nukes launched, by the launcher's side (or "-").
   const nukes: Record<string, number> = {};
   const nukeIds = new Set<number>();
@@ -155,6 +157,11 @@ async function main() {
       }
     }
     for (const e of gu.updates[GameUpdateType.DisplayEvent]) {
+      if (e.message === "scenario_diplomacy.msg_joined") {
+        courted.push(
+          `${(runner.game.ticks() / 600).toFixed(1)}m ${e.params?.name} -> ${e.params?.side}`,
+        );
+      }
       if (e.message === "events_display.scenario_joined_side") {
         joins.push(
           `${Math.round(runner.game.ticks() / 600)}m ${e.params?.name} -> ${e.params?.side} (by ${e.params?.by})`,
@@ -355,6 +362,7 @@ async function main() {
       wallSeconds: Math.round((Date.now() - t0) / 1000),
       shares,
       joins,
+      courted,
       alive,
       startTroops,
       nukes,
