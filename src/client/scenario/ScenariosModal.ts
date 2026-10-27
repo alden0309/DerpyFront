@@ -160,6 +160,15 @@ export class ScenariosModal extends BaseModal {
           <p class="text-xs leading-relaxed text-white/50" data-fronts-help>
             ${translateText("scenarios.fronts_help")}
           </p>
+          <!-- DIPLO (r27): courting the neutrals, where there are any -->
+          ${d.nations.some((x) => x.side === null)
+            ? html`<p
+                class="text-xs leading-relaxed text-white/50"
+                data-courting-help
+              >
+                ${translateText("scenario_diplomacy.help_short")}
+              </p>`
+            : nothing}
           ${n !== null
             ? html`<p class="mt-2 flex items-center gap-2 text-sm text-white">
                 <span class="text-white/50"

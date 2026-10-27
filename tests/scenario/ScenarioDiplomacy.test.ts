@@ -158,8 +158,9 @@ describe("prices and leanings", () => {
     expect(dip.leaningPercent(sweden, "Axis")).toBe(600);
     expect(dip.price(sweden, "Axis")).toBe(dip.price(sweden, "Allies"));
     // A big neutral can't be bought in the first minutes; a small one sooner.
-    expect(dip.earliestTick(spain)).toBeGreaterThanOrEqual(8 * 600);
-    expect(dip.earliestTick(lux)).toBe(5 * 600);
+    expect(dip.earliestTick(spain)).toBeGreaterThanOrEqual(12 * 600);
+    expect(dip.earliestTick(lux)).toBeGreaterThanOrEqual(6 * 600);
+    expect(dip.earliestTick(lux)).toBeLessThan(dip.earliestTick(spain));
 
     // Napoleon 1812: the House of Savoy, on its island, never joins France.
     const n = await courtGame("napoleon1812");
@@ -227,7 +228,7 @@ describe("invitations to a computer-run neutral", () => {
     const early = to(g, M.refusedEarly, germany);
     expect(early).toHaveLength(1);
     expect(early[0].params?.side).toBe("Axis");
-    expect(Number(early[0].params?.minute)).toBeGreaterThanOrEqual(8);
+    expect(Number(early[0].params?.minute)).toBeGreaterThanOrEqual(12);
     // Again at once: the cooldown holds, no second answer.
     invite();
     expect(to(g, M.refusedEarly, germany)).toHaveLength(1);

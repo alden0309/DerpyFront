@@ -77,7 +77,8 @@ const DiplomacyDataSchema = z.object({
   askedAt: z.array(z.tuple([z.string(), zInt()])),
   invites: z.array(z.tuple([z.string(), z.tuple([zInt(), zInt()])])),
   asks: z.array(z.tuple([z.string(), zInt()])),
-  ai: z.array(z.tuple([zInt(), z.tuple([zInt(), zInt()])])),
+  aiEarned: z.array(z.tuple([zInt(), zInt()])),
+  aiBudget: z.array(z.tuple([z.string(), zInt()])),
   random: zRandom(),
 });
 

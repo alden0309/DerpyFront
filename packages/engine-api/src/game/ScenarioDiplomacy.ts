@@ -62,33 +62,37 @@ export interface ScenarioDiplomacyView {
   ask?: ScenarioAskView[];
 }
 
-/** The news of courting, as en.json keys (events_display.*). */
+/**
+ * The news of courting, as en.json keys. They live in en.json's own
+ * scenario_diplomacy section (the client's events panel translates them),
+ * with `side` a side's id and `name` a nation's.
+ */
 export const DIPLOMACY_MESSAGES = {
   /** To the giver: the neutral received the gift. */
-  giftSent: "events_display.scenario_gift_sent",
+  giftSent: "scenario_diplomacy.msg_gift_sent",
   /** To a neutral played by a person: a side sent a gift. */
-  giftReceived: "events_display.scenario_gift_received",
+  giftReceived: "scenario_diplomacy.msg_gift_received",
   /** To a neutral played by a person: an invitation (a yes/no card). */
-  invited: "events_display.scenario_invited",
+  invited: "scenario_diplomacy.msg_invited",
   /** To the inviter: the invitation went to a person's neutral. */
-  inviteSent: "events_display.scenario_invite_sent",
+  inviteSent: "scenario_diplomacy.msg_invite_sent",
   /** To the inviter: a person's neutral declined or didn't answer. */
-  inviteDeclined: "events_display.scenario_invite_declined",
-  inviteUnanswered: "events_display.scenario_invite_unanswered",
+  inviteDeclined: "scenario_diplomacy.msg_invite_declined",
+  inviteUnanswered: "scenario_diplomacy.msg_invite_unanswered",
   /** To the inviter: a computer-run neutral says no, and why. */
-  refusedNever: "events_display.scenario_refused_never",
-  refusedEarly: "events_display.scenario_refused_early",
-  refusedCold: "events_display.scenario_refused_cold",
-  refusedWary: "events_display.scenario_refused_wary",
-  refusedFriendly: "events_display.scenario_refused_friendly",
+  refusedNever: "scenario_diplomacy.msg_refused_never",
+  refusedEarly: "scenario_diplomacy.msg_refused_early",
+  refusedCold: "scenario_diplomacy.msg_refused_cold",
+  refusedWary: "scenario_diplomacy.msg_refused_wary",
+  refusedFriendly: "scenario_diplomacy.msg_refused_friendly",
   /** To a side's people: a neutral asks to join (a yes/no card). */
-  asks: "events_display.scenario_asks_to_join",
+  asks: "scenario_diplomacy.msg_asks_to_join",
   /** To the asking neutral: its ask went to the side's people. */
-  askSent: "events_display.scenario_ask_sent",
+  askSent: "scenario_diplomacy.msg_ask_sent",
   /** To the asking neutral: the side said no. */
-  askRefused: "events_display.scenario_ask_refused",
+  askRefused: "scenario_diplomacy.msg_ask_refused",
   /** To everyone: a neutral joins a side. */
-  joined: "events_display.scenario_diplomacy_joined",
+  joined: "scenario_diplomacy.msg_joined",
 } as const;
 
 /** How long a person's neutral has to answer an invitation: a minute. */

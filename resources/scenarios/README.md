@@ -230,6 +230,82 @@ arithmetic, DetMath for anything else; no clocks, no Math.random).
 The `title` is the English name the server uses (the game's record, the live
 games list); the menu shows `scenarios.<id>.title`.
 
+<!-- DIPLO (r27) -->
+
+## Courting the neutrals (DIPLO, round 27)
+
+The sides may court the neutrals instead of invading them
+(`packages/engine/src/scenario/ScenarioDiplomacy.ts`):
+
+- **Gifts.** A nation on a side sends a neutral gold (its panel's "Send a
+  gift", or the radial menu's handshake). The gold goes to the neutral, and
+  raises its **goodwill** toward the giver's side by as much. Every side can
+  give, so it can become a bidding war. Goodwill fades by about 4% a minute.
+- **Invitations.** A side's nation invites a neutral to join. A computer-run
+  neutral says yes when its goodwill toward that side has reached its price
+  there and the war is old enough for a neutral of its size; otherwise it
+  says no and why ("Spain is wary of the Axis: not ready to join"). A
+  neutral played by a person gets a Join / Decline card for a minute. One
+  invitation per side per neutral a minute.
+- **Asking to join.** A neutral played by a person may ask a side to join it
+  (its own panel, or a side's nation's). The side's people get an Accept /
+  Refuse card and the first answer decides. If nobody answers in 30
+  seconds, or nobody on the side is a person, the computer answers: yes,
+  unless the side has no nation left in the war. One ask per side a minute.
+- **Joining** is for good, as with an invasion: the neutral is on that side
+  and at war with the others, and everyone sees "Spain joins the Axis".
+  Invading a neutral still pushes it to the invader's enemies.
+- **Computer-run sides** put 15% of their richest computer-run nation's
+  income by (the richest, not all: thirteen colonies don't court thirteen
+  times as hard as one Britain), and now and then give it to the neutral
+  leaning their way (eager or leans) that is nearest to joining, up to a
+  little over its price. They invite any neutral that is ready (a
+  person's at most every three minutes).
+
+**The price** of a neutral for a side is its **size**, in minutes of a big
+nation's income, times the **going rate**, times its **leaning** there:
+
+- _size_: 40 times its troop cap over the mean cap of the three biggest
+  nations on the sides, at the start, between 1.5 and 10 minutes;
+- _going rate_: the mean income a minute so far of the three biggest
+  earners on the sides (at least 1M), so prices rise as the war economy
+  grows;
+- _leaning_: the data's word for that side (below).
+
+A neutral joins nobody before minute 4 + its size (at least 6, at most 14):
+nobody buys a big neutral in the first minutes. The numbers are
+`DIPLOMACY_TUNING` in ScenarioDiplomacy.ts.
+
+**The data.** A neutral's `leaning` gives a word per side (a side left out
+is "open"), and `leaningLate` changes some of them from a minute on:
+
+```json
+"leaning": { "Axis": "reluctant", "Allies": "reluctant" },
+"leaningLate": { "minute": 45, "sides": { "Allies": "open" } }
+```
+
+| word        | price | meaning                                                   |
+| ----------- | ----- | --------------------------------------------------------- |
+| `eager`     | x0.6  | it joined this side in the real war, or allied with it    |
+| `leans`     | x0.8  | sympathy, a treaty, trade or a dynasty pulled it this way |
+| `open`      | x1    | no strong pull either way                                 |
+| `reluctant` | x1.5  | distrust or old grievances                                |
+| `opposed`   | x2.5  | it opposed this side's aims, or fought it                 |
+| `aloof`     | x6    | it held to strict neutrality all war: close to impossible |
+| `never`     | -     | history says it could not happen (used once, sparingly)   |
+
+Every neutral in every scenario has a word for every side
+(`tests/scenario/ScenarioDiplomacy.test.ts` checks it); a nation on a side
+has none. They are the nations' own interests as history shows them, not
+prizes: the 1776 native nations, for one, weighed which side threatened
+their land more. The border tools' recipes don't know these fields, so a
+scenario rebuilt from its recipe needs its leanings copied back.
+
+Courting needs the scenario's edition 3 (Thirteen Colonies 1776: 4);
+older games have none and their replays are refused, as with any edition.
+
+<!-- DIPLO (r27) end -->
+
 ## Goals (DFX, round 26)
 
 Every playable nation has one optional historical goal, in `goals.json`
@@ -326,3 +402,35 @@ and latitude with the border tools' fitted projections.
 - Three Kingdoms 219: hand-drawn from the commandery lines of standard
   historical atlases.
 - Map projections: fitted from each map's land mask against Natural Earth.
+
+<!-- DIPLO (r27): the neutrals' leanings -->
+
+- The neutrals' leanings (`leaning`, `leaningLate`): Wikipedia, "Spain
+  during World War II", "Portugal during World War II", "Anglo-Portuguese
+  Alliance", "Irish neutrality during World War II", "Switzerland during the
+  World Wars", "Sweden during World War II", "Turkey in World War II",
+  "Denmark in World War II", "Occupation of the Baltic states", "Klaipėda
+  Region", "Invasion of Iceland", "Anglo-Soviet invasion of Iran", "Saudi
+  Arabia in World War II"; "Native Americans in the American Revolution",
+  "Joseph Brant", "Stockbridge Militia", "Treaty of Fort Pitt", "Cornstalk",
+  "Cherokee–American wars", "Catawba people", the Treaty of Watertown (1776)
+  and historyofmassachusetts.org, "Native Americans in the Revolutionary
+  War"; "Italy in World War I", "Treaty of London (1915)", "Ottoman–German
+  alliance", "Bulgaria during World War I", "Romania in World War I",
+  "Greece during World War I", "Portugal in World War I", "German
+  occupation of Luxembourg during World War I", "Principality of Albania",
+  "Persian campaign (World War I)"; "Leopold II, Grand Duke of Tuscany",
+  "Francis V, Duke of Modena" (and his Estense brigade, which followed him
+  into Austrian Venetia in June 1859, ilmondodeglischuetzen.eu), "Battle of
+  Grahovac", "Second Italian War of Independence"; "Act of Mediation",
+  "Treaty of Bucharest (1812)", "Russo-Persian War (1804–1813)", "First
+  Serbian Uprising", "Montenegro (Bay of Kotor, 1806–1814)", "Slimane of
+  Morocco" and yabiladi.com, "1805: Morocco supplied the British fleet";
+  "Gongsun Kang", "Goguryeo–Wei War", "Battle of Mount Qi" (Kebineng's
+  Xianbei with Shu, 231), "Zhuge Liang's Southern Campaign" (Yong Kai and
+  Wu), "Lu Xun (Eastern Wu)" (Cao Cao's seal for Fei Zhan and the
+  Shanyue), "Shanyue"; "Kentucky in the American Civil War", "Indian
+  Territory in the American Civil War", "List of treaties of the
+  Confederate States of America" (the Creek treaty of 10 July, the Choctaw
+  and Chickasaw of 12 July and the Cherokee of 7 October 1861), "John Ross
+  (Cherokee chief)", "Opothleyahola".

@@ -16,6 +16,10 @@ import { Config } from "@openfront/engine-lib/configuration/Config";
 import { renderNumber } from "@openfront/engine-lib/Format";
 import { findClosestBy } from "@openfront/engine-lib/Util";
 import { assetUrl } from "@openfront/shared/AssetUrls";
+import {
+  SendScenarioDiplomacyIntentEvent,
+  sideInSentence,
+} from "../../scenario/ScenarioDiplomacyClient"; // DIPLO (r27)
 import { UIState } from "../../UIState";
 import { translateText } from "../../Utils";
 import { GameView, PlayerView } from "../../view";
@@ -813,6 +817,75 @@ const tradeAgreementEndElement: MenuElement = {
   },
 };
 
+// DIPLO (r27): courting a Scenario's neutral, or asking to join a side.
+const scenarioGiftElement: MenuElement = {
+  id: "scenario_gift",
+  name: "scenario_gift",
+  disabled: (params: MenuElementParams) =>
+    !params.playerActions?.interaction?.scenarioDiplomacy?.court?.canGift,
+  color: "#f59e0b",
+  icon: donateGoldIcon,
+  tooltipKeys: [{ key: "scenario_diplomacy.gift", className: "title" }],
+  action: (params: MenuElementParams) => {
+    if (!params.selected) return;
+    params.playerPanel.openScenarioGiftModal(
+      params.playerActions,
+      params.tile,
+      params.selected,
+    );
+  },
+};
+
+const scenarioInviteElement: MenuElement = {
+  id: "scenario_invite",
+  name: "scenario_invite",
+  disabled: (params: MenuElementParams) =>
+    !params.playerActions?.interaction?.scenarioDiplomacy?.court?.canInvite,
+  color: COLORS.ally,
+  icon: allianceIcon,
+  tooltipKeys: [{ key: "scenario_diplomacy.invite", className: "title" }],
+  action: (params: MenuElementParams) => {
+    if (!params.selected) return;
+    params.eventBus.emit(
+      new SendScenarioDiplomacyIntentEvent({
+        type: "scenario_invite",
+        neutral: params.selected.id(),
+      }),
+    );
+    params.closeMenu();
+  },
+};
+
+/** One "Ask to join" per side the viewer, a neutral, may ask here. */
+function scenarioAskElements(params: MenuElementParams): MenuElement[] {
+  const asks = params.playerActions?.interaction?.scenarioDiplomacy?.ask ?? [];
+  return asks.map((a) => ({
+    id: `scenario_ask_${a.side}`,
+    name: "scenario_ask",
+    disabled: () => !a.canAsk,
+    color: COLORS.ally,
+    icon: allianceIcon,
+    tooltipItems: [
+      {
+        text: translateText("scenario_diplomacy.ask_join", {
+          side: sideInSentence(a.side),
+        }),
+        className: "title",
+      },
+    ],
+    action: (p: MenuElementParams) => {
+      p.eventBus.emit(
+        new SendScenarioDiplomacyIntentEvent({
+          type: "scenario_ask_join",
+          side: a.side,
+        }),
+      );
+      p.closeMenu();
+    },
+  }));
+}
+// DIPLO (r27) end
+
 /** Derpy Front: the handshake button opens alliance + trade agreement. */
 const diplomacyMenuElement: MenuElement = {
   id: Slot.Ally,
@@ -830,6 +903,19 @@ const diplomacyMenuElement: MenuElement = {
     // Trade Agreement action that applies.
     const hasTradeAgreement =
       !!params.playerActions?.interaction?.hasTradeAgreement;
+    // DIPLO (r27): in a Scenario, courting a neutral or asking to join a
+    // side comes first (alliances are off there).
+    const diplomacy = params.playerActions?.interaction?.scenarioDiplomacy;
+    if (diplomacy?.court !== undefined || diplomacy?.ask !== undefined) {
+      return [
+        ...(diplomacy.court !== undefined
+          ? [scenarioGiftElement, scenarioInviteElement]
+          : scenarioAskElements(params)),
+        hasTradeAgreement
+          ? tradeAgreementEndElement
+          : tradeAgreementRequestElement,
+      ];
+    }
     return [
       inExtensionWindow ? allyExtendElement : allyRequestElement,
       hasTradeAgreement

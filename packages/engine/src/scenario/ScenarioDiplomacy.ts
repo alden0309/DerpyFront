@@ -51,8 +51,8 @@ export const DIPLOMACY_TUNING = {
    * its troop cap over the mean cap of the three biggest side nations, at
    * the start, between sizeMin and sizeMax minutes.
    */
-  sizeMinutes: 20,
-  sizeMin: 1,
+  sizeMinutes: 40,
+  sizeMin: 1.5,
   sizeMax: 10,
   /**
    * The going rate (gold a minute): the mean income per minute so far of
@@ -66,8 +66,8 @@ export const DIPLOMACY_TUNING = {
    * minutes), at least earliestMin and at most earliestMax.
    */
   earliestBase: 4,
-  earliestMin: 5,
-  earliestMax: 12,
+  earliestMin: 6,
+  earliestMax: 14,
   /** One invitation per side per neutral a minute; one ask per side. */
   inviteCooldown: 600,
   askCooldown: 600,
@@ -77,12 +77,18 @@ export const DIPLOMACY_TUNING = {
   aiCourts: true,
   /** How often computer-run sides court (ticks), and with what share. */
   aiEvery: 300,
-  /** Of each computer-run nation's income, parts in 1,000 it may give. */
-  aiSharePerMille: 100,
+  /**
+   * Of its richest computer-run nation's income, the parts in 1,000 a side
+   * puts by for gifts (the richest, not all of them: a side of thirteen
+   * colonies doesn't court thirteen times as hard as one Britain).
+   */
+  aiSharePerMille: 150,
   /** It gives in two rounds of three ("now and then"). */
   aiActOutOf: 3,
   aiActRounds: 2,
-  /** A computer-run nation saves at most this many minutes' going rate. */
+  /** It gives up to this many percent over the price, for the fading. */
+  aiMarginPercent: 10,
+  /** A side saves at most this many minutes of the going rate. */
   aiBudgetCapMinutes: 1,
 };
 
@@ -138,8 +144,10 @@ export interface DiplomacyStateData {
   invites: [string, [number, number]][];
   /** "neutral|side" -> tick: a neutral's open ask, before the side's people. */
   asks: [string, number][];
-  /** Computer-run nation small id -> [budget, gold earned when last seen]. */
-  ai: [number, [number, number]][];
+  /** Computer-run nation small id -> its gold earned when last seen. */
+  aiEarned: [number, number][];
+  /** Side -> what its computer-run nations have put by for gifts. */
+  aiBudget: [string, number][];
   random: [number, number, number, number];
 }
 
@@ -157,7 +165,8 @@ export class ScenarioDiplomacy {
   askedAt = new Map<string, number>();
   invites = new Map<string, [number, number]>();
   asks = new Map<string, number>();
-  ai = new Map<number, [number, number]>();
+  aiEarned = new Map<number, number>();
+  aiBudget = new Map<string, number>();
   random: PseudoRandom;
 
   constructor(
@@ -179,7 +188,8 @@ export class ScenarioDiplomacy {
       askedAt: new Map(d.askedAt),
       invites: new Map(d.invites),
       asks: new Map(d.asks),
-      ai: new Map(d.ai),
+      aiEarned: new Map(d.aiEarned),
+      aiBudget: new Map(d.aiBudget),
       random: PseudoRandom.fromState(d.random),
     });
     return s;
@@ -195,7 +205,8 @@ export class ScenarioDiplomacy {
       askedAt: sorted(this.askedAt),
       invites: sorted(this.invites),
       asks: sorted(this.asks),
-      ai: sorted(this.ai),
+      aiEarned: sorted(this.aiEarned),
+      aiBudget: sorted(this.aiBudget),
       random: this.random.getState(),
     };
   }
@@ -650,9 +661,10 @@ export class ScenarioDiplomacy {
   }
 
   /**
-   * Computer-run sides court: each computer-run nation puts a share of its
-   * income by; now and then the side gives it to the neutral leaning its way
-   * that is nearest to joining, and invites any neutral that is ready.
+   * Computer-run sides court: each side puts a share of its richest
+   * computer-run nation's income by; now and then it gives it to the neutral
+   * leaning its way that is nearest to joining (giveNowAndThen), and
+   * invites any neutral that is ready.
    */
   private court(): void {
     const t = DIPLOMACY_TUNING;
@@ -662,28 +674,28 @@ export class ScenarioDiplomacy {
       const members = this.game
         .players()
         .filter((p) => p.team() === side && p.type() === PlayerType.Nation);
+      // The richest computer-run nation's income since last time.
+      let richest = 0;
       for (const m of members) {
         const earned = Number(m.goldEarned());
-        const prev = this.ai.get(m.smallID());
-        let budget = prev === undefined ? 0 : prev[0];
-        if (prev !== undefined) {
-          budget += Math.floor(
-            (Math.max(0, earned - prev[1]) * t.aiSharePerMille) / 1000,
-          );
-        }
-        budget = Math.min(budget, this.rate * t.aiBudgetCapMinutes);
-        this.ai.set(m.smallID(), [budget, earned]);
+        const prev = this.aiEarned.get(m.smallID());
+        if (prev !== undefined) richest = Math.max(richest, earned - prev);
+        this.aiEarned.set(m.smallID(), earned);
       }
+      const budget = Math.min(
+        (this.aiBudget.get(side) ?? 0) +
+          Math.floor((richest * t.aiSharePerMille) / 1000),
+        this.rate * t.aiBudgetCapMinutes,
+      );
+      this.aiBudget.set(side, budget);
       if (members.length === 0 || neutrals.length === 0) continue;
-
+      this.giveNowAndThen(side, members, neutrals);
       // Invite any neutral that is ready (a person's, not too often).
       for (const n of neutrals) {
-        if (!this.isNeutral(n) || this.price(n, side) === null) continue;
-        if (now < this.earliestTick(n)) continue;
-        const g = this.goodwillOf(n, side);
-        if (g < (this.price(n, side) ?? Infinity)) continue;
-        const k = key(n.smallID(), side);
-        const last = this.invitedAt.get(k) ?? -Infinity;
+        if (!this.isNeutral(n) || now < this.earliestTick(n)) continue;
+        const price = this.price(n, side);
+        if (price === null || this.goodwillOf(n, side) < price) continue;
+        const last = this.invitedAt.get(key(n.smallID(), side)) ?? -Infinity;
         const wait =
           n.type() === PlayerType.Human
             ? t.aiPersonInviteCooldown
@@ -691,45 +703,67 @@ export class ScenarioDiplomacy {
         if (now - last < wait) continue;
         this.invite(members[0], n);
       }
+    }
+  }
 
-      // Now and then, a gift to the neutral nearest to joining.
-      if (this.random.nextInt(0, t.aiActOutOf) >= t.aiActRounds) continue;
-      const minute = this.minute();
-      let target: Player | null = null;
-      let targetToGo = Infinity;
-      for (const n of neutrals) {
-        if (!this.isNeutral(n)) continue;
-        const nation = this.nation(n);
-        if (nation === null) continue;
-        if (!COURTED_LEANINGS.includes(leaningOf(nation, side, minute))) {
-          continue;
-        }
-        const price = this.price(n, side);
-        if (price === null) continue;
-        const toGo = price - this.goodwillOf(n, side);
-        if (toGo <= 0) continue;
-        if (toGo < targetToGo) {
-          target = n;
-          targetToGo = toGo;
-        }
+  /**
+   * Now and then, a side's computer-run nations give from what they have put
+   * by to the neutral leaning their way that is nearest to joining, up to a
+   * little over its price (goodwill fades, and the going rate rises).
+   */
+  private giveNowAndThen(
+    side: Team,
+    members: Player[],
+    neutrals: Player[],
+  ): void {
+    const t = DIPLOMACY_TUNING;
+    if (this.random.nextInt(0, t.aiActOutOf) >= t.aiActRounds) return;
+    const minute = this.minute();
+    let target: Player | null = null;
+    let targetToGo = Infinity;
+    for (const n of neutrals) {
+      if (!this.isNeutral(n)) continue;
+      const nation = this.nation(n);
+      if (nation === null) continue;
+      if (!COURTED_LEANINGS.includes(leaningOf(nation, side, minute))) {
+        continue;
       }
-      if (target === null) continue;
-      let total = 0n;
-      for (const m of members) {
-        const entry = this.ai.get(m.smallID());
-        if (entry === undefined) continue;
-        const half = Number(m.gold() / 2n);
-        const give = Math.min(entry[0], half, targetToGo - Number(total));
-        if (give < Math.max(10_000, Math.floor(targetToGo / 100))) continue;
-        const removed = m.removeGold(BigInt(give));
-        if (removed <= 0n) continue;
-        this.receive(target, side, removed);
-        this.ai.set(m.smallID(), [entry[0] - Number(removed), entry[1]]);
-        total += removed;
+      const price = this.price(n, side);
+      if (price === null) continue;
+      const aim = Math.ceil((price * (100 + t.aiMarginPercent)) / 100);
+      const toGo = aim - this.goodwillOf(n, side);
+      if (toGo <= 0) continue;
+      if (toGo < targetToGo) {
+        target = n;
+        targetToGo = toGo;
       }
-      if (total > 0n && target.type() === PlayerType.Human) {
-        this.tellGift(target, side, total, members[0]);
-      }
+    }
+    if (target === null) return;
+    // What the side has put by, paid by its richest nations first, each
+    // with at most half its gold.
+    let left = Math.min(this.aiBudget.get(side) ?? 0, targetToGo);
+    if (left < Math.max(10_000, Math.floor(targetToGo / 100))) return;
+    const payers = [...members].sort((a, b) =>
+      a.gold() > b.gold()
+        ? -1
+        : a.gold() < b.gold()
+          ? 1
+          : a.smallID() - b.smallID(),
+    );
+    let total = 0n;
+    for (const m of payers) {
+      if (left <= 0) break;
+      const give = Math.min(left, Number(m.gold() / 2n));
+      if (give <= 0) continue;
+      const removed = m.removeGold(BigInt(give));
+      if (removed <= 0n) continue;
+      this.receive(target, side, removed);
+      left -= Number(removed);
+      total += removed;
+    }
+    this.aiBudget.set(side, (this.aiBudget.get(side) ?? 0) - Number(total));
+    if (total > 0n && target.type() === PlayerType.Human) {
+      this.tellGift(target, side, total, members[0]);
     }
   }
 

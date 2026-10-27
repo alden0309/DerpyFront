@@ -39,6 +39,12 @@ import {
 } from "../../InputHandler";
 import { lobbyLevelBadge } from "../../LobbyRosterLevels";
 import { sideLabel } from "../../scenario/ScenarioClient"; // SCEN (r25)
+// DIPLO (r27)
+import {
+  SendScenarioDiplomacyIntentEvent,
+  sideInSentence,
+} from "../../scenario/ScenarioDiplomacyClient";
+import { renderScenarioDiplomacy } from "../../scenario/ScenarioDiplomacyPanel";
 import {
   PlayerReportedEvent,
   SendAllianceRequestIntentEvent,
@@ -105,7 +111,7 @@ export class PlayerPanel extends LitElement implements Controller {
   private userSettings = new UserSettings();
 
   @state() private sendTarget: PlayerView | null = null;
-  @state() private sendMode: "troops" | "gold" | "none" = "none";
+  @state() private sendMode: "troops" | "gold" | "gift" | "none" = "none"; // gift: DIPLO (r27)
   @state() public isVisible: boolean = false;
   @state() private allianceExpiryText: string | null = null;
   @state() private allianceExpirySeconds: number | null = null;
@@ -331,6 +337,66 @@ export class PlayerPanel extends LitElement implements Controller {
     e.stopPropagation();
     this.openSendGold(other);
   }
+
+  // DIPLO (r27): courting a Scenario's neutral, or asking to join a side.
+  /** From the radial menu: the gift amount picker for a neutral. */
+  public openScenarioGiftModal(
+    actions: PlayerActions,
+    tile: TileRef,
+    target: PlayerView,
+  ) {
+    this.openSendGoldModal(actions, tile, target);
+    this.sendMode = "gift";
+  }
+
+  /** The gift picker's line on what a gift does. */
+  private giftNote(): string | null {
+    const side =
+      this.actions?.interaction?.scenarioDiplomacy?.court?.side ?? null;
+    if (this.sendMode !== "gift" || this.sendTarget === null || side === null) {
+      return null;
+    }
+    return translateText("scenario_diplomacy.gift_note", {
+      name: this.sendTarget.displayName(),
+      side: sideInSentence(side),
+    });
+  }
+
+  private renderDiplomacy(other: PlayerView) {
+    return renderScenarioDiplomacy(
+      this.actions?.interaction?.scenarioDiplomacy,
+      other.displayName(),
+      {
+        gift: (e) => {
+          e.stopPropagation();
+          this.suppressNextHide = true;
+          this.sendTarget = other;
+          this.sendMode = "gift";
+        },
+        invite: (e) => {
+          e.stopPropagation();
+          this.eventBus.emit(
+            new SendScenarioDiplomacyIntentEvent({
+              type: "scenario_invite",
+              neutral: other.id(),
+            }),
+          );
+          this.hide();
+        },
+        ask: (e, side) => {
+          e.stopPropagation();
+          this.eventBus.emit(
+            new SendScenarioDiplomacyIntentEvent({
+              type: "scenario_ask_join",
+              side,
+            }),
+          );
+          this.hide();
+        },
+      },
+    );
+  }
+  // DIPLO (r27) end
 
   private closeSend = () => {
     this.sendTarget = null;
@@ -1230,6 +1296,12 @@ export class PlayerPanel extends LitElement implements Controller {
                             .format=${this.sendMode === "troops"
                               ? renderTroops
                               : renderNumber}
+                            .heading=${this.sendMode === "gift" // DIPLO (r27)
+                              ? translateText("scenario_diplomacy.gift_title", {
+                                  name: this.sendTarget.displayName(),
+                                })
+                              : null}
+                            .note=${this.giftNote()}
                             @confirm=${this.confirmSend}
                             @close=${this.closeSend}
                           ></send-resource-modal>
@@ -1279,6 +1351,8 @@ export class PlayerPanel extends LitElement implements Controller {
 
                     <!-- A nation's or tribe's opinion of you -->
                     ${my && !isSpectator ? this.renderOpinion(other, my) : ""}
+                    <!-- DIPLO (r27): courting a Scenario's neutral -->
+                    ${my && !isSpectator ? this.renderDiplomacy(other) : ""}
 
                     <ui-divider></ui-divider>
 
