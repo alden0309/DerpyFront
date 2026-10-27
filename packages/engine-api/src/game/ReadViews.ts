@@ -33,6 +33,12 @@ export interface PlayerLike {
    */
   scenarioTroopCap?(): number;
   /**
+   * SCEN3 (r27): the most a Scenario lets this player's cities add to its
+   * troop cap (its nation's cityTroopsMax, stored ten times as troops are);
+   * absent or Infinity otherwise.
+   */
+  scenarioCityTroopsMax?(): number;
+  /**
    * SCEN (r25): how fast a Scenario lets this player's troops grow back
    * (its nation's troopGrowth); absent or 1 otherwise.
    */

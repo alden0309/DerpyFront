@@ -1447,6 +1447,16 @@ export class PlayerImpl implements Player {
     return scenario.nationOf(this)?.troopGrowth ?? 1;
   }
 
+  // SCEN3 (r27): the most its cities may add to its troop cap, as stored
+  // troops (Infinity: no limit), from its nation's cityTroopsMax.
+  scenarioCityTroopsMax(): number {
+    const scenario = this.mg.scenario();
+    if (scenario === null) return Infinity;
+    const max = scenario.nationOf(this)?.cityTroopsMax;
+    if (max === undefined) return Infinity;
+    return (max * 10) / (scenario.scale > 1 ? 2 : 1);
+  }
+
   // SCEN (r25): a scenario nation's starting gold (not income).
   setScenarioGold(gold: Gold): void {
     this._gold = gold;

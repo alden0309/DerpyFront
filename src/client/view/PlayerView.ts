@@ -453,6 +453,14 @@ export class PlayerView implements PlayerLike {
     return (bonus * 10) / (compact ? 2 : 1) + this._scenarioCap;
   }
   private _scenarioCap = 0;
+  /** SCEN3 (r27): as the engine's (Config.maxTroops reads it). */
+  scenarioCityTroopsMax(): number {
+    const max = this.scenarioNation()?.cityTroopsMax;
+    if (max === undefined) return Infinity;
+    const compact =
+      this.game.config().gameConfig().gameMapSize === GameMapSize.Compact;
+    return (max * 10) / (compact ? 2 : 1);
+  }
   /** SCEN (r25): as the engine's (Config.troopIncreaseRate reads it). */
   scenarioTroopGrowth(): number {
     return this.scenarioNation()?.troopGrowth ?? 1;

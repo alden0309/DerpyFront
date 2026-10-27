@@ -440,11 +440,15 @@ export class Config {
 
   private troopCap(player: PlayerLike, withCities: boolean): number {
     const cityTroops = withCities
-      ? player
-          .units(UnitType.City)
-          .filter((u) => !u.isUnderConstruction())
-          .map((city) => city.level())
-          .reduce((a, b) => a + b, 0) * this.cityTroopIncrease()
+      ? Math.min(
+          player
+            .units(UnitType.City)
+            .filter((u) => !u.isUnderConstruction())
+            .map((city) => city.level())
+            .reduce((a, b) => a + b, 0) * this.cityTroopIncrease(),
+          // SCEN3 (r27): a scenario nation's cities add at most this.
+          player.scenarioCityTroopsMax?.() ?? Infinity,
+        )
       : 0;
     const maxTroops =
       player.type() === PlayerType.Human && this.hasInfiniteTroopsFor(player)

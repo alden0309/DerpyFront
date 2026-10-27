@@ -15,6 +15,13 @@
  * a human player (PlayerType.Human, so the human's numbers and everything
  * the rules give or deny a person) seated at the nation, driven by the
  * computer's own logic (a NationExecution) at the game's difficulty.
+ *
+ * The seat stands in for a person, so it does what a person can do by hand
+ * even where the computer's code only lets a Nation do it (standInSeat):
+ * it lands beachhead boats and pays for escorted transports as a Hard
+ * nation does, and courts the neutrals with its side's computer courting
+ * (DIPLO). What a person can't do it doesn't either: the engine's rules
+ * stay a person's (troop numbers, bots annexed only by nations).
  */
 import {
   Cell,
@@ -36,7 +43,10 @@ import {
   scenarioGoal,
 } from "@openfront/engine-lib/scenario/ScenarioGoals"; // DFX (r26)
 import { NationExecution } from "@openfront/engine/execution/NationExecution";
+import { AiAttackBehavior } from "@openfront/engine/execution/utils/AiAttackBehavior";
+import { Player } from "@openfront/engine/game/Game";
 import { createGameRunner } from "@openfront/engine/GameRunner";
+import { ScenarioDiplomacy } from "@openfront/engine/scenario/ScenarioDiplomacy";
 import { GOAL_CHECK_INTERVAL } from "@openfront/engine/scenario/ScenarioGoals"; // DFX (r26)
 import { loadMapFiles } from "@openfront/shared/GameMapLoader";
 import path from "path";
@@ -69,6 +79,55 @@ const seat = arg("seat", "");
 // compare a war without them.
 const noNukes = args.includes("--no-nukes");
 const SEAT_CLIENT = "SEAT0001";
+
+/**
+ * SCEN3 (r27): lets the seat use, while `fn` runs, the computer code that
+ * checks for a Nation: within these calls the seat answers type() as one.
+ */
+function asNation<T>(seatPlayer: Player, fn: () => T): T {
+  const self = seatPlayer as unknown as { type: () => PlayerType };
+  self.type = () => PlayerType.Nation;
+  try {
+    return fn();
+  } finally {
+    delete (self as { type?: unknown }).type;
+  }
+}
+
+/**
+ * SCEN3 (r27): what a person does by hand that the computer's code only
+ * lets a Nation do: beachhead boats and escorted transports (a person
+ * launches both from the build and boat menus) and courting the neutrals
+ * (a person gives and invites from a neutral's panel). Each method runs
+ * with the seat seen as a Nation; anyone else's calls are untouched.
+ */
+function standInSeat(seatPlayer: Player): void {
+  type Method = (...args: unknown[]) => unknown;
+  const wrap = (
+    proto: Record<string, Method>,
+    name: string,
+    involves: (self: Record<string, unknown>) => boolean,
+  ) => {
+    const orig = proto[name];
+    if (typeof orig !== "function") throw new Error(`no method ${name}`);
+    proto[name] = function (this: Record<string, unknown>, ...args) {
+      return involves(this)
+        ? asNation(seatPlayer, () => orig.apply(this, args))
+        : orig.apply(this, args);
+    };
+  };
+  const ai = AiAttackBehavior.prototype as unknown as Record<string, Method>;
+  const mine = (self: Record<string, unknown>) => self.player === seatPlayer;
+  wrap(ai, "landsBeachheads", mine);
+  wrap(ai, "shouldEscort", mine);
+  // The computer's courting runs for every side at once; only the seat's
+  // side sees a change (its seat counts as one of its computer nations).
+  const diplomacy = ScenarioDiplomacy.prototype as unknown as Record<
+    string,
+    Method
+  >;
+  wrap(diplomacy, "court", () => true);
+}
 
 async function main() {
   console.debug = () => {};
@@ -186,6 +245,7 @@ async function main() {
   if (seat) {
     const human = game.playerByClientID(SEAT_CLIENT);
     if (human === null) throw new Error("no seat player");
+    standInSeat(human);
     const n = data.nations.find((x) => x.key === seat)!;
     const scale = size === GameMapSize.Compact ? 2 : 1;
     game.addExecution(
