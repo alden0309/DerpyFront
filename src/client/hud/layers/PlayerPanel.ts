@@ -917,6 +917,9 @@ export class PlayerPanel extends LitElement implements Controller {
    */
   private renderOpinion(other: PlayerView, my: PlayerView) {
     if (other === my || other.type() === PlayerType.Human) return "";
+    // DIPLO (r27): a Scenario's neutral is won over by courting (alliances
+    // are off there), so its Courting section stands in for this.
+    if (this.actions?.interaction?.scenarioDiplomacy !== undefined) return "";
     const opinion = this.profileOf(other)?.opinionOfViewer;
     if (opinion === undefined) return "";
     const view = opinionView(opinion, {

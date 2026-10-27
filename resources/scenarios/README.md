@@ -257,10 +257,13 @@ The sides may court the neutrals instead of invading them
   Invading a neutral still pushes it to the invader's enemies.
 - **Computer-run sides** put 15% of their richest computer-run nation's
   income by (the richest, not all: thirteen colonies don't court thirteen
-  times as hard as one Britain), and now and then give it to the neutral
-  leaning their way (eager or leans) that is nearest to joining, up to a
-  little over its price. They invite any neutral that is ready (a
-  person's at most every three minutes).
+  times as hard as one Britain), up to five minutes of the going rate. They
+  court the neutral leaning their way (eager or leans) that is nearest to
+  joining, if they could win it within about ten minutes of putting by:
+  a down payment of a quarter of what it needs, which shows on its panel,
+  then, once they have it all and the war is old enough, the rest at once,
+  a little over the price, and an invitation straight after. They invite
+  any neutral that is ready (a person's at most every three minutes).
 
 **The price** of a neutral for a side is its **size**, in minutes of a big
 nation's income, times the **going rate**, times its **leaning** there:

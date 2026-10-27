@@ -45,6 +45,9 @@ const difficulty = arg("difficulty", "Hard") as Difficulty;
 const minutes = parseInt(arg("minutes", "45"), 10);
 const size = arg("size", "Normal") as GameMapSize;
 const ROOT = process.env.SCEN_ROOT ?? process.cwd();
+// --table: each neutral's size, earliest minute and price per side (in
+// minutes of a big nation's income, the going rate), then stop.
+const table = args.includes("--table");
 
 const mins = (ticks: number) => Math.round(ticks / 60) / 10;
 
@@ -165,6 +168,41 @@ async function main() {
     prices[`m${minute}`] = row;
     prices[`m${minute}`]["_rate"] = { rate: Math.round(dip.rate / 1e5) / 10 };
   };
+  if (table) {
+    for (let t = 0; t < 30; t++) {
+      runner.addTurn({ turnNumber: t, intents: [] });
+      runner.executeNextTick();
+    }
+    const dip = scenarioDiplomacy(game)!;
+    const rows = game
+      .players()
+      .filter((p) => dip.isNeutral(p))
+      .map((p) => {
+        const nation = dip.nation(p)!;
+        const sides: Record<string, string> = {};
+        for (const s of data.sides) {
+          const word = leaningOf(nation, s.id, 0);
+          const pct = dip.leaningPercent(p, s.id);
+          sides[s.id] =
+            pct === null
+              ? "never"
+              : `${word} ${Math.round((dip.sizeOf(p) * pct) / 1000) / 10}`;
+          const late = nation.leaningLate;
+          if (late !== undefined && s.id in late.sides) {
+            sides[s.id] += ` (from minute ${late.minute}: ${late.sides[s.id]})`;
+          }
+        }
+        return {
+          key: nation.key,
+          name: nation.name,
+          size: dip.sizeOf(p) / 100,
+          earliest: dip.earliestTick(p) / 600,
+          sides,
+        };
+      });
+    log(JSON.stringify({ scenario: id, difficulty, size, rows }));
+    process.exit(0);
+  }
   let tick = 0;
   // On to the cap even after a side has won by today's land bars: the wars
   // run longer under SCEN3's rule (a side wins when the other is beaten).

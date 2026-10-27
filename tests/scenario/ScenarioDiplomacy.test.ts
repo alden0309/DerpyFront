@@ -15,10 +15,12 @@ import {
 } from "@openfront/engine-api/game/Scenarios";
 import { Intent } from "@openfront/engine-api/Schemas";
 import {
+  allScenarioData,
   scenarioData,
   scenarioNation,
 } from "@openfront/engine-lib/scenario/ScenarioData";
 import {
+  isLeaningWord,
   LEANING_PRICE_PERCENT,
   leaningOf,
 } from "@openfront/engine-lib/scenario/ScenarioLeaning";
@@ -101,7 +103,8 @@ describe("gifts", () => {
     const g = await courtGame("europe1939", [GERMANY]);
     const germany = g.nation("germany");
     const spain = g.nation("spain");
-    germany.addGold(5_000_000n);
+    // (Gold that isn't income: the going rate stays the game's own.)
+    germany.setScenarioGold(germany.gold() + 5_000_000n);
     const before = germany.gold();
     const spainBefore = spain.gold();
     send(g, "HUMAN001", {
@@ -135,6 +138,12 @@ describe("gifts", () => {
     });
     expect(germany.gold()).toBeGreaterThanOrEqual(gold);
     expect(france.gold() - franceGold).toBeLessThan(100_000n);
+
+    // A bad amount (not a number, endless) is ignored, not thrown mid-tick.
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      d(g).gift(germany, spain, bad);
+    }
+    expect(germany.gold()).toBeGreaterThanOrEqual(gold);
   }, 120_000);
 });
 
@@ -181,33 +190,30 @@ describe("prices and leanings", () => {
   });
 
   it("are given for every neutral in every scenario, by side", () => {
-    for (const id of [
-      "europe1939",
-      "colonies1776",
-      "continental1776",
-      "ww1914",
-      "italy1859",
-      "napoleon1812",
-      "threekingdoms219",
-      "civilwar1861",
-    ]) {
-      const data = scenarioData(id)!;
+    // Every scenario, so a neutral added later (with no leaning) shows here.
+    let neutrals = 0;
+    for (const data of allScenarioData()) {
       const sides = data.sides.map((s) => s.id);
-      const neutrals = data.nations.filter((n) => n.side === null);
-      expect(neutrals.length).toBeGreaterThan(0);
-      for (const n of neutrals) {
-        expect(Object.keys(n.leaning ?? {}).sort(), `${id} ${n.key}`).toEqual(
-          [...sides].sort(),
-        );
-        for (const s of Object.keys(n.leaningLate?.sides ?? {})) {
+      for (const n of data.nations.filter((x) => x.side === null)) {
+        neutrals++;
+        expect(
+          Object.keys(n.leaning ?? {}).sort(),
+          `${data.id} ${n.key}`,
+        ).toEqual([...sides].sort());
+        for (const w of Object.values(n.leaning ?? {})) {
+          expect(isLeaningWord(w), `${data.id} ${n.key} ${w}`).toBe(true);
+        }
+        for (const [s, w] of Object.entries(n.leaningLate?.sides ?? {})) {
           expect(sides).toContain(s);
+          expect(isLeaningWord(w)).toBe(true);
         }
       }
       // Only neutrals have a leaning.
       for (const n of data.nations.filter((x) => x.side !== null)) {
-        expect(n.leaning).toBeUndefined();
+        expect(n.leaning, `${data.id} ${n.key}`).toBeUndefined();
       }
     }
+    expect(neutrals).toBeGreaterThanOrEqual(82);
   });
 });
 
@@ -219,7 +225,8 @@ describe("invitations to a computer-run neutral", () => {
     const germany = g.nation("germany");
     const spain = g.nation("spain");
     const france = g.nation("france");
-    germany.addGold(500_000_000n);
+    // (Gold that isn't income: the going rate stays the game's own.)
+    germany.setScenarioGold(germany.gold() + 500_000_000n);
     const invite = () =>
       send(g, "HUMAN001", { type: "scenario_invite", neutral: spain.id() });
 
@@ -241,27 +248,26 @@ describe("invitations to a computer-run neutral", () => {
     invite();
     expect(to(g, M.refusedCold, germany)).toHaveLength(1);
 
-    const gift = (share: number) =>
+    // Gifts, each right before its check (the going rate moves with time).
+    const gift = (gold: number) =>
       send(g, "HUMAN001", {
         type: "scenario_gift",
         neutral: spain.id(),
-        gold: Math.ceil(dip.price(spain, "Axis")! * share),
+        gold: Math.ceil(gold),
       });
-    gift(0.45);
-    expect(dip.standing(spain).find((s) => s.side === "Axis")?.word).toBe(
-      "wary",
-    );
+    const axisWord = () =>
+      dip.standing(spain).find((s) => s.side === "Axis")?.word;
     g.step(600);
+    gift(dip.price(spain, "Axis")! * 0.45);
+    expect(axisWord()).toBe("wary");
     invite();
     expect(to(g, M.refusedWary, germany)).toHaveLength(1);
     expect(spain.team()).toBeNull();
 
-    gift(0.8);
-    expect(dip.standing(spain).find((s) => s.side === "Axis")?.word).toBe(
-      "ready",
-    );
-    expect(dip.view(germany, spain)?.court?.goldToGo).toBe(0);
     g.step(600);
+    gift(dip.price(spain, "Axis")! * 1.1 - dip.goodwillOf(spain, "Axis"));
+    expect(axisWord()).toBe("ready");
+    expect(dip.view(germany, spain)?.court?.goldToGo).toBe(0);
     invite();
     expect(spain.team()).toBe("Axis");
     const joined = messages(g, M.joined);
@@ -512,7 +518,8 @@ describe("a snapshot", () => {
     DIPLOMACY_TUNING.aiCourts = false;
     const g = await courtGame("europe1939", [GERMANY]);
     const spain = g.nation("spain");
-    g.nation("germany").addGold(10_000_000n);
+    const ger = g.nation("germany");
+    ger.setScenarioGold(ger.gold() + 10_000_000n);
     send(g, "HUMAN001", {
       type: "scenario_gift",
       neutral: spain.id(),

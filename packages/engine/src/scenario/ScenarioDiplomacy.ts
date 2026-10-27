@@ -88,8 +88,19 @@ export const DIPLOMACY_TUNING = {
   aiActRounds: 2,
   /** It gives up to this many percent over the price, for the fading. */
   aiMarginPercent: 10,
+  /**
+   * It courts only a neutral it could win within this many minutes of its
+   * putting by, at the pace it puts by now (not one whose price outruns it).
+   */
+  aiReachMinutes: 10,
   /** A side saves at most this many minutes of the going rate. */
-  aiBudgetCapMinutes: 1,
+  aiBudgetCapMinutes: 5,
+  /**
+   * Its first gift to a neutral, a down payment that shows its interest:
+   * this percent of what it still needs. The rest it saves up and gives at
+   * once when it can cover it all (gifts trickled in would fade).
+   */
+  aiDownPaymentPercent: 25,
 };
 
 /** The editions of the scenarios that have courting (scenarioEdition). */
@@ -361,7 +372,9 @@ export class ScenarioDiplomacy {
     this.start();
     const side = giver.team();
     if (side === null || !giver.isAlive() || !this.isNeutral(neutral)) return;
-    const removed = giver.removeGold(BigInt(Math.max(0, Math.floor(gold))));
+    // (BigInt of NaN or Infinity would throw, mid-tick, on every client.)
+    if (!Number.isFinite(gold) || gold < 1) return;
+    const removed = giver.removeGold(BigInt(Math.floor(gold)));
     if (removed <= 0n) return;
     this.receive(neutral, side, removed);
     if (giver.type() === PlayerType.Human) {
@@ -682,14 +695,14 @@ export class ScenarioDiplomacy {
         if (prev !== undefined) richest = Math.max(richest, earned - prev);
         this.aiEarned.set(m.smallID(), earned);
       }
+      const income = Math.floor((richest * t.aiSharePerMille) / 1000);
       const budget = Math.min(
-        (this.aiBudget.get(side) ?? 0) +
-          Math.floor((richest * t.aiSharePerMille) / 1000),
+        (this.aiBudget.get(side) ?? 0) + income,
         this.rate * t.aiBudgetCapMinutes,
       );
       this.aiBudget.set(side, budget);
       if (members.length === 0 || neutrals.length === 0) continue;
-      this.giveNowAndThen(side, members, neutrals);
+      this.giveNowAndThen(side, members, neutrals, income);
       // Invite any neutral that is ready (a person's, not too often).
       for (const n of neutrals) {
         if (!this.isNeutral(n) || now < this.earliestTick(n)) continue;
@@ -708,16 +721,23 @@ export class ScenarioDiplomacy {
 
   /**
    * Now and then, a side's computer-run nations give from what they have put
-   * by to the neutral leaning their way that is nearest to joining, up to a
-   * little over its price (goodwill fades, and the going rate rises).
+   * by to the neutral leaning their way that is nearest to joining, if it is
+   * within reach of what they put by: a down payment, then, once they can,
+   * all the rest at once, a little over its price (the going rate rises).
+   * They invite it straight after (court).
    */
   private giveNowAndThen(
     side: Team,
     members: Player[],
     neutrals: Player[],
+    income: number,
   ): void {
     const t = DIPLOMACY_TUNING;
     if (this.random.nextInt(0, t.aiActOutOf) >= t.aiActRounds) return;
+    // What it could put together within reach (income comes each round).
+    const reach =
+      (this.aiBudget.get(side) ?? 0) +
+      Math.floor((income * t.aiReachMinutes * TICKS_PER_MINUTE) / t.aiEvery);
     const minute = this.minute();
     let target: Player | null = null;
     let targetToGo = Infinity;
@@ -732,17 +752,34 @@ export class ScenarioDiplomacy {
       if (price === null) continue;
       const aim = Math.ceil((price * (100 + t.aiMarginPercent)) / 100);
       const toGo = aim - this.goodwillOf(n, side);
-      if (toGo <= 0) continue;
+      if (toGo <= 0 || toGo > reach) continue;
       if (toGo < targetToGo) {
         target = n;
         targetToGo = toGo;
       }
     }
     if (target === null) return;
-    // What the side has put by, paid by its richest nations first, each
-    // with at most half its gold.
-    let left = Math.min(this.aiBudget.get(side) ?? 0, targetToGo);
-    if (left < Math.max(10_000, Math.floor(targetToGo / 100))) return;
+    // A down payment first, then the rest at once, when it is all put by
+    // and the war is old enough for the neutral to join.
+    const budget = this.aiBudget.get(side) ?? 0;
+    let left: number;
+    if (this.goodwillOf(target, side) === 0) {
+      left = Math.floor((targetToGo * t.aiDownPaymentPercent) / 100);
+    } else if (
+      budget >= targetToGo &&
+      this.game.ticks() >= this.earliestTick(target)
+    ) {
+      left = targetToGo;
+    } else {
+      return;
+    }
+    if (left > budget || left < 10_000) return;
+    // Paid by its richest nations first, each with at most half its gold,
+    // and only when they have it all (its budget is what it means to give,
+    // not gold set aside: in pieces, the gifts would fade).
+    let can = 0;
+    for (const m of members) can += Number(m.gold() / 2n);
+    if (can < left) return;
     const payers = [...members].sort((a, b) =>
       a.gold() > b.gold()
         ? -1
