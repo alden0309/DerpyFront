@@ -3,6 +3,7 @@ import { AllPlayersStats, ClientID } from "../Schemas";
 import { TileRef } from "./GameMap";
 import { GameUpdate, GameUpdateType } from "./GameUpdates";
 import type { Opinion } from "./Opinion";
+import type { ScenarioDiplomacyView } from "./ScenarioDiplomacy"; // DIPLO (r27)
 
 function isEnumValue<T extends Record<string, string | number>>(
   enumObj: T,
@@ -455,6 +456,8 @@ export interface PlayerInteraction {
   hasTradeAgreement?: boolean;
   /** Derpy Front: a Trade Agreement request can be sent right now. */
   canRequestTradeAgreement?: boolean;
+  /** DIPLO (r27): courting a Scenario's neutral, or asking to join a side. */
+  scenarioDiplomacy?: ScenarioDiplomacyView;
 }
 
 export interface EmojiMessage {

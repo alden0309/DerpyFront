@@ -10,6 +10,7 @@ import korea1950 from "resources/scenarios/korea1950.json";
 import napoleon1812 from "resources/scenarios/napoleon1812.json";
 import threekingdoms219 from "resources/scenarios/threekingdoms219.json";
 import ww1914 from "resources/scenarios/ww1914.json";
+import type { ScenarioLeaningWord } from "./ScenarioLeaning"; // DIPLO (r27)
 
 /**
  * SCEN (r25): a Scenario's data, as stored in resources/scenarios/<id>.json
@@ -152,6 +153,15 @@ export interface ScenarioNation {
   warships?: [number, number][];
   /** False keeps players from picking it (default true). */
   playable?: boolean;
+  // DIPLO (r27): courting the neutrals (README, "Courting the neutrals").
+  /**
+   * A neutral's historical leaning toward each side (side id -> word), which
+   * multiplies its price there (ScenarioLeaning.ts). A side left out: "open".
+   */
+  leaning?: Record<string, ScenarioLeaningWord>;
+  /** From `minute` on, these sides' leanings instead (Turkey 1939, late). */
+  leaningLate?: { minute: number; sides: Record<string, ScenarioLeaningWord> };
+  // DIPLO (r27) end
   /**
    * Its territory: polygons as rings of integer pixel corners, each ring a
    * string "x0,y0,dx1,dy1,dx2,dy2,..." (deltas after the first point).

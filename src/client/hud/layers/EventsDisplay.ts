@@ -25,6 +25,11 @@ import { GameView, PlayerView, UnitView } from "../../view";
 import { onlyImages } from "./OnlyImages";
 
 import { renderNumber, renderTroops } from "@openfront/engine-lib/Format";
+import {
+  diplomacyParams,
+  isDiplomacyCard,
+  isDiplomacyMessage,
+} from "../../scenario/ScenarioDiplomacyClient"; // DIPLO (r27)
 import { sideName } from "../../scenario/ScenarioText"; // SCEN (r25)
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
 import { UIState } from "../../UIState";
@@ -269,6 +274,10 @@ export class EventsDisplay extends LitElement implements Controller {
     ) {
       params = { ...params, unit: translateText(params.unit) };
     }
+    // DIPLO (r27): courting news names the side as it reads in a sentence.
+    if (isDiplomacyMessage(event.message)) {
+      params = diplomacyParams({ ...event, params });
+    }
     // SCEN (r25): a neutral joining a side names the side in your language.
     if (
       event.message === "events_display.scenario_joined_side" &&
@@ -309,6 +318,8 @@ export class EventsDisplay extends LitElement implements Controller {
     if (event.message === "events_display.trade_agreement_request") {
       return;
     }
+    // DIPLO (r27): so are a Scenario's invitations and asks to join.
+    if (isDiplomacyCard(event.message)) return;
 
     // Captured trade-ship gold is surfaced as a transient +gold pip in
     // control-panel rather than as a scroll-list entry.
@@ -317,7 +328,10 @@ export class EventsDisplay extends LitElement implements Controller {
     }
 
     let description: string = event.message;
-    if (event.message.startsWith("events_display.")) {
+    if (
+      event.message.startsWith("events_display.") ||
+      isDiplomacyMessage(event.message) // DIPLO (r27)
+    ) {
       description = translateText(event.message, this.resolveParams(event));
     }
 

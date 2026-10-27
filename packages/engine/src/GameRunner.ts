@@ -44,6 +44,12 @@ import {
   scenarioRoster,
 } from "./scenario/Scenario";
 import { ScenarioStartExecution } from "./scenario/ScenarioStartExecution";
+// DIPLO (r27)
+import {
+  diplomacyEnabled,
+  scenarioDiplomacyView,
+} from "./scenario/ScenarioDiplomacy";
+import { ScenarioDiplomacyExecution } from "./scenario/ScenarioDiplomacyExecution";
 import {
   readSnapshotHeader,
   restoreGame,
@@ -223,6 +229,15 @@ export class GameRunner {
       );
     }
     this.game.addExecution(new WinCheckExecution());
+    // DIPLO (r27): courting the neutrals, in scenario editions that have it.
+    if (
+      this.game.scenario() !== null &&
+      diplomacyEnabled(this.game.config().gameConfig())
+    ) {
+      this.game.addExecution(
+        new ScenarioDiplomacyExecution(this.execManager.gameID()),
+      );
+    }
     if (this.game.config().doomsdayClockConfig().enabled) {
       this.game.addExecution(new DoomsdayClockExecution());
     }
@@ -379,6 +394,11 @@ export class GameRunner {
         hasTradeAgreement: player.hasTradeAgreementWith(other),
         canRequestTradeAgreement: player.canRequestTradeAgreement(other),
       };
+      // DIPLO (r27): courting a neutral, or a neutral asking to join.
+      const diplomacy = scenarioDiplomacyView(this.game, player, other);
+      if (diplomacy !== undefined) {
+        actions.interaction.scenarioDiplomacy = diplomacy;
+      }
     }
 
     return actions;

@@ -11,6 +11,10 @@ import { EventBus } from "@openfront/shared/EventBus";
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { Controller } from "../../Controller";
+import {
+  diplomacyCard,
+  diplomacyCardsClosedBy,
+} from "../../scenario/ScenarioDiplomacyClient"; // DIPLO (r27)
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
 import { GoToPlayerEvent } from "../../TransformHandler";
 import {
@@ -42,6 +46,8 @@ interface ActionableEvent {
   allianceID?: number;
   duration?: Tick;
   requestorID: number;
+  /** DIPLO (r27): the Scenario neutral a courting card is about. */
+  diplomacyNeutral?: number;
 }
 
 @customElement("actionable-events")
@@ -273,6 +279,7 @@ export class ActionableEvents extends LitElement implements Controller {
    * message; give it Accept / Decline buttons like an alliance request.
    */
   private onDisplayEvent(update: DisplayMessageUpdate) {
+    this.onScenarioDiplomacyEvent(update); // DIPLO (r27)
     if (update.message !== TRADE_AGREEMENT_REQUEST_MESSAGE) return;
     const myPlayer = this.game.myPlayer();
     if (!myPlayer || update.playerID !== myPlayer.smallID()) return;
@@ -316,6 +323,47 @@ export class ActionableEvents extends LitElement implements Controller {
       duration: this.game.config().allianceRequestDuration(),
       focusID: update.focusPlayerID,
       requestorID: update.focusPlayerID,
+    });
+  }
+
+  /**
+   * DIPLO (r27): a Scenario neutral's invitation, or its ask to join your
+   * side, as a yes/no card; a neutral joining a side closes its cards.
+   */
+  private onScenarioDiplomacyEvent(update: DisplayMessageUpdate) {
+    const closed = diplomacyCardsClosedBy(update);
+    if (closed !== null) {
+      const left = this.events.filter((e) => e.diplomacyNeutral !== closed);
+      if (left.length !== this.events.length) {
+        this.events = left;
+        this.requestUpdate();
+      }
+      return;
+    }
+    const myPlayer = this.game.myPlayer();
+    if (!myPlayer || update.focusPlayerID === undefined) return;
+    const other = this.game.playerBySmallID(update.focusPlayerID);
+    const card = diplomacyCard(
+      update,
+      myPlayer,
+      other.isPlayer() ? (other as PlayerView) : null,
+      (e) => this.eventBus.emit(e),
+      () => this.emitGoToPlayerEvent(update.focusPlayerID!),
+    );
+    if (card === null) return;
+    this.eventBus.emit(new PlaySoundEffectEvent("alliance-suggested"));
+    this.addEvent({
+      description: card.description,
+      buttons: card.buttons,
+      // Info-coloured, and not an alliance request (those are dropped
+      // when no alliance request stands behind them).
+      type: MessageType.TRADE_AGREEMENT_REQUEST,
+      createdAt: this.game.ticks(),
+      priority: 0,
+      duration: card.duration,
+      focusID: card.focusID,
+      requestorID: card.focusID,
+      diplomacyNeutral: card.neutral,
     });
   }
 

@@ -267,6 +267,10 @@ export class HelpModal extends BaseModal {
             <p class="mb-2 text-white/70 text-sm" data-help-random-history>
               ${translateText("help_modal.scenarios_random")}
             </p>
+            <!-- DIPLO (r27): courting the neutrals -->
+            <p class="mb-2 text-white/70 text-sm" data-help-courting>
+              ${translateText("scenario_diplomacy.help")}
+            </p>
             <!-- DFX (r26): Scenario goals -->
             <p class="mb-6 text-white/70 text-sm" data-help-goals>
               ${translateText("help_modal.scenarios_goals", {
