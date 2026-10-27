@@ -8,7 +8,12 @@ import { UnitType } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
-import { holdTargetTiles } from "@openfront/engine/scenario/ScenarioRules";
+import { Game } from "@openfront/engine/game/Game";
+import {
+  holdMark,
+  holdTargetTiles,
+  scenarioWinner,
+} from "@openfront/engine/scenario/ScenarioRules";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -328,14 +333,14 @@ describe("Korea 1950: North Korea takes the South", () => {
     expect(en.scenarios.win.northkorea).toBe("North Korea takes the South");
   });
 
-  it("has no China: the map's far bank of the Yalu is impassable ground", () => {
+  it("has no Chinese nation: the map's far bank of the Yalu is impassable ground (China comes as waves, SCEN3 r27)", () => {
     const data = scenarioData("korea1950")!;
     expect(data.nations.map((n) => n.key).sort()).toEqual([
       "north_korea",
       "south_korea",
       "un_command",
     ]);
-    expect(data.rule).toBeUndefined();
+    expect(data.rule).toBe("korea1950");
     const north = data.sides.find((s) => s.id === "NorthKorea")!;
     expect(north.winByHolding?.nations).toEqual(["south_korea"]);
   });
@@ -373,14 +378,18 @@ describe("Korea 1950: North Korea takes the South", () => {
     g.step(20);
     expect(wins(g)).toHaveLength(0);
 
-    // The last tile: the North wins, with the UN's base in Japan untouched
-    // and South Korea's islets still its own.
+    // The last tile: the North's hold begins (SCEN3 r27: it wins after
+    // holding it 150 s in a row, ScenarioKorea.test.ts), with the UN's base
+    // in Japan untouched and South Korea's islets still its own.
     expect(un.numTilesOwned()).toBeGreaterThan(unLand * 0.9);
     north.conquer(big[big.length - 1]);
     g.step(20);
-    const w = wins(g);
-    expect(w).toHaveLength(1);
-    expect(w[0].winner?.[1]).toBe("NorthKorea");
+    expect(wins(g)).toHaveLength(0);
+    const since = g.game.scenarioMark(holdMark("NorthKorea"))!;
+    expect(since).toBeDefined();
+    const later = Object.create(g.game) as Game;
+    later.ticks = () => since + 1500;
+    expect(scenarioWinner(later, false)).toBe("NorthKorea");
     expect(un.numTilesOwned()).toBeGreaterThan(unLand / 2);
     expect(south.numTilesOwned()).toBeGreaterThan(0);
   }, 120_000);

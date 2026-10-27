@@ -130,8 +130,14 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   trade ships, trains and the steady income. A blockade's 0.6: Thirteen
   Colonies 1776's colonies, whose trade among thirteen friendly colonies
   otherwise pays for cities enough to outgrow Britain's army.
+- **fronts** on a nation (optional, SCEN3 round 27): its own front rules
+  over the scenario's (below): the supply fields when it attacks, homeland
+  and lastStand when it is attacked. Korea 1950's North runs out of supply
+  sooner (`supplyPer100` 0.8, `supplyMax` 3.5); 1939's Soviet Union is a
+  wall at home (`homeland` 1).
 - **Structures:** `City`, `Port`, `Factory`, `Defense Post`, `Missile Silo`,
-  `SAM Launcher`, with an optional `level`. Each stands at the nearest place
+  `SAM Launcher`, `Dome` (SCEN3: a Dome of Alden, which only stops nukes, in
+  a 100-tile range; five at most per nation), with an optional `level`. Each stands at the nearest place
   its owner may build one (on its own land, a port on the coast, 15 tiles
   from the others); one that finds no place is skipped. The capital is a
   Capital, the fork's one-per-nation building.
@@ -218,9 +224,38 @@ condition) is a `ScenarioRule` in `SCENARIO_RULES`
   side a neutral joins;
 - `holdsFire(game, nation)`: a computer-run nation on a side starts no
   attacks for now (Europe 1939's pact and Phoney War);
-- `attackFactor(game, attacker, defender)`: a further factor on the cost of
-  an attacker's attacks (Europe 1939: the Soviet Union's purged officer
-  corps, for the first minutes).
+- `attackFactor(game, attacker, defender, tile)`: a further factor on the
+  cost of an attacker's attacks, below 1 for cheaper ones (Europe 1939: the
+  Soviet Union's purged officer corps for the first minutes, its offensives
+  beyond its 1939 borders for a while after it enters the war, and
+  Germany's opening against a computer-run Poland);
+- `tick(game)`: every second, before the win check (waves, a nation
+  entering the war);
+- `troopCapBonus(game, player)`: a raise of a nation's troop cap now, on
+  top of its data's (the waves'); players see it in their troop bar;
+- `target(game, nation)` (SCEN3): the enemy a computer-run nation goes for
+  first (Europe 1939: Germany into Poland). It still answers attacks first
+  and keeps its reserve.
+
+What a rule must remember (the tick a hold began, China in the war, a wave
+landed) it keeps as **scenario marks** (`game.scenarioMark(key)`,
+`setScenarioMark`), game state in the snapshot; the hooks keep nothing of
+their own.
+
+**Waves** (SCEN3, `packages/engine/src/scenario/ScenarioWaves.ts`):
+reinforcements a rule lands as the war goes on. A wave is due at its minute,
+or that long after a mark (China's, after the UN nears the Yalu). It lands at
+the first of its places its side holds (the nation holding it gets the
+troops), else, with an `assault` place, its nation sails the troops for that
+place and lands on whoever holds it, else they join its nation where it is.
+Its `troops` come with `cap`, a raise of the receiver's troop cap for good
+(troops over a cap fall back to it at once, so a wave without one only
+refills an army), and `ships` warships may come too. News:
+`events_display.scenario_wave_<news>` (`_assault`, `_arrive`), with the place
+from `scenario_place.<place>`. Korea 1950: the UN at Busan (else in Japan)
+and Incheon (landing on it if lost), China's three after the mark; Thirteen
+Colonies 1776: Britain's army at New York, Boston and Charleston, and France
+at Yorktown or Newport with a fleet.
 
 Add a hook there if a scenario needs another; it runs on every client, so
 keep it deterministic (the game's ticks and state, integer or plain

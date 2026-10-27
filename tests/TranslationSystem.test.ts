@@ -37,6 +37,11 @@ const DYNAMIC_KEY_PATTERNS: RegExp[] = [
   // DFX (r26): a nation's Scenario goal, keyed by scenario and nation id
   // (engine-lib/scenario/ScenarioGoals.ts goalTextKey, read by ScenarioGoalText).
   /^scenario_goal_text\.[^.]+\.[^.]+$/,
+  // SCEN3 (r27): a scenario's waves and holds, named by the engine
+  // (ScenarioWaves.ts, ScenarioRules.ts holdWinner), and a wave's landing
+  // place (scenario_place.<place>, translated by EventsDisplay).
+  /^events_display\.scenario_(wave|hold)_.+$/,
+  /^scenario_place\.[^.]+$/,
   // Built-in graphics preset names/descriptions are referenced from
   // src/client/render/gl/graphics-presets.json, not translateText literals.
   /^graphics_setting\.preset_(default|night|evans_pick|colorblind)(_desc)?$/,

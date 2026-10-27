@@ -1267,8 +1267,19 @@
     "renew_alliance": "Request to renew",
     "request_alliance": "{name} requests an alliance!",
     "retreating": "retreating",
+    "scenario_hold_broken_northkorea": "The United Nations break North Korea's hold on the South.",
+    "scenario_hold_started_northkorea": "North Korea holds all of the South. The United Nations have {time} to retake ground, or the war is lost.",
     "scenario_joined_side": "{name} is at war with {by} and joins the {side}.",
     "scenario_loyalists": "{name}'s capital has fallen and its Loyalists take over: {name} joins the {side}.",
+    "scenario_wave_british": "British and Hessian regiments land at {place}: {troops} troops for {name}.",
+    "scenario_wave_british_arrive": "British and Hessian regiments arrive: {troops} troops for {name}.",
+    "scenario_wave_british_assault": "British and Hessian regiments sail for {place}: {troops} troops for {name}.",
+    "scenario_wave_china_arrive": "Chinese People's Volunteers cross the Yalu: {troops} troops for {name}.",
+    "scenario_wave_france": "France enters the war: {troops} French troops and a fleet land at {place} for {name}.",
+    "scenario_wave_france_arrive": "France enters the war: {troops} French troops for {name}.",
+    "scenario_wave_un": "UN reinforcements land at {place}: {troops} troops for {name}.",
+    "scenario_wave_un_arrive": "UN reinforcements arrive: {troops} troops for {name}.",
+    "scenario_wave_un_assault": "UN forces sail for a landing at {place}: {troops} troops for {name}.",
     "sent_emoji": "Sent {name}: {emoji}",
     "sent_emoji_all": "Sent everyone: {emoji}",
     "sent_gold_to_player": "Sent {gold} gold to {name}",
@@ -1281,18 +1292,7 @@
     "trade_ship_captured": "Your trade ship was captured by {name}",
     "unit_destroyed": "Your {unit} was destroyed",
     "unit_voluntarily_deleted": "Unit voluntarily deleted",
-    "wants_to_renew_alliance": "{name} wants to renew your alliance",
-    "scenario_hold_started_northkorea": "North Korea holds all of the South. The United Nations have {time} to retake ground, or the war is lost.",
-    "scenario_hold_broken_northkorea": "The United Nations break North Korea's hold on the South.",
-    "scenario_wave_un": "UN reinforcements land at {place}: {troops} troops for {name}.",
-    "scenario_wave_un_assault": "UN forces sail for a landing at {place}: {troops} troops for {name}.",
-    "scenario_wave_un_arrive": "UN reinforcements arrive: {troops} troops for {name}.",
-    "scenario_wave_china_arrive": "Chinese People's Volunteers cross the Yalu: {troops} troops for {name}.",
-    "scenario_wave_british": "British and Hessian regiments land at {place}: {troops} troops for {name}.",
-    "scenario_wave_british_assault": "British and Hessian regiments sail for {place}: {troops} troops for {name}.",
-    "scenario_wave_british_arrive": "British and Hessian regiments arrive: {troops} troops for {name}.",
-    "scenario_wave_france": "France enters the war: {troops} French troops and a fleet land at {place} for {name}.",
-    "scenario_wave_france_arrive": "France enters the war: {troops} French troops for {name}."
+    "wants_to_renew_alliance": "{name} wants to renew your alliance"
   },
   "featured_stream": {
     "expand": "Expand",
@@ -1573,8 +1573,8 @@
     "pvp_immunity_active": "PVP immunity active for {seconds}s",
     "random_spawn": "Random spawn is enabled. Selecting starting location for you...",
     "random_spawn_spectator": "Random spawn is enabled",
-    "singleplayer_game_paused": "Game paused",
-    "scenario_hold_northkorea": "North Korea holds the South: {time}"
+    "scenario_hold_northkorea": "North Korea holds the South: {time}",
+    "singleplayer_game_paused": "Game paused"
   },
   "help_modal": {
     "action_attack_altclick": "Attack (when left click is set to open menu)",
@@ -1651,10 +1651,11 @@
     "radial_donate_troops": "Donate troops equivalent to your attack ratio slider percentage to the ally you opened the radial menu on.",
     "radial_info": "Open the Info menu.",
     "radial_title": "Radial menu",
-    "scenarios_colonies": "In Thirteen Colonies 1776 the Royal Navy blockades the coast, so the colonies earn less gold, and from minute 40 both sides' bars fall: Britain has to hold out, the colonies to break through first.",
+    "scenarios_colonies": "In Thirteen Colonies 1776 the Royal Navy blockades the coast, so the colonies earn less gold. Britain starts with its garrisons, and its army comes by sea in waves at New York, Boston and Charleston, landing on whoever holds the port. Partway through, France enters the war for the Patriots with an army and a fleet.",
     "scenarios_desc": "Scenarios start a historical war on a map you know: every nation holds its real borders, capital and army from the first second. Pick a nation, solo or with friends; nations nobody picks are run by the computer. Nations on a side are allied for good and win together when every nation on the other side is beaten (wiped out, or down to a few scraps of land). A neutral that is invaded, or that attacks, joins the war against the side it fought, and stays.",
     "scenarios_fronts": "Fronts hold in every scenario: nations fight harder on their own soil, and harder still as they lose it; armies weaken the farther they fight from home, by land or by sea.",
     "scenarios_goals": "Each nation has one optional goal, shown under it on the Scenarios screen and under the timer in game: a historical stretch, like holding your capital past a minute or taking a city in time (on a Compact map, by half the minutes). Meet it in a game on Hard or Impossible for {coins} bonus Derp Coins, once per goal (signed in). Losing the war doesn't stop you collecting it, and it never decides who wins.",
+    "scenarios_korea": "In the Korean War, North Korea wins by holding all of the South for two and a half minutes, with a countdown everyone sees; retaking any of it resets the count. UN reinforcements land at Busan and Incheon, and Chinese volunteers come to the North's aid if the UN pushes toward the Yalu.",
     "scenarios_random": "Random history (on the Scenarios screen and the menu) picks a random war and a random nation big enough to play, shows you who you are for a moment (Reroll if you'd rather not), then starts a solo game. In a scenario lobby, the host's Random nations deals every player a random free nation, mixed across the sides, or with \"Keep friends on one side\" your party (or your friends) together on one side.",
     "scenarios_title": "Scenarios",
     "table_action": "Action",
@@ -3046,6 +3047,18 @@
     "xianbei": "Xianbei",
     "yugoslavia": "Yugoslavia"
   },
+  "scenario_place": {
+    "boston": "Boston",
+    "busan": "Busan",
+    "charleston": "Charleston",
+    "incheon": "Incheon",
+    "new_york": "New York",
+    "newport": "Newport",
+    "quebec": "Quebec",
+    "sasebo": "Sasebo",
+    "staten_island": "Staten Island",
+    "yorktown": "Yorktown"
+  },
   "scenarios": {
     "back": "Back to scenarios",
     "change": "Change",
@@ -3056,7 +3069,7 @@
     },
     "colonies1776": {
       "date": "Summer 1776",
-      "description": "The thirteen colonies have declared independence, each under its own government. Britain holds Quebec, Nova Scotia, East Florida and the forts of the Great Lakes, its fleet holds the St. Lawrence, and Howe has landed an army on Staten Island. The forts stand, from Quebec to Ticonderoga and Charleston, and both sides have fleets on the lakes. The native nations stand apart. The Royal Navy blockades the coast: the colonies earn less gold. From minute 40 both sides' bars fall: hold out or break through.",
+      "description": "The thirteen colonies have declared independence, each under its own government. Britain holds Quebec, Nova Scotia, East Florida and the forts of the Great Lakes, its fleet holds the St. Lawrence, and Howe has landed an army on Staten Island. The forts stand, from Quebec to Ticonderoga and Charleston, and both sides have fleets on the lakes. The native nations stand apart. The Royal Navy blockades the coast: the colonies earn less gold. Britain holds its forts with garrisons; its army comes by sea in waves, at New York, Boston and Charleston. After Saratoga, France joins the Patriots with an army and a fleet.",
       "neutral": "Native nations",
       "title": "Thirteen Colonies 1776"
     },
@@ -3816,17 +3829,5 @@
     "spectate": "Spectate",
     "you_won": "You Won!",
     "your_team": "Your team won!"
-  },
-  "scenario_place": {
-    "boston": "Boston",
-    "busan": "Busan",
-    "charleston": "Charleston",
-    "incheon": "Incheon",
-    "new_york": "New York",
-    "newport": "Newport",
-    "quebec": "Quebec",
-    "sasebo": "Sasebo",
-    "staten_island": "Staten Island",
-    "yorktown": "Yorktown"
   }
 }
