@@ -8,7 +8,10 @@ import {
   scenarioAttackFactor,
 } from "@openfront/engine/scenario/ScenarioFronts";
 import { scenarioStartLabels } from "@openfront/engine/scenario/ScenarioLabels";
-import { SCENARIO_RULES } from "@openfront/engine/scenario/ScenarioRules";
+import {
+  EUROPE_1939_BLITZ_TICKS,
+  SCENARIO_RULES,
+} from "@openfront/engine/scenario/ScenarioRules";
 import { describe, expect, it } from "vitest";
 import { scenarioGame } from "./ScenarioTestUtil";
 
@@ -44,14 +47,18 @@ describe("fronts that hold", () => {
     const polandLabel =
       game.scenario()!.data.nations.findIndex((n) => n.key === "poland") + 1;
     expect(labels[warsaw]).toBe(polandLabel);
-    const fresh = scenarioAttackFactor(game, germany, poland, warsaw);
+    // After the opening minutes, when Germany's help against a computer-run
+    // Poland is over (SCEN3 r27: EUROPE_1939_BLITZ_TICKS).
+    const view = Object.create(game) as Game;
+    view.ticks = () => EUROPE_1939_BLITZ_TICKS;
+    const fresh = scenarioAttackFactor(view, germany, poland, warsaw);
     expect(fresh).toBeGreaterThanOrEqual(1 + rules.homeland);
     expect(fresh).toBeLessThan((1 + rules.homeland) * 1.2);
     // Half of Poland gone: the last stand.
     const tiles = [...poland.tiles()];
     const start = tiles.length;
     for (const t of tiles.slice(0, Math.floor(start / 2))) germany.conquer(t);
-    const halved = scenarioAttackFactor(game, germany, poland, warsaw);
+    const halved = scenarioAttackFactor(view, germany, poland, warsaw);
     expect(halved / fresh).toBeCloseTo(
       (1 + rules.homeland + rules.lastStand * 0.5) / (1 + rules.homeland),
       1,
@@ -63,8 +70,14 @@ describe("fronts that hold", () => {
     const { game } = g;
     const germany = g.nation("germany");
     const ussr = g.nation("soviet_union");
-    const rules = frontRules(game.scenario()!);
-    const homeland = 1 + rules.homeland;
+    const scenario = game.scenario()!;
+    const rules = frontRules(scenario);
+    // The Soviet Union's own homeland rule (SCEN3 r27: a wall at home).
+    const own = frontRules(
+      scenario,
+      scenario.data.nations.findIndex((n) => n.key === "soviet_union"),
+    );
+    const homeland = 1 + own.homeland;
     // Minsk is some 190 tiles from Germany's 1939 land (East Prussia),
     // Moscow some 600, past the cap.
     const minsk = scenarioAttackFactor(
@@ -113,6 +126,54 @@ describe("fronts that hold", () => {
       data.rule = beforeRule;
       delete SCENARIO_RULES.test_double;
     }
+  }, 120_000);
+
+  it("lets a special rule's factor go below 1 (SCEN3 r27: cheaper attacks)", async () => {
+    const g = await scenarioGame("continental1776");
+    const data = g.game.scenario()!.data;
+    const beforeRule = data.rule;
+    data.rule = "test_half";
+    SCENARIO_RULES.test_half = { attackFactor: () => 0.5 };
+    try {
+      const britain = g.nation("great_britain");
+      const colonies = g.nation("united_colonies");
+      const tile = [...colonies.tiles()][0];
+      const withHalf = scenarioAttackFactor(g.game, britain, colonies, tile);
+      data.rule = beforeRule;
+      const plain = scenarioAttackFactor(g.game, britain, colonies, tile);
+      expect(withHalf / plain).toBeCloseTo(0.5, 6);
+    } finally {
+      data.rule = beforeRule;
+      delete SCENARIO_RULES.test_half;
+    }
+  }, 120_000);
+
+  it("takes a nation's own front rules over its scenario's (SCEN3 r27)", async () => {
+    const g = await scenarioGame("korea1950");
+    const { game } = g;
+    const scenario = game.scenario()!;
+    const data = scenario.data;
+    const ni = data.nations.findIndex((n) => n.key === "north_korea");
+    const own = data.nations[ni].fronts!;
+    expect(frontRules(scenario, ni)).toEqual({
+      ...FRONT_DEFAULTS,
+      ...data.fronts,
+      ...own,
+    });
+    // The North's supply runs thin sooner than the South's: deep in the
+    // South (Busan) its attacks cost more than the scenario's cap allows.
+    const north = g.nation("north_korea");
+    const south = g.nation("south_korea");
+    const busan = near(game, 823, 1708, (t) => game.owner(t) === south);
+    expect(scenarioAttackFactor(game, north, south, busan)).toBeGreaterThan(
+      (1 + data.fronts!.homeland!) * data.fronts!.supplyMax!,
+    );
+    // The South at home is untouched by the North's own rules.
+    const ri = data.nations.findIndex((n) => n.key === "south_korea");
+    expect(frontRules(scenario, ri)).toEqual({
+      ...FRONT_DEFAULTS,
+      ...data.fronts,
+    });
   }, 120_000);
 
   it("has the defaults resources/scenarios/README.md's table gives", () => {

@@ -286,6 +286,11 @@ export interface PlayerUpdate {
   betrayals?: number;
   lastDeleteUnitTick?: Tick;
   isLobbyCreator?: boolean;
+  /**
+   * SCEN3 (r27): what a scenario's rule adds to this player's troop cap now
+   * (waves of reinforcements), as stored troops; absent (0) otherwise.
+   */
+  scenarioCap?: number;
 }
 
 export interface AllianceView {

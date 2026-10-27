@@ -3,6 +3,7 @@
   "title": "Korean War",
   "map": "Korea",
   "year": 1950,
+  "rule": "korea1950",
   "fronts": {
     "homeland": 1,
     "lastStand": 2,
@@ -15,7 +16,11 @@
       "id": "NorthKorea",
       "name": "North Korea",
       "color": "#b8433f",
-      "winByHolding": { "nations": ["south_korea"], "ignoreUnder": 200 }
+      "winByHolding": {
+        "nations": ["south_korea"],
+        "ignoreUnder": 200,
+        "seconds": 150
+      }
     },
     { "id": "UnitedNations", "name": "United Nations", "color": "#3f74c4" }
   ],
@@ -28,7 +33,8 @@
       "color": "#a8423c",
       "troopsPercent": 100,
       "gold": 1500000,
-      "troopCapBonus": 4000000,
+      "troopCapBonus": 1000000,
+      "fronts": { "supplyPer100": 0.8, "supplyMax": 3.5 },
       "capital": [264, 972],
       "structures": [
         { "type": "City", "at": [552, 784], "level": 2 },
@@ -91,15 +97,21 @@
       "flag": "un",
       "side": "UnitedNations",
       "color": "#58b0c8",
-      "troopsPercent": 50,
+      "troopsPercent": 100,
       "gold": 500000,
+      "troopCapBonus": 1500000,
       "capital": [1019, 2061],
       "structures": [
         { "type": "City", "at": [1003, 2125] },
         { "type": "Port", "at": [909, 2143] },
         { "type": "Port", "at": [943, 2187] },
         { "type": "Port", "at": [1009, 2048] },
-        { "type": "Port", "at": [840, 1942] }
+        { "type": "Port", "at": [840, 1942] },
+        { "type": "Dome", "at": [1029, 2185] },
+        { "type": "Dome", "at": [901, 2101] },
+        { "type": "Dome", "at": [826, 1918] },
+        { "type": "Dome", "at": [1033, 2074] },
+        { "type": "Dome", "at": [814, 2122] }
       ],
       "warships": [[890, 2059]],
       "regions": [

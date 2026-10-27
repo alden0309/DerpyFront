@@ -1268,10 +1268,6 @@
     "request_alliance": "{name} requests an alliance!",
     "retreating": "retreating",
     "scenario_joined_side": "{name} is at war with {by} and joins the {side}.",
-    "scenario_landing_charleston": "Hessian and British regiments land at Charleston: {troops} troops for {name}.",
-    "scenario_landing_new_york": "Hessian and British regiments land at New York: {troops} troops for {name}.",
-    "scenario_landing_quebec": "Hessian and British regiments land at Quebec: {troops} troops for {name}.",
-    "scenario_landing_staten_island": "Hessian and British regiments land at Staten Island: {troops} troops for {name}.",
     "scenario_loyalists": "{name}'s capital has fallen and its Loyalists take over: {name} joins the {side}.",
     "sent_emoji": "Sent {name}: {emoji}",
     "sent_emoji_all": "Sent everyone: {emoji}",
@@ -1285,7 +1281,18 @@
     "trade_ship_captured": "Your trade ship was captured by {name}",
     "unit_destroyed": "Your {unit} was destroyed",
     "unit_voluntarily_deleted": "Unit voluntarily deleted",
-    "wants_to_renew_alliance": "{name} wants to renew your alliance"
+    "wants_to_renew_alliance": "{name} wants to renew your alliance",
+    "scenario_hold_started_northkorea": "North Korea holds all of the South. The United Nations have {time} to retake ground, or the war is lost.",
+    "scenario_hold_broken_northkorea": "The United Nations break North Korea's hold on the South.",
+    "scenario_wave_un": "UN reinforcements land at {place}: {troops} troops for {name}.",
+    "scenario_wave_un_assault": "UN forces sail for a landing at {place}: {troops} troops for {name}.",
+    "scenario_wave_un_arrive": "UN reinforcements arrive: {troops} troops for {name}.",
+    "scenario_wave_china_arrive": "Chinese People's Volunteers cross the Yalu: {troops} troops for {name}.",
+    "scenario_wave_british": "British and Hessian regiments land at {place}: {troops} troops for {name}.",
+    "scenario_wave_british_assault": "British and Hessian regiments sail for {place}: {troops} troops for {name}.",
+    "scenario_wave_british_arrive": "British and Hessian regiments arrive: {troops} troops for {name}.",
+    "scenario_wave_france": "France enters the war: {troops} French troops and a fleet land at {place} for {name}.",
+    "scenario_wave_france_arrive": "France enters the war: {troops} French troops for {name}."
   },
   "featured_stream": {
     "expand": "Expand",
@@ -1566,7 +1573,8 @@
     "pvp_immunity_active": "PVP immunity active for {seconds}s",
     "random_spawn": "Random spawn is enabled. Selecting starting location for you...",
     "random_spawn_spectator": "Random spawn is enabled",
-    "singleplayer_game_paused": "Game paused"
+    "singleplayer_game_paused": "Game paused",
+    "scenario_hold_northkorea": "North Korea holds the South: {time}"
   },
   "help_modal": {
     "action_attack_altclick": "Attack (when left click is set to open menu)",
@@ -3061,7 +3069,7 @@
     },
     "europe1939": {
       "date": "1 September 1939",
-      "description": "Europe on the eve of the Second World War. Germany has taken Austria and Czechoslovakia, and Italy holds Albania. The Maginot Line, the Westwall and the other fortified lines stand at the start, and the fleets lie in their bases. The Soviet Union has the biggest army on the board, but the purges have cost it its officers: its attacks are weak for the first ten minutes. Spain, Sweden, Turkey and others are neutral, for now.",
+      "description": "Europe on the eve of the Second World War. Germany has taken Austria and Czechoslovakia, and Italy holds Albania. The Maginot Line, the Westwall and the other fortified lines stand at the start, and the fleets lie in their bases. Germany strikes Poland first. The Soviet Union has the biggest army on the board and stays out, bound by its pact with Germany, until it is attacked or until minute 20 (June 1941); the purges have cost it its officers, so its attacks are weak for the first ten minutes and its offensives beyond its own borders slow for a while after it enters the war. At home it is a wall. Spain, Sweden, Turkey and others are neutral, for now.",
       "title": "Europe 1939"
     },
     "free_seat": "Free seat",
@@ -3077,7 +3085,7 @@
     "join_hint": "Pick a free nation. Nations nobody picks are run by the computer.",
     "korea1950": {
       "date": "25 June 1950",
-      "description": "North Korea's army crosses the 38th parallel. South Korea and the United Nations Command, with its base in Japan, defend the South. North Korea wins by taking all of the South, and the South by taking the North.",
+      "description": "North Korea's army crosses the 38th parallel, but its supply runs thin the farther south it goes. South Korea and the United Nations Command, with a large army and Domes of Alden in Japan, defend the South; UN reinforcements land at Busan, then at Incheon. If the UN pushes north toward the Yalu, Chinese volunteers come to the North's aid. North Korea wins by holding all of the South for two and a half minutes; the UN by beating the North.",
       "title": "Korean War"
     },
     "move_here": "Move {name} here",
@@ -3808,5 +3816,17 @@
     "spectate": "Spectate",
     "you_won": "You Won!",
     "your_team": "Your team won!"
+  },
+  "scenario_place": {
+    "boston": "Boston",
+    "busan": "Busan",
+    "charleston": "Charleston",
+    "incheon": "Incheon",
+    "new_york": "New York",
+    "newport": "Newport",
+    "quebec": "Quebec",
+    "sasebo": "Sasebo",
+    "staten_island": "Staten Island",
+    "yorktown": "Yorktown"
   }
 }

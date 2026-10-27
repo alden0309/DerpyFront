@@ -8,13 +8,21 @@
  *
  * Usage (from the worktree root):
  *   nice -n 10 npx tsx tests/scenario/ScenarioBalance.ts --scenario europe1939 \
- *     --seed s1 --difficulty Medium --minutes 120 [--size Normal] [--goals]
+ *     --seed s1 --difficulty Medium --minutes 120 [--size Normal] [--goals] \
+ *     [--seat germany]
+ *
+ * SCEN3 (r27): --seat <nation key> plays that nation as a person's seat:
+ * a human player (PlayerType.Human, so the human's numbers and everything
+ * the rules give or deny a person) seated at the nation, driven by the
+ * computer's own logic (a NationExecution) at the game's difficulty.
  */
 import {
+  Cell,
   Difficulty,
   GameMapSize,
   GameMode,
   GameType,
+  Nation,
   PlayerType,
 } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
@@ -26,6 +34,7 @@ import {
   goalTileXY,
   scenarioGoal,
 } from "@openfront/engine-lib/scenario/ScenarioGoals"; // DFX (r26)
+import { NationExecution } from "@openfront/engine/execution/NationExecution";
 import { createGameRunner } from "@openfront/engine/GameRunner";
 import { GOAL_CHECK_INTERVAL } from "@openfront/engine/scenario/ScenarioGoals"; // DFX (r26)
 import { loadMapFiles } from "@openfront/shared/GameMapLoader";
@@ -53,6 +62,9 @@ const overtime = parseInt(
   10,
 );
 const ROOT = process.env.SCEN_ROOT ?? process.cwd();
+// SCEN3 (r27): a person's seat (see the header), or none.
+const seat = arg("seat", "");
+const SEAT_CLIENT = "SEAT0001";
 
 async function main() {
   console.debug = () => {};
@@ -79,10 +91,22 @@ async function main() {
       infiniteTroops: false,
       instantBuild: false,
       randomSpawn: false,
-      scenario: { id },
+      scenario: { id, ...(seat ? { seats: { [seat]: SEAT_CLIENT } } : {}) },
     },
-    players: [],
+    players: seat
+      ? [
+          {
+            clientID: SEAT_CLIENT,
+            username: "Seat",
+            clanTag: null,
+            isLobbyCreator: true,
+          },
+        ]
+      : [],
   };
+  if (seat && !data.nations.some((n) => n.key === seat)) {
+    throw new Error(`${id} has no nation ${seat}`);
+  }
   // The scenario's fixed settings, as the solo screen and the server apply
   // them (its own Overtime among them); --overtime overrides.
   applyScenarioRules(gameStart.config);
@@ -106,10 +130,12 @@ async function main() {
           `${Math.round(runner.game.ticks() / 600)}m ${e.params?.name} -> ${e.params?.side} (by ${e.params?.by})`,
         );
       }
-      // A special rule's news (a colony changing sides, a landing).
+      // A special rule's news (a colony changing sides, a landing, a
+      // wave, a hold, a nation entering the war).
       if (
         e.message === "events_display.scenario_loyalists" ||
-        e.message.startsWith("events_display.scenario_landing_")
+        (e.message.startsWith("events_display.scenario_") &&
+          e.message !== "events_display.scenario_joined_side")
       ) {
         joins.push(
           `${Math.round(runner.game.ticks() / 600)}m ${e.message.replace("events_display.scenario_", "")} ${e.params?.name}`,
@@ -119,6 +145,25 @@ async function main() {
   });
   const t0 = Date.now();
   const game = runner.game;
+  // SCEN3 (r27): the person's seat, driven by the computer's logic.
+  if (seat) {
+    const human = game.playerByClientID(SEAT_CLIENT);
+    if (human === null) throw new Error("no seat player");
+    const n = data.nations.find((x) => x.key === seat)!;
+    const scale = size === GameMapSize.Compact ? 2 : 1;
+    game.addExecution(
+      new NationExecution(
+        gameStart.gameID,
+        new Nation(
+          new Cell(
+            Math.floor(n.capital[0] / scale),
+            Math.floor(n.capital[1] / scale),
+          ),
+          human.info(),
+        ),
+      ),
+    );
+  }
   const land = game.numLandTiles();
   const shares: Record<string, number[]> = {};
   for (const s of data.sides) shares[s.id] = [];
@@ -176,6 +221,7 @@ async function main() {
     }
   };
   // DFX (r26) end
+  const startTroops: Record<string, number> = {};
   let tick = 0;
   for (; tick < maxTicks && winner === null; tick++) {
     runner.addTurn({ turnNumber: tick, intents: [] });
@@ -194,6 +240,14 @@ async function main() {
         progress[s.id] = (pct - start[s.id]) / (bar() - start[s.id]);
       }
       samples.push({ minute: tick / 600, progress });
+    }
+    // SCEN3 (r27): the sides' nations' troops a second in (as players see
+    // them), to compare starting armies.
+    if (tick === 12) {
+      for (const p of game.players()) {
+        if (p.team() === null) continue;
+        startTroops[p.name()] = Math.round(p.troops() / 10);
+      }
     }
     if (verbose && tick % 600 === 20) {
       const rows = game
@@ -223,7 +277,9 @@ async function main() {
   if (withGoals) checkGoals(true); // DFX (r26)
   const alive = game
     .players()
-    .filter((p) => p.type() === PlayerType.Nation)
+    .filter(
+      (p) => p.type() === PlayerType.Nation || p.type() === PlayerType.Human,
+    )
     .map(
       (p) =>
         `${p.name()}[${p.team() ?? "-"}] ${Math.round((1000 * p.numTilesOwned()) / land) / 10}%`,
@@ -232,6 +288,7 @@ async function main() {
     JSON.stringify({
       scenario: id,
       seed,
+      seat: seat || null,
       difficulty,
       size,
       winner,
@@ -268,6 +325,7 @@ async function main() {
       shares,
       joins,
       alive,
+      startTroops,
       ...(withGoals ? { goals } : {}), // DFX (r26)
     }),
   );

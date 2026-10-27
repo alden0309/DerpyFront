@@ -276,6 +276,14 @@ export class EventsDisplay extends LitElement implements Controller {
     ) {
       params = { ...params, side: sideName(params.side) };
     }
+    // SCEN3 (r27): a wave's landing place, in your language.
+    if (
+      event.message.startsWith("events_display.scenario_wave_") &&
+      typeof params.place === "string" &&
+      params.place.startsWith("scenario_place.")
+    ) {
+      params = { ...params, place: translateText(params.place) };
+    }
 
     if (params.name === undefined || event.focusPlayerID === undefined) {
       return params;

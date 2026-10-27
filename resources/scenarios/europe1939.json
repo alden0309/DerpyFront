@@ -291,6 +291,7 @@
       "troopsPercent": 80,
       "gold": 1200000,
       "troopCapBonus": 1800000,
+      "fronts": { "homeland": 1 },
       "capital": [2533, 631],
       "structures": [
         { "type": "City", "at": [2237, 460], "level": 2 },

@@ -85,6 +85,7 @@ export class PlayerView implements PlayerLike {
     public readonly equippedCosmetics: PlayerCosmetics,
   ) {
     this.state = playerStateFromUpdate(data);
+    this._scenarioCap = data.scenarioCap ?? 0; // SCEN3 (r27)
     // Respect the client-side "Disable emojis" setting: when off, never surface
     // emoji data to any renderer/overlay that reads this shared state (#4430).
     if (!userSettings.emojis()) {
@@ -222,6 +223,8 @@ export class PlayerView implements PlayerLike {
    */
   applyUpdate(pu: PlayerUpdate): void {
     applyStateUpdate(this.state, pu);
+    // SCEN3 (r27): what the scenario's rule adds to its troop cap (waves).
+    if (pu.scenarioCap !== undefined) this._scenarioCap = pu.scenarioCap;
     // SCEN (r25): a neutral that joins a side takes that side as its team.
     if (pu.team !== undefined && pu.team !== this.static.team) {
       this.static.team = pu.team;
@@ -437,14 +440,19 @@ export class PlayerView implements PlayerLike {
     return this._scenarioNation;
   }
   private _scenarioNation: ScenarioNation | null | undefined;
-  /** SCEN (r25): as the engine's (Config.maxTroops reads it on both sides). */
+  /**
+   * SCEN (r25): as the engine's (Config.maxTroops reads it on both sides):
+   * the data's troopCapBonus, plus (SCEN3 r27) what the rule has added,
+   * which the engine sends.
+   */
   scenarioTroopCap(): number {
     const bonus = this.scenarioNation()?.troopCapBonus ?? 0;
-    if (bonus === 0) return 0;
+    if (bonus === 0) return this._scenarioCap;
     const compact =
       this.game.config().gameConfig().gameMapSize === GameMapSize.Compact;
-    return (bonus * 10) / (compact ? 2 : 1);
+    return (bonus * 10) / (compact ? 2 : 1) + this._scenarioCap;
   }
+  private _scenarioCap = 0;
   /** SCEN (r25): as the engine's (Config.troopIncreaseRate reads it). */
   scenarioTroopGrowth(): number {
     return this.scenarioNation()?.troopGrowth ?? 1;
