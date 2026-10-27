@@ -63,6 +63,7 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   "map": "Europe", // GameMapType value (the map's name)
   "year": 1939,
   "capitalFullTiles": 40000, // optional, see Capitals
+  "nukes": false, // optional: false before August 1945, see Nukes
   "fronts": { "supplyMax": 2.5 }, // optional, see Fronts
   "rule": "korea", // optional special rule (ScenarioRules.ts)
   "sides": [{ "id": "Axis", "name": "Axis", "color": "#7d7d7d" }],
@@ -94,6 +95,16 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
 
 - **Coordinates** are pixels of the map's full-size `map.bin` (the Normal
   size). A Compact game halves them.
+- **Nukes** (SCEN3, round 27): `"nukes": false` for a scenario set before
+  nuclear weapons (August 1945), which is all of them but Korea 1950. Its
+  games have no atom or hydrogen bombs, MIRVs, missile silos, SAM launchers
+  or Domes of Alden (`NUCLEAR_UNITS` in `Scenarios.ts`: SAMs shoot down
+  only nukes and a Dome only stops nukes, so neither has a use without
+  them), whatever the host's Units settings say: `Config.isUnitDisabled`
+  reads it, `applyScenarioRules` adds them to the game's disabled units,
+  and the lobby shows those toggles off and locked. A structure of those
+  types in the data isn't built. Copy the field to `index.json`, like
+  `capitalFullTiles` (tests/scenario/ScenarioNukes.test.ts checks both).
 - **Sides:** `id` is the side's team name in the game, its key in en.json and
   the `Winner` the game records. `name` is the English name the server writes
   into the game's record. `color` marks the side wherever players are listed.

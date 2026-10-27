@@ -2795,8 +2795,7 @@
     "word_friendly": "Friendly",
     "word_never": "Will never join",
     "word_ready": "Ready to join",
-    "word_wary": "Wary",
-    "your_goodwill": "Goodwill toward you"
+    "word_wary": "Wary"
   },
   "scenario_goal": {
     "coin_line": "Goal met: +{coins}",
