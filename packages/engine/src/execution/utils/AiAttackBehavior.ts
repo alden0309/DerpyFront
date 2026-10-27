@@ -791,15 +791,12 @@ export class AiAttackBehavior {
     const donate = (): boolean => this.donateTroops();
 
     // SCEN3 (r27): the enemy a scenario's rule sends this nation after
-    // first (Europe 1939: Germany into Poland), by land while it borders it.
-    // Answering attacks and the reserve come before it (attackBestTarget).
+    // first (Europe 1939: Germany into Poland; Korea 1950: the North into
+    // the South, islands too), by land or by sea. Answering attacks and the
+    // reserve come before it (attackBestTarget).
     const focus = (): boolean => {
       const target = scenarioTarget(this.game, this.player);
-      return (
-        target !== null &&
-        this.player.sharesBorderWith(target) &&
-        this.sendAttack(target)
-      );
+      return target !== null && this.sendAttack(target);
     };
 
     const crown = (): boolean => {

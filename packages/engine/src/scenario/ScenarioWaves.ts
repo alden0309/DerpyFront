@@ -48,6 +48,13 @@ export interface ScenarioWave {
   cap?: number;
   /** Places (keys of the scenario's places) to land at, in order. */
   at?: readonly string[];
+  /**
+   * A place its side must still hold for the wave to land as above; if it
+   * doesn't, the wave lands at the first of `otherwise` its side holds, or
+   * not at all (Korea's Incheon landing needs the Busan pocket held).
+   */
+  requires?: string;
+  otherwise?: readonly string[];
   /** Else: sail for this place and land on it. */
   assault?: string;
   /** Who gets it when it doesn't land at a place held: the first in the war. */
@@ -127,6 +134,20 @@ function landWave(
   wave: ScenarioWave,
   places: ScenarioPlaces,
 ): void {
+  const needs = wave.requires === undefined ? undefined : places[wave.requires];
+  if (needs !== undefined && sideHolderNear(game, wave.side, needs) === null) {
+    for (const key of wave.otherwise ?? []) {
+      const at = places[key];
+      if (at === undefined) continue;
+      const holder = sideHolderNear(game, wave.side, at);
+      if (holder !== null) {
+        give(game, wave, holder, key, null, places);
+        return;
+      }
+    }
+    game.setScenarioMark(waveMark(wave.id), 0);
+    return;
+  }
   for (const key of wave.at ?? []) {
     const at = places[key];
     if (at === undefined) continue;

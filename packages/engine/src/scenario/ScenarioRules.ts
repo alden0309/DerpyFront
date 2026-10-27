@@ -80,9 +80,11 @@ export interface ScenarioRule {
    */
   troopCapBonus?(game: Game, player: Player): number;
   /**
-   * SCEN3 (r27): the enemy a computer-run nation goes for first now, or
-   * null: Europe 1939's Germany goes for Poland. It still answers attacks
-   * first and keeps its reserve (AiAttackBehavior).
+   * SCEN3 (r27): the enemy the computer's logic sends a nation after first,
+   * by land or sea, or null: Europe 1939's Germany goes for Poland, Korea's
+   * North for the South. It still answers attacks first and keeps its
+   * reserve (AiAttackBehavior). Only the computer's logic reads it; a
+   * person chooses for themselves.
    */
   target?(game: Game, nation: Player): Player | null;
 }
@@ -145,8 +147,8 @@ export const EUROPE_1939_SOVIET_ABROAD: readonly (readonly [number, number])[] =
  * SCEN3 (r27): Germany goes for Poland first and runs through it, as in
  * September 1939, when the computer runs Germany (Europe 1939's `target`;
  * it still answers attacks and keeps its reserve). Against a computer-run
- * Poland only, Germany's attacks cost this much for the first minutes; a
- * person playing Poland gets a real fight.
+ * Poland only, Germany's attacks cost this much for the first minutes
+ * (whoever plays Germany); a person playing Poland gets a real fight.
  */
 export const EUROPE_1939_BLITZ_TICKS = 6 * 600;
 export const EUROPE_1939_BLITZ_FACTOR = 0.5;
@@ -181,10 +183,11 @@ export const KOREA_1950_CHINA = "china";
 
 /**
  * Busan's wave lands if the UN still holds the pocket (else in Japan, where
- * it helps less); Incheon's lands at Incheon if the UN holds it, else sails
- * from South Korea's coast (or Japan) and lands on it. China's three come
- * only after the UN nears the Yalu, to save a collapsing North, not to win
- * the war on their own.
+ * it helps less); Incheon's comes only while the UN holds Busan (else not
+ * at all): at Incheon if the UN holds it, else it sails from South Korea's
+ * coast (or Japan) and lands on it. Holding the pocket pays. China's
+ * three come only after the UN nears the Yalu, to save a collapsing North,
+ * not to win the war on their own.
  */
 export const KOREA_1950_WAVES: ScenarioWave[] = [
   {
@@ -203,6 +206,7 @@ export const KOREA_1950_WAVES: ScenarioWave[] = [
     side: "UnitedNations",
     troops: 800_000,
     cap: 800_000,
+    requires: "busan",
     at: ["incheon"],
     assault: "incheon",
     by: ["south_korea", "un_command"],
@@ -403,6 +407,11 @@ export const SCENARIO_RULES: Record<string, ScenarioRule> = {
   },
   // SCEN3 (r27): the UN's waves, China's, and the North's hold (data).
   korea1950: {
+    // The North's war aim: the South, to the last island.
+    target: (game, nation) =>
+      game.scenario()?.nationOf(nation)?.key === "north_korea"
+        ? enemyNation(game, nation, "south_korea")
+        : null,
     tick: (game) => {
       koreaChinaEnters(game);
       landWaves(game, KOREA_1950_WAVES, KOREA_1950_PLACES);
@@ -450,18 +459,20 @@ export const SCENARIO_RULES: Record<string, ScenarioRule> = {
       }
       return 1;
     },
-    target: (game, nation) => {
-      if (nation.type() !== PlayerType.Nation) return null;
-      if (game.scenario()?.nationOf(nation)?.key !== "germany") return null;
-      const poland = scenarioPlayer(game, "poland");
-      if (poland === null || !poland.isAlive()) return null;
-      if (poland.team() === null || poland.team() === nation.team()) {
-        return null;
-      }
-      return poland;
-    },
+    target: (game, nation) =>
+      game.scenario()?.nationOf(nation)?.key === "germany"
+        ? enemyNation(game, nation, "poland")
+        : null,
   },
 };
+
+/** Scenario nation `key`, if it is alive and an enemy of `nation`. */
+function enemyNation(game: Game, nation: Player, key: string): Player | null {
+  const p = scenarioPlayer(game, key);
+  if (p === null || !p.isAlive()) return null;
+  if (p.team() === null || p.team() === nation.team()) return null;
+  return p;
+}
 
 /**
  * Europe 1939: the tick the Soviet Union entered the war (the Axis
@@ -852,8 +863,8 @@ export function scenarioHasSideEnemies(game: Game, nation: Player): boolean {
 }
 
 /**
- * SCEN3 (r27): the enemy a computer-run nation goes for first now (its
- * scenario rule's `target`), or null.
+ * SCEN3 (r27): the enemy the computer's logic sends `nation` after first
+ * now (its scenario rule's `target`), or null.
  */
 export function scenarioTarget(game: Game, nation: Player): Player | null {
   if (game.scenario() === null) return null;

@@ -388,7 +388,7 @@ describe("Europe 1939: Germany goes for Poland first (SCEN3 r27)", () => {
     );
   }, 180_000);
 
-  it("gives Germany no help against a person's Poland, and a person's Germany chooses for itself", async () => {
+  it("gives Germany no help against a person's Poland; only the computer's logic follows the target", async () => {
     const g = await scenarioGame("europe1939", {
       players: [{ clientID: "HUMAN001", username: "Alden", nation: "poland" }],
     });
@@ -400,16 +400,21 @@ describe("Europe 1939: Germany goes for Poland first (SCEN3 r27)", () => {
     // Germany still goes for Poland first: that's its war, not help.
     expect(rule.target!(g.game, germany)).toBe(poland);
 
+    // A person's Germany: the target is there for the computer's logic
+    // (nothing drives a person's nation by it), and Germany keeps the
+    // opening's help against a computer-run Poland.
     const h = await scenarioGame("europe1939", {
       players: [{ clientID: "HUMAN001", username: "Alden", nation: "germany" }],
     });
     expect(h.nation("germany").type()).toBe(PlayerType.Human);
-    expect(rule.target!(h.game, h.nation("germany"))).toBeNull();
-    // A person's Germany still has the help against a computer's Poland.
     const pl = h.nation("poland");
+    expect(rule.target!(h.game, h.nation("germany"))).toBe(pl);
     expect(
       rule.attackFactor!(h.game, h.nation("germany"), pl, [...pl.tiles()][0]),
     ).toBe(EUROPE_1939_BLITZ_FACTOR);
+    // Poland gone: no target.
+    for (const t of [...pl.tiles()]) h.nation("germany").conquer(t);
+    expect(rule.target!(h.game, h.nation("germany"))).toBeNull();
   }, 180_000);
 });
 

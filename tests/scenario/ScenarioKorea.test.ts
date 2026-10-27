@@ -271,6 +271,43 @@ describe("Korea 1950: UN waves at Busan, then Incheon", () => {
   }, 120_000);
 });
 
+describe("Korea 1950: the Incheon landing needs the pocket", () => {
+  it("doesn't come at all if the UN has lost Busan", async () => {
+    const g = await scenarioGame("korea1950");
+    const { game } = g;
+    const north = g.nation("north_korea");
+    const south = g.nation("south_korea");
+    const un = g.nation("un_command");
+    takeNear(game, south, north, KOREA_1950_PLACES.busan, 12);
+    takeNear(game, south, north, KOREA_1950_PLACES.incheon, 40);
+    game.setScenarioMark(waveMark("busan"), 0);
+    const before = [south.troops(), un.troops()];
+    const added: Execution[] = [];
+    const news: News[] = [];
+    const view = at(game, incheon.minute * 600, news);
+    view.addExecution = (...e: Execution[]) => {
+      added.push(...e);
+    };
+    rule.tick!(view);
+    expect(news).toEqual([]);
+    expect(added).toEqual([]);
+    expect([south.troops(), un.troops()]).toEqual(before);
+    expect(game.scenarioMark(waveMark("incheon"))).toBe(0);
+  }, 120_000);
+});
+
+describe("Korea 1950: the North's war aim", () => {
+  it("sends the computer's North after the South first, islands too, while it lives", async () => {
+    const g = await scenarioGame("korea1950");
+    const north = g.nation("north_korea");
+    const south = g.nation("south_korea");
+    expect(rule.target!(g.game, north)).toBe(south);
+    expect(rule.target!(g.game, g.nation("un_command"))).toBeNull();
+    for (const t of [...south.tiles()]) north.conquer(t);
+    expect(rule.target!(g.game, north)).toBeNull();
+  }, 120_000);
+});
+
 describe("Korea 1950: China joins only past the Yalu line", () => {
   it("stays out while the UN is south of the line, and comes in waves after", async () => {
     const g = await scenarioGame("korea1950", {
