@@ -255,15 +255,16 @@ The sides may court the neutrals instead of invading them
 - **Joining** is for good, as with an invasion: the neutral is on that side
   and at war with the others, and everyone sees "Spain joins the Axis".
   Invading a neutral still pushes it to the invader's enemies.
-- **Computer-run sides** put 15% of their richest computer-run nation's
-  income by (the richest, not all: thirteen colonies don't court thirteen
-  times as hard as one Britain), up to five minutes of the going rate. They
-  court the neutral leaning their way (eager or leans) that is nearest to
-  joining, if they could win it within about ten minutes of putting by:
-  a down payment of a quarter of what it needs, which shows on its panel,
-  then, once they have it all and the war is old enough, the rest at once,
-  a little over the price, and an invitation straight after. They invite
-  any neutral that is ready (a person's at most every three minutes).
+- **Computer-run sides** set 15% of their richest computer-run nation's
+  income aside in a chest for gifts (taken from that nation; the richest,
+  not all: thirteen colonies don't court thirteen times as hard as one
+  Britain), up to five minutes of the going rate. They court the neutral
+  leaning their way (eager or leans) that is nearest to joining, if they
+  could win it within about ten minutes of setting aside: a down payment of
+  a quarter of what it needs, which shows on its panel, then, once the
+  chest holds it all and the war is old enough, the rest at once, a little
+  over the price, and an invitation straight after. They invite any
+  neutral that is ready (a person's at most every three minutes).
 
 **The price** of a neutral for a side is its **size**, in minutes of a big
 nation's income, times the **going rate**, times its **leaning** there:

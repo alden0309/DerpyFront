@@ -79,8 +79,9 @@ export const DIPLOMACY_TUNING = {
   aiEvery: 300,
   /**
    * Of its richest computer-run nation's income, the parts in 1,000 a side
-   * puts by for gifts (the richest, not all of them: a side of thirteen
-   * colonies doesn't court thirteen times as hard as one Britain).
+   * sets aside (taken from that nation) in its chest for gifts: the
+   * richest, not all of them, so a side of thirteen colonies doesn't court
+   * thirteen times as hard as one Britain.
    */
   aiSharePerMille: 150,
   /** It gives in two rounds of three ("now and then"). */
@@ -93,7 +94,7 @@ export const DIPLOMACY_TUNING = {
    * putting by, at the pace it puts by now (not one whose price outruns it).
    */
   aiReachMinutes: 10,
-  /** A side saves at most this many minutes of the going rate. */
+  /** A side's chest holds at most this many minutes of the going rate. */
   aiBudgetCapMinutes: 5,
   /**
    * Its first gift to a neutral, a down payment that shows its interest:
@@ -157,7 +158,7 @@ export interface DiplomacyStateData {
   asks: [string, number][];
   /** Computer-run nation small id -> its gold earned when last seen. */
   aiEarned: [number, number][];
-  /** Side -> what its computer-run nations have put by for gifts. */
+  /** Side -> its chest: gold its computer-run nations set aside for gifts. */
   aiBudget: [string, number][];
   random: [number, number, number, number];
 }
@@ -687,20 +688,28 @@ export class ScenarioDiplomacy {
       const members = this.game
         .players()
         .filter((p) => p.team() === side && p.type() === PlayerType.Nation);
-      // The richest computer-run nation's income since last time.
+      // The richest computer-run nation's income since last time: its share
+      // goes from that nation's treasury into the side's chest for gifts
+      // (gold set aside, so it is there when the side gives).
       let richest = 0;
+      let earner: Player | null = null;
       for (const m of members) {
         const earned = Number(m.goldEarned());
         const prev = this.aiEarned.get(m.smallID());
-        if (prev !== undefined) richest = Math.max(richest, earned - prev);
+        if (prev !== undefined && earned - prev > richest) {
+          richest = earned - prev;
+          earner = m;
+        }
         this.aiEarned.set(m.smallID(), earned);
       }
       const income = Math.floor((richest * t.aiSharePerMille) / 1000);
-      const budget = Math.min(
-        (this.aiBudget.get(side) ?? 0) + income,
-        this.rate * t.aiBudgetCapMinutes,
-      );
-      this.aiBudget.set(side, budget);
+      const chest = this.aiBudget.get(side) ?? 0;
+      const room = Math.max(0, this.rate * t.aiBudgetCapMinutes - chest);
+      const take = Math.min(income, room);
+      if (earner !== null && take > 0) {
+        const removed = Number(earner.removeGold(BigInt(take)));
+        this.aiBudget.set(side, chest + removed);
+      }
       if (members.length === 0 || neutrals.length === 0) continue;
       this.giveNowAndThen(side, members, neutrals, income);
       // Invite any neutral that is ready (a person's, not too often).
@@ -774,31 +783,10 @@ export class ScenarioDiplomacy {
       return;
     }
     if (left > budget || left < 10_000) return;
-    // Paid by its richest nations first, each with at most half its gold,
-    // and only when they have it all (its budget is what it means to give,
-    // not gold set aside: in pieces, the gifts would fade).
-    let can = 0;
-    for (const m of members) can += Number(m.gold() / 2n);
-    if (can < left) return;
-    const payers = [...members].sort((a, b) =>
-      a.gold() > b.gold()
-        ? -1
-        : a.gold() < b.gold()
-          ? 1
-          : a.smallID() - b.smallID(),
-    );
-    let total = 0n;
-    for (const m of payers) {
-      if (left <= 0) break;
-      const give = Math.min(left, Number(m.gold() / 2n));
-      if (give <= 0) continue;
-      const removed = m.removeGold(BigInt(give));
-      if (removed <= 0n) continue;
-      this.receive(target, side, removed);
-      left -= Number(removed);
-      total += removed;
-    }
-    this.aiBudget.set(side, (this.aiBudget.get(side) ?? 0) - Number(total));
+    // From the side's chest (the gold is already set aside).
+    const total = BigInt(left);
+    this.receive(target, side, total);
+    this.aiBudget.set(side, budget - left);
     if (total > 0n && target.type() === PlayerType.Human) {
       this.tellGift(target, side, total, members[0]);
     }
