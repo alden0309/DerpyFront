@@ -135,3 +135,16 @@ describe("scenario nukes: in the game", () => {
     },
   );
 });
+
+describe("scenario nukes: Korea 1950's price", () => {
+  it("charges its nukePrice times the usual for each bomb", async () => {
+    const g = await scenarioGame("korea1950", { size: GameMapSize.Compact });
+    const m = scenarioData("korea1950")!.nukePrice ?? 1;
+    const north = g.nation("north_korea");
+    const cost = (u: UnitType) =>
+      g.game.config().unitInfo(u).cost(g.game, north);
+    expect(cost(UnitType.AtomBomb)).toBe(BigInt(Math.round(750_000 * m)));
+    expect(cost(UnitType.HydrogenBomb)).toBe(BigInt(Math.round(5_000_000 * m)));
+    expect(cost(UnitType.MIRV)).toBe(BigInt(Math.round(25_000_000 * m)));
+  });
+});

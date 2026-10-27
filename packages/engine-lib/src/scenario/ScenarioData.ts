@@ -58,6 +58,12 @@ export interface ScenarioData {
    * host's Units settings (NUCLEAR_UNITS). Copied to the index.
    */
   nukes?: boolean;
+  /**
+   * SCEN3 (r27): what the bombs (atom, hydrogen, MIRV) cost here, as a
+   * multiple of the usual (default 1). Korea 1950, the one scenario with
+   * nukes, balances them with it.
+   */
+  nukePrice?: number;
   sides: ScenarioSide[];
   nations: ScenarioNation[];
   /**
