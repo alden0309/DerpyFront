@@ -336,10 +336,7 @@ describe("Korea 1950: North Korea takes the South", () => {
       "un_command",
     ]);
     expect(data.rule).toBeUndefined();
-    // The North's land bar is above its own land and the South's together,
-    // so its land win can't come before it holds the South.
     const north = data.sides.find((s) => s.id === "NorthKorea")!;
-    expect(north.winPercent).toBeGreaterThanOrEqual(97);
     expect(north.winByHolding?.nations).toEqual(["south_korea"]);
   });
 

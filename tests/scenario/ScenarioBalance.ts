@@ -127,8 +127,11 @@ async function main() {
   // Every 30 s: each side's progress towards its bar (ContestedMetric.ts).
   const samples: ContestedSample[] = [];
   const start: Record<string, number> = {};
-  const bar = (side: string) =>
-    data.sides.find((s) => s.id === side)?.winPercent ?? data.winPercent;
+  // SCEN3 (r27): no land bars any more; a side's goal is all the land the
+  // sides hold at the start (the other side beaten), so progress runs from
+  // its own land at the start (0) to all of the sides' land (1).
+  let sidesLand = 0;
+  const bar = () => sidesLand;
   const sideLand = () => {
     const by: Record<string, number> = {};
     for (const s of data.sides) by[s.id] = 0;
@@ -181,10 +184,14 @@ async function main() {
     if (tick === 2 || (tick > 2 && tick % 300 === 0)) {
       const by = sideLand();
       const progress: Record<string, number> = {};
+      if (tick === 2) {
+        sidesLand = 0;
+        for (const s of data.sides) sidesLand += (100 * by[s.id]) / land;
+      }
       for (const s of data.sides) {
         const pct = (100 * by[s.id]) / land;
         if (tick === 2) start[s.id] = pct;
-        progress[s.id] = (pct - start[s.id]) / (bar(s.id) - start[s.id]);
+        progress[s.id] = (pct - start[s.id]) / (bar() - start[s.id]);
       }
       samples.push({ minute: tick / 600, progress });
     }

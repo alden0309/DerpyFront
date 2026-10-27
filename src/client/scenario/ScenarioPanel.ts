@@ -17,17 +17,6 @@ import {
 } from "./ScenarioText";
 
 /**
- * SCEN (r25): the minute a picked scenario turns Overtime on from, whatever
- * the host picks (its data's overtimeFrom), or undefined. The solo screen and
- * the host lobby show their Overtime option on and locked then.
- */
-export function scenarioOvertimeFrom(
-  pick: { id: string } | null,
-): number | undefined {
-  return pick === null ? undefined : scenarioData(pick.id)?.overtimeFrom;
-}
-
-/**
  * SCEN (r25): the scenario at the top of the solo screen and the host lobby,
  * in place of the map and mode pickers: its picture, name, date, the nation
  * you play and a way back to the Scenarios screen. `below` is shown under it

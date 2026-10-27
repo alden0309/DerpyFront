@@ -3,7 +3,6 @@
   "title": "World War I",
   "map": "Europe",
   "year": 1914,
-  "winPercent": 66,
   "capitalFullTiles": 60000,
   "fronts": {
     "homeland": 0.5,
@@ -16,10 +15,9 @@
     {
       "id": "Central",
       "name": "Central Powers",
-      "color": "#6e6e6e",
-      "winPercent": 38
+      "color": "#6e6e6e"
     },
-    { "id": "Entente", "name": "Entente", "color": "#3f7fd6", "winPercent": 70 }
+    { "id": "Entente", "name": "Entente", "color": "#3f7fd6" }
   ],
   "nations": [
     {

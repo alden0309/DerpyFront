@@ -3,11 +3,10 @@
   "title": "Continental Army 1776",
   "map": "American Revolution - Detailed",
   "year": 1776,
-  "winPercent": 66,
   "capitalFullTiles": 40000,
   "sides": [
     { "id": "Patriots", "name": "Patriots", "color": "#3b6fc4" },
-    { "id": "British", "name": "British", "color": "#c8312d", "winPercent": 55 }
+    { "id": "British", "name": "British", "color": "#c8312d" }
   ],
   "nations": [
     {

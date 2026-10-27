@@ -408,7 +408,13 @@ function sideTiles(game: Game, side: Team): number {
   return tiles;
 }
 
-/** A neutral joins `side` for the rest of the game, and everyone hears. */
+/**
+ * A neutral joins `side` for the rest of the game, and everyone hears. The
+ * one path by which a neutral joins a side, whatever brought it in (an
+ * invasion, its own attack, or diplomacy): its team becomes the side, so it
+ * is at war with the other sides from then on and counts as its side for
+ * the win (scenarioWinner), like any nation that started there.
+ */
 export function joinSide(
   game: Game,
   neutral: Player,
@@ -432,22 +438,29 @@ export function joinSide(
   );
 }
 
-/**
- * The side that has won, or null: the only side with nations left, or one
- * holding more than its bar of the land. Each side's bar is its own
- * `winPercent` (a side that starts small needs less), else the scenario's,
- * lowered by Overtime as much as the usual bar would be at `elapsedSeconds`.
- * At the lobby timer or the hard limit, pass `timeUp`: the side nearest its
- * bar (land over bar) wins.
- */
-/** A side holding less than 1/500 of the land (0.2%) is out of the war. */
+/** A side holding less than 1/500 of the land (0.2%) is beaten. */
 export const SIDE_OUT_DIVISOR = 500;
 
-export function scenarioWinner(
-  game: Game,
-  elapsedSeconds: number,
-  timeUp: boolean,
-): Team | null {
+/** The scenario mark holding the tick a side's hold (winByHolding) began. */
+export function holdMark(side: Team): string {
+  return `hold:${side}`;
+}
+
+/**
+ * SCEN3 (r27): the side that has won, or null. There are no land bars: a
+ * side wins only when every nation on every other side is beaten, which is
+ * when those nations together hold under 0.2% of the land (a leftover fort
+ * or islet the computer never gets round to doesn't hold the war up). A
+ * neutral that joined a side counts as that side (it is on its team); one
+ * that never joined counts for nobody. A side with `winByHolding` also wins
+ * by holding that land for its `seconds` in a row (Korea 1950). At the
+ * lobby timer or the hard limit (`timeUp`), the side holding the most of its
+ * own starting land (its land now over its land at the start) wins.
+ *
+ * Runs once a second (WinCheckExecution): a hold's start and break are
+ * kept as a scenario mark and told to everyone.
+ */
+export function scenarioWinner(game: Game, timeUp: boolean): Team | null {
   const scenario = game.scenario();
   if (scenario === null) return null;
   const tiles = new Map<Team, number>();
@@ -458,37 +471,110 @@ export function scenarioWinner(
     tiles.set(side, tiles.get(side)! + p.numTilesOwned());
   }
   const land = game.numLandTiles() - game.numTilesWithFallout();
-  // A side is still in the war while it holds a scrap of land worth the
-  // name (0.2%): a fort or an islet the computer never gets round to
-  // taking doesn't hold the war up.
   const minLand = Math.max(1, Math.ceil(land / SIDE_OUT_DIVISOR));
   const alive = new Set<Team>();
   for (const [side, t] of tiles) if (t >= minLand) alive.add(side);
   if (alive.size === 1) return [...alive][0];
   if (alive.size === 0) return null;
-  // A side that holds all the land its rule names wins outright.
-  for (const side of scenario.data.sides) {
-    if (alive.has(side.id) && holdsToWin(game, side)) return side.id;
-  }
-  // The side furthest towards its bar: tiles / bar, compared by
+  const held = holdWinner(game, alive);
+  if (held !== null) return held;
+  if (!timeUp) return null;
+  // Time's up: land now over land at the start, compared by
   // cross-multiplying (exact integers). Ties go to the first side listed.
+  const start = sideStartTiles(game);
   let best: Team | null = null;
-  let bestTiles = 0;
-  let bestBar = 1;
+  let bestNow = 0;
+  let bestStart = 1;
   for (const side of scenario.data.sides) {
     if (!alive.has(side.id)) continue;
-    const t = tiles.get(side.id)!;
-    const bar = scenarioSideWinPercent(game, side.id, elapsedSeconds);
-    if (best === null || t * bestBar > bestTiles * bar) {
+    const now = tiles.get(side.id)!;
+    const was = Math.max(1, start.get(side.id) ?? 0);
+    if (best === null || now * bestStart > bestNow * was) {
       best = side.id;
-      bestTiles = t;
-      bestBar = bar;
+      bestNow = now;
+      bestStart = was;
     }
   }
-  if (best === null) return null;
-  if (timeUp) return best;
-  // Whole percentages, exact integer math.
-  return bestTiles * 100 > land * bestBar ? best : null;
+  return best;
+}
+
+/**
+ * The side whose hold (winByHolding) has lasted its seconds, or null.
+ * A side that holds all the land its rule names starts its hold (a mark),
+ * and loses it the moment the land is no longer all its own; everyone hears
+ * both. A rule without seconds wins at once.
+ */
+function holdWinner(game: Game, alive: ReadonlySet<Team>): Team | null {
+  const scenario = game.scenario();
+  if (scenario === null) return null;
+  for (const side of scenario.data.sides) {
+    const rule = side.winByHolding;
+    if (rule === undefined) continue;
+    const key = holdMark(side.id);
+    const since = game.scenarioMark(key);
+    const holds = alive.has(side.id) && holdsToWin(game, side);
+    const need = Math.max(0, Math.round((rule.seconds ?? 0) * 10));
+    const news = side.id.toLowerCase();
+    if (!holds) {
+      if (since !== undefined) {
+        game.setScenarioMark(key, null);
+        game.displayMessage(
+          `events_display.scenario_hold_broken_${news}`,
+          MessageType.ATTACK_FAILED,
+          null,
+          undefined,
+          { side: side.id },
+        );
+      }
+      continue;
+    }
+    if (need === 0) return side.id;
+    if (since === undefined) {
+      game.setScenarioMark(key, game.ticks());
+      game.displayMessage(
+        `events_display.scenario_hold_started_${news}`,
+        MessageType.CONQUERED_PLAYER,
+        null,
+        undefined,
+        {
+          side: side.id,
+          until: game.ticks() + need,
+          time: clockTime(need / 10),
+        },
+      );
+      continue;
+    }
+    if (game.ticks() - since >= need) return side.id;
+  }
+  return null;
+}
+
+/** "2:30" for 150 seconds. */
+function clockTime(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+const SIDE_START = new WeakMap<object, Map<Team, number>>();
+
+/** The land each side's nations held at the start (this map's tiles). */
+export function sideStartTiles(game: Game): Map<Team, number> {
+  const scenario = game.scenario();
+  if (scenario === null) return new Map();
+  let bySide = SIDE_START.get(scenario);
+  if (bySide === undefined) {
+    const labels = scenarioStartLabels(game, scenario);
+    const perNation = new Uint32Array(scenario.data.nations.length + 1);
+    for (let i = 0; i < labels.length; i++) perNation[labels[i]]++;
+    bySide = new Map();
+    for (const side of scenario.sideIds()) bySide.set(side, 0);
+    scenario.data.nations.forEach((n, i) => {
+      if (n.side === null) return;
+      bySide!.set(n.side, (bySide!.get(n.side) ?? 0) + perNation[i + 1]);
+    });
+    SIDE_START.set(scenario, bySide);
+  }
+  return bySide;
 }
 
 /**
@@ -555,24 +641,6 @@ export function holdTargetTiles(
     if (piece.length >= minTiles) for (const u of piece) out.push(u);
   }
   return Uint32Array.from(out);
-}
-
-/**
- * A side's bar for a land win at `elapsedSeconds`: its own percent (or the
- * scenario's), lowered by Overtime as much as the usual bar would be; at
- * least 1.
- */
-export function scenarioSideWinPercent(
-  game: Game,
-  side: Team,
-  elapsedSeconds: number,
-): number {
-  const data = game.scenario()?.data;
-  if (data === undefined) return 100;
-  const own = data.sides.find((s) => s.id === side)?.winPercent;
-  const base = game.config().percentageTilesOwnedToWin(0);
-  const now = game.config().percentageTilesOwnedToWin(elapsedSeconds);
-  return Math.max(1, (own ?? data.winPercent) - (base - now));
 }
 
 /**

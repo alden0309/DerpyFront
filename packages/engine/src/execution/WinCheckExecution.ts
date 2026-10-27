@@ -211,9 +211,10 @@ export class WinCheckExecution implements Execution {
   }
 
   /**
-   * SCEN (r25): the only side with nations left wins, or one holding the
-   * scenario's share of the land; at the lobby timer or the hard limit, the
-   * side with the most land.
+   * SCEN (r25): a side wins when every nation on the other sides is beaten
+   * (SCEN3 r27: there are no land bars), or by holding the land its rule
+   * names for long enough (Korea 1950); at the lobby timer or the hard limit,
+   * the side holding the most of its starting land (scenarioWinner).
    */
   private checkWinnerScenario(): void {
     if (this.mg === null) throw new Error("Not initialized");
@@ -226,7 +227,7 @@ export class WinCheckExecution implements Execution {
       elapsed >= WinCheckExecution.HARD_TIME_LIMIT_SECONDS;
     // The scenario's special rule, every second, before the check.
     scenarioRule(this.mg)?.tick?.(this.mg);
-    const winner = scenarioWinner(this.mg, elapsed, timeUp);
+    const winner = scenarioWinner(this.mg, timeUp);
     if (winner === null) return;
     this.mg.setWinner(winner, this.mg.stats().stats());
     console.log(`${winner} has won the game`);

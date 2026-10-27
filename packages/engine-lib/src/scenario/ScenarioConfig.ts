@@ -29,9 +29,9 @@ export function applyScenarioRules<C extends Partial<GameConfig>>(
   config.nations = "default";
   const seats = scenarioSeatCount(data);
   config.maxPlayers = Math.min(config.maxPlayers ?? seats, seats);
-  if (data.overtimeFrom !== undefined) {
-    config.overtime = { enabled: true, startMinutes: data.overtimeFrom };
-  }
+  // SCEN3 (r27): a scenario is won by beating the whole other side, so
+  // Overtime (which lowers a land bar) has nothing to lower: it is off.
+  config.overtime = { enabled: false };
   return config;
 }
 

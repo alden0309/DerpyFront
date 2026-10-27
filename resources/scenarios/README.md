@@ -28,14 +28,17 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   longest land border with, or if it borders none of them, the smallest. A
   neutral that attacks a side joins that side's enemies the same way. Either
   way it is a news line for everyone.
-- **Victory:** a side wins when every other side is gone (a side holding
-  under 0.2% of the land, a leftover fort or islet, counts as gone),
-  when it holds all the starting land its `winByHolding` names, or when it
-  holds more than its bar of the land: the side's own `winPercent`,
-  else the scenario's (Overtime lowers every bar as in other games). Sides
-  that start very unequal get unequal bars (1939: the Allies hold 60% at the
-  start, the Axis 19%). At the lobby timer, or the 170-minute limit, the side
-  nearest its bar (its land over its bar) wins.
+- **Victory** (SCEN3, round 27; there are no land bars): a side wins only
+  when every nation on the other sides is beaten, wiped out or reduced to
+  scraps: those nations together hold under 0.2% of the land
+  (`SIDE_OUT_DIVISOR`), so a leftover fort or islet doesn't hold the war up.
+  A neutral that joined a side (invaded, attacking, or by diplomacy) counts
+  as that side; one that never joined counts for nobody. A side with
+  `winByHolding` also wins by holding that land for its `seconds` in a row
+  (Korea 1950: North Korea, 2.5 minutes, with a countdown everyone sees).
+  At the lobby timer, or the 170-minute limit, the side holding the most of
+  its own starting land (its land now over its land at the start) wins.
+  Overtime is off in scenarios: it lowers a land bar, and there is none.
 - **Fronts hold** (every scenario, `packages/engine/src/scenario/ScenarioFronts.ts`):
   - _Homeland:_ attacking a nation on its own starting land costs more, and
     more again the more of its starting size it has lost (a last stand).
@@ -59,14 +62,10 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   "title": "Europe 1939", // English name (records, live games list)
   "map": "Europe", // GameMapType value (the map's name)
   "year": 1939,
-  "winPercent": 60, // % of the land a side must hold to win
   "capitalFullTiles": 40000, // optional, see Capitals
   "fronts": { "supplyMax": 2.5 }, // optional, see Fronts
   "rule": "korea", // optional special rule (ScenarioRules.ts)
-  "overtimeFrom": 40, // optional: Overtime from minute 40, whatever the host picked
-  "sides": [
-    { "id": "Axis", "name": "Axis", "color": "#7d7d7d", "winPercent": 40 },
-  ],
+  "sides": [{ "id": "Axis", "name": "Axis", "color": "#7d7d7d" }],
   "nations": [
     {
       "key": "germany", // [a-z0-9_]{1,32}, unique in the scenario
@@ -98,13 +97,17 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
 - **Sides:** `id` is the side's team name in the game, its key in en.json and
   the `Winner` the game records. `name` is the English name the server writes
   into the game's record. `color` marks the side wherever players are listed.
-  `winPercent` (optional) is the side's own bar for a land win.
   `winByHolding` (optional), `{ "nations": ["south_korea"], "ignoreUnder":
-200 }`: the side also wins as soon as it holds all the starting land of
-  those nations. Pieces of that land (4-connected, of one nation) smaller
-  than `ignoreUnder` full-size tiles don't count, so a few islets left
-  don't hold the war up. Korea 1950: North Korea wins holding all of South
-  Korea, whatever the UN still holds in Japan.
+200, "seconds": 150 }`: the side also wins by holding all the starting
+  land of those nations for `seconds` in a row (0 or absent: at once).
+  Pieces of that land (4-connected, of one nation) smaller than
+  `ignoreUnder` full-size tiles don't count, so a few islets left don't
+  hold the war up. The hold resets the moment the other side retakes a
+  counted tile. Korea 1950: North Korea wins holding all of South Korea for
+  2.5 minutes, whatever the UN still holds in Japan. Its news keys are
+  `events_display.scenario_hold_started_<side>` and `..._broken_<side>`,
+  and the countdown `heads_up_message.scenario_hold_<side>` (side in lower
+  case).
 - **Nations:** listed in the order the Scenarios screen and the seat fallback
   use (the strongest first reads best). `name` must equal en.json's
   `scenario_nation.<key>`. Keys are global in en.json: reuse `germany` across
@@ -127,10 +130,6 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   trade ships, trains and the steady income. A blockade's 0.6: Thirteen
   Colonies 1776's colonies, whose trade among thirteen friendly colonies
   otherwise pays for cities enough to outgrow Britain's army.
-- **overtimeFrom** (optional) turns Overtime on from that minute, whatever
-  the host picked: both sides' bars sink 2 points a minute from then on, so
-  a side that is holding out wins if the other can't break through first
-  (Thirteen Colonies 1776: from minute 40).
 - **Structures:** `City`, `Port`, `Factory`, `Defense Post`, `Missile Silo`,
   `SAM Launcher`, with an optional `level`. Each stands at the nearest place
   its owner may build one (on its own land, a port on the coast, 15 tiles

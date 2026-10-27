@@ -1,6 +1,12 @@
-import { PlayerType, UnitType } from "@openfront/engine-api/game/GameTypes";
+import {
+  GameUpdates,
+  PlayerType,
+  UnitType,
+} from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
+import { SCENARIO_IDS } from "@openfront/engine-api/game/Scenarios";
 import { GameConfigSchema } from "@openfront/engine-api/Schemas";
+import { applyScenarioRules } from "@openfront/engine-lib/scenario/ScenarioConfig";
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { resolveScenarioSeats } from "@openfront/engine-lib/scenario/ScenarioSeats";
 import { BreakAllianceExecution } from "@openfront/engine/execution/alliance/BreakAllianceExecution";
@@ -14,8 +20,10 @@ import {
   EUROPE_1939_PURGE_FACTOR,
   EUROPE_1939_PURGE_TICKS,
   holdTargetTiles,
+  joinSide,
   SCENARIO_RULES,
   scenarioHoldsFire,
+  SIDE_OUT_DIVISOR,
 } from "@openfront/engine/scenario/ScenarioRules";
 import { describe, expect, it } from "vitest";
 import { scenarioGame } from "./ScenarioTestUtil";
@@ -341,45 +349,116 @@ describe("Scenario victory", () => {
   }, 120_000);
 });
 
-describe("Scenario victory by land", () => {
-  it("each side has its own bar: Britain wins at its own share of the land", async () => {
+describe("Scenario victory: the whole other side beaten (SCEN3 r27)", () => {
+  /** The win updates sent since the last clear. */
+  const winsOf = (g: { updates: { updates: GameUpdates }[] }) =>
+    g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
+  /** Hands `from`'s land to `to` until `from` holds `keep` tiles. */
+  const takeAllBut = (from: Player, to: Player, keep: number) => {
+    const tiles = [...from.tiles()];
+    for (const t of tiles.slice(keep)) to.conquer(t);
+  };
+
+  it("has no land bars in any scenario's data", () => {
+    for (const id of SCENARIO_IDS) {
+      const data = scenarioData(id)! as unknown as Record<string, unknown>;
+      expect(data.winPercent, id).toBeUndefined();
+      expect(data.overtimeFrom, id).toBeUndefined();
+      for (const side of scenarioData(id)!.sides) {
+        expect(
+          (side as unknown as Record<string, unknown>).winPercent,
+          `${id} ${side.id}`,
+        ).toBeUndefined();
+      }
+    }
+  });
+
+  it("holding most of the land doesn't win while the other side holds more than scraps", async () => {
     const g = await scenarioGame("continental1776");
     const britain = g.nation("great_britain");
     const colonies = g.nation("united_colonies");
     const land = g.game.numLandTiles();
-    const data = scenarioData("continental1776")!;
-    const bar = data.sides.find((s) => s.id === "British")!.winPercent!;
-    expect(bar).toBeLessThan(data.winPercent);
-    // Give Britain the colonies' land until it holds just over its bar.
-    const want = Math.floor((land * bar) / 100) + 1 - britain.numTilesOwned();
-    let moved = 0;
-    for (const t of [...colonies.tiles()]) {
-      if (moved >= want) break;
-      britain.conquer(t);
-      moved++;
-    }
+    const scraps = Math.ceil(land / SIDE_OUT_DIVISOR);
+    // Britain takes all the colonies' land but twice the scraps' size.
+    takeAllBut(colonies, britain, 2 * scraps);
+    for (const p of g.game.players()) p.setTroops(0);
     g.updates.length = 0;
     g.step(20);
-    const wins = g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
+    expect(winsOf(g)).toHaveLength(0);
+    // Down to scraps (under 0.2% of the land): beaten, Britain wins.
+    takeAllBut(colonies, britain, scraps - 1);
+    expect(colonies.numTilesOwned()).toBeGreaterThan(0);
+    g.step(20);
+    const wins = winsOf(g);
     expect(wins).toHaveLength(1);
     expect(wins[0].winner?.[1]).toBe("British");
   }, 120_000);
 
-  it("at the timer, the side nearest its bar wins", async () => {
-    const g = await scenarioGame("continental1776", {
-      config: { maxTimerValue: 1 },
-    });
-    // Nobody fights: the sides stay as they start. The colonies hold some
-    // 42% of the land (bar 66), Britain 30% (bar 55).
+  it("a neutral that joined a side counts as that side; one that never joined counts for nobody", async () => {
+    const g = await scenarioGame("continental1776");
+    const britain = g.nation("great_britain");
+    const colonies = g.nation("united_colonies");
+    const six = g.nation("haudenosaunee");
+    const creek = g.nation("creek");
+    // The Six Nations join Britain (a colonial invasion would do it).
+    joinSide(g.game, six, "British", colonies);
+    expect(six.team()).toBe("British");
+    expect(creek.team()).toBeNull();
+    // Britain itself is down to a fort: the Six Nations keep the war going.
+    takeAllBut(britain, colonies, 20);
+    for (const p of g.game.players()) p.setTroops(0);
     g.updates.length = 0;
-    for (let i = 0; i < 620; i++) {
-      for (const p of g.game.players()) p.setTroops(0);
-      g.step(1);
-    }
-    const wins = g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
+    g.step(20);
+    expect(winsOf(g)).toHaveLength(0);
+    // The Six Nations beaten too: the Patriots win, with the Creek, who
+    // never joined, still holding all their land.
+    takeAllBut(six, colonies, 20);
+    const creekLand = creek.numTilesOwned();
+    expect(creekLand).toBeGreaterThan(
+      Math.ceil(g.game.numLandTiles() / SIDE_OUT_DIVISOR),
+    );
+    g.step(20);
+    const wins = winsOf(g);
     expect(wins).toHaveLength(1);
     expect(wins[0].winner?.[1]).toBe("Patriots");
+    expect(creek.numTilesOwned()).toBe(creekLand);
   }, 120_000);
+
+  it("at the timer, the side holding the most of its own starting land wins", async () => {
+    for (const [gainer, winner] of [
+      ["great_britain", "British"],
+      ["united_colonies", "Patriots"],
+    ] as const) {
+      const g = await scenarioGame("continental1776", {
+        config: { maxTimerValue: 1 },
+      });
+      const britain = g.nation("great_britain");
+      const colonies = g.nation("united_colonies");
+      // A little of the other's land: the gainer holds more than it
+      // started with, the loser less. Then nobody fights.
+      const [to, from] =
+        gainer === "great_britain" ? [britain, colonies] : [colonies, britain];
+      for (const t of [...from.tiles()].slice(0, 2000)) to.conquer(t);
+      g.updates.length = 0;
+      for (let i = 0; i < 620; i++) {
+        for (const p of g.game.players()) p.setTroops(0);
+        g.step(1);
+      }
+      const wins = winsOf(g);
+      expect(wins, gainer).toHaveLength(1);
+      expect(wins[0].winner?.[1], gainer).toBe(winner);
+    }
+  }, 240_000);
+
+  it("leaves Overtime off in a scenario, whatever the host picked", () => {
+    for (const id of SCENARIO_IDS) {
+      const config = applyScenarioRules({
+        scenario: { id },
+        overtime: { enabled: true, startMinutes: 10 },
+      });
+      expect(config.overtime, id).toEqual({ enabled: false });
+    }
+  });
 });
 
 describe("winning by holding another nation's land (winByHolding)", () => {
@@ -392,12 +471,6 @@ describe("winning by holding another nation's land (winByHolding)", () => {
       (s) => s.id === "Patriots",
     )!;
     patriots.winByHolding = { nations: ["great_britain"], ignoreUnder: 2000 };
-    // Only the holding rule may end it here, not the land bars.
-    const data = scenarioData("continental1776")!;
-    const bars = data.sides.map((s) => s.winPercent);
-    const barAll = data.winPercent;
-    data.winPercent = 99;
-    for (const s of data.sides) s.winPercent = 99;
     try {
       const g = await scenarioGame("continental1776");
       const britain = g.nation("great_britain");
@@ -433,8 +506,6 @@ describe("winning by holding another nation's land (winByHolding)", () => {
       expect(britain.numTilesOwned()).toBeGreaterThan(0);
     } finally {
       delete patriots.winByHolding;
-      data.winPercent = barAll;
-      data.sides.forEach((s, i) => (s.winPercent = bars[i]));
     }
   }, 120_000);
 });

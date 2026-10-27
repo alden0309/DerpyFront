@@ -79,7 +79,7 @@ describe("SinglePlayerModal with a scenario", () => {
     expect(info.config.disabledUnits).toEqual([UnitType.Warship]);
   });
 
-  it("shows a scenario's own Overtime on and locked, and plays it whatever the player set", async () => {
+  it("has no Overtime in a scenario (SCEN3 r27: no land bar to lower), whatever the player set", async () => {
     const overtimeCard = (modal: any) =>
       [...modal.querySelectorAll("toggle-input-card")].find(
         (c: any) => c.labelKey === "game_settings.overtime",
@@ -87,24 +87,18 @@ describe("SinglePlayerModal with a scenario", () => {
     const modal = createModal();
     document.body.appendChild(modal);
     try {
-      modal.onOpen({ scenario: "colonies1776", nation: "virginia" });
+      // An ordinary game shows the option.
       await modal.updateComplete;
-      const card = overtimeCard(modal);
-      expect(card.locked).toBe(true);
-      expect(card.checked).toBe(true);
-      expect(card.inputValue).toBe(40);
-      expect(typeof card.note).toBe("string");
-      expect(modal.overtime).toBe(false);
+      expect(overtimeCard(modal)).toBeDefined();
+      modal.overtime = true;
+      modal.onOpen({ scenario: "colonies1776", nation: "virginia" });
+      modal.overtime = true;
+      await modal.updateComplete;
+      expect(overtimeCard(modal)).toBeUndefined();
       const events = await start(modal);
       expect(events[0].gameStartInfo.config.overtime).toEqual({
-        enabled: true,
-        startMinutes: 40,
+        enabled: false,
       });
-      // A scenario without its own Overtime leaves the option the player's.
-      modal.onOpen({ scenario: "europe1939", nation: "france" });
-      await modal.updateComplete;
-      expect(overtimeCard(modal).locked).toBe(false);
-      expect(overtimeCard(modal).note).toBeUndefined();
     } finally {
       modal.remove();
     }

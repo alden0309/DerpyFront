@@ -3,7 +3,6 @@
   "title": "American Civil War",
   "map": "United States",
   "year": 1861,
-  "winPercent": 96,
   "capitalFullTiles": 40000,
   "fronts": {
     "homeland": 0.5,
@@ -13,12 +12,11 @@
     "supplyMax": 2.5
   },
   "sides": [
-    { "id": "Union", "name": "Union", "color": "#2f5fb3", "winPercent": 96 },
+    { "id": "Union", "name": "Union", "color": "#2f5fb3" },
     {
       "id": "Confederacy",
       "name": "Confederacy",
-      "color": "#8c8c8c",
-      "winPercent": 43
+      "color": "#8c8c8c"
     }
   ],
   "nations": [

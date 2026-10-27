@@ -41,6 +41,10 @@ describe("a scenario game, snapshotted and restored", () => {
     );
     g.step(40);
     expect(swiss.team()).toBe("Allies");
+    // SCEN3 (r27): a rule's memory (a scenario mark) is game state.
+    g.game.setScenarioMark("test:a", 1234);
+    g.game.setScenarioMark("test:b", 7);
+    g.game.setScenarioMark("test:b", null);
 
     const restored = await createGameRunnerFromSnapshot(
       g.start,
@@ -58,6 +62,8 @@ describe("a scenario game, snapshotted and restored", () => {
         .find((p) => p.name() === "Switzerland")
         ?.team(),
     ).toBe("Allies");
+    expect(r.scenarioMark("test:a")).toBe(1234);
+    expect(r.scenarioMark("test:b")).toBeUndefined();
     expect(hash(r)).toBe(hash(g.game));
     for (let i = 0; i < 60; i++) {
       g.step(1);

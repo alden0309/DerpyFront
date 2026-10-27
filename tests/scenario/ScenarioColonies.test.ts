@@ -296,25 +296,9 @@ describe("a nation's gold income (goldIncome; idea F, the blockade)", () => {
   });
 });
 
-describe("a scenario's own Overtime (overtimeFrom; idea G)", () => {
-  it("turns Overtime on from its minute, whatever the host picked", () => {
-    const plain = applyScenarioRules({
-      scenario: { id: "continental1776" },
-      overtime: { enabled: false },
-    });
-    expect(plain.overtime).toEqual({ enabled: false });
-    const config = applyScenarioRules({
-      scenario: { id: "colonies1776" },
-      overtime: { enabled: false },
-    });
-    expect(config.overtime).toEqual({ enabled: true, startMinutes: 40 });
-  });
-});
-
 describe("Thirteen Colonies 1776 as the owner picked it (idea E3)", () => {
-  it("has the blockade on every colony and Overtime from minute 40, and nothing else", () => {
+  it("has the blockade on every colony", () => {
     const data = scenarioData("colonies1776")!;
-    expect(data.overtimeFrom).toBe(40);
     expect(data.rule).toBeUndefined();
     for (const n of data.nations) {
       expect(n.goldIncome, n.key).toBe(n.side === "Patriots" ? 0.6 : undefined);
@@ -324,13 +308,11 @@ describe("Thirteen Colonies 1776 as the owner picked it (idea E3)", () => {
     const britain = data.nations.find((n) => n.key === "great_britain")!;
     expect(britain.troopCapBonus).toBe(6_000_000);
     expect(britain.troopGrowth).toBe(2);
-    expect(data.sides.find((s) => s.id === "British")!.winPercent).toBe(55);
   });
 
   it("leaves every other scenario as it was", () => {
     for (const id of ["continental1776", "europe1939"]) {
       const data = scenarioData(id)!;
-      expect(data.overtimeFrom, id).toBeUndefined();
       for (const n of data.nations) {
         expect(n.goldIncome, `${id} ${n.key}`).toBeUndefined();
       }
@@ -344,21 +326,29 @@ describe("Thirteen Colonies 1776 as the owner picked it (idea E3)", () => {
     expect(config.goldAdditionRate(g.nation("great_britain"))).toBe(100n);
   }, 120_000);
 
-  it("refuses its old games' replays, but not the other scenarios'", () => {
-    expect(scenarioEdition("colonies1776")).toBe(3);
+  it("refuses its old games' replays (SCEN3 r27: every scenario's)", () => {
+    expect(scenarioEdition("colonies1776")).toBe(4);
+    expect(SCENARIO_EDITION).toBe(3);
     expect(scenarioEdition("europe1939")).toBe(SCENARIO_EDITION);
+    for (const old of [2, 3]) {
+      expect(
+        scenarioReplayable({ scenario: { id: "colonies1776", edition: old } }),
+      ).toBe(false);
+    }
     expect(
-      scenarioReplayable({ scenario: { id: "colonies1776", edition: 2 } }),
-    ).toBe(false);
-    expect(
-      scenarioReplayable({ scenario: { id: "colonies1776", edition: 3 } }),
+      scenarioReplayable({ scenario: { id: "colonies1776", edition: 4 } }),
     ).toBe(true);
+    // Round 25's games of the other scenarios (edition 2) are refused too:
+    // the win rule changed for every scenario.
     expect(
       scenarioReplayable({ scenario: { id: "europe1939", edition: 2 } }),
+    ).toBe(false);
+    expect(
+      scenarioReplayable({ scenario: { id: "europe1939", edition: 3 } }),
     ).toBe(true);
     const config: Partial<GameConfig> = applyScenarioRules({
       scenario: { id: "colonies1776" },
     });
-    expect(config.scenario!.edition).toBe(3);
+    expect(config.scenario!.edition).toBe(4);
   });
 });

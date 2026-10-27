@@ -3,7 +3,6 @@
   "title": "Three Kingdoms",
   "map": "China - Romance Of The Three Kingdoms",
   "year": 219,
-  "winPercent": 44,
   "capitalFullTiles": 60000,
   "fronts": {
     "homeland": 1,

@@ -136,7 +136,8 @@ function placeStructures(
     if (at === false) continue;
     const unit = p.buildUnit(type, at, {}, true);
     for (let level = 1; level < (s.level ?? 1); level++) unit.increaseLevel();
-    game.addExecution(structureExecution(game, p, type, unit));
+    const exec = structureExecution(game, p, type, unit);
+    if (exec !== null) game.addExecution(exec);
   }
   if (config.isUnitDisabled(UnitType.Warship)) return;
   for (const w of n.warships ?? []) {
@@ -155,8 +156,12 @@ function structureExecution(
   p: Player,
   type: UnitType,
   unit: Unit,
-): Execution {
+): Execution | null {
   switch (type) {
+    // SCEN3 (r27): a Dome of Alden runs nothing: a nuke asks for the Domes
+    // near where it lands (DomeShield.ts).
+    case UnitType.Dome:
+      return null;
     case UnitType.Port:
       return new PortExecution(unit);
     case UnitType.MissileSilo:

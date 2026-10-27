@@ -47,11 +47,6 @@ export interface ScenarioData {
   map: GameMapType;
   /** The year it starts in (the full date and text are in en.json). */
   year: number;
-  /**
-   * A side wins when it holds more than this percent of the land (or when
-   * every nation of every other side is gone).
-   */
-  winPercent: number;
   /** See ScenarioCatalogEntry.capitalFullTiles (it is copied to the index). */
   capitalFullTiles?: number;
   /** Optional overrides of the front rules' defaults (ScenarioFrontRules). */
@@ -63,13 +58,6 @@ export interface ScenarioData {
    * something the data can't say. None of the first three need one.
    */
   rule?: string;
-  /**
-   * Overtime from this minute on, whatever the host picked (both sides' bars
-   * sink as Overtime's do): a war of endurance, where one side has to hold
-   * out and the other break through first. A balance idea under test
-   * (Thirteen Colonies 1776); no scenario sets it yet.
-   */
-  overtimeFrom?: number;
 }
 
 export interface ScenarioSide {
@@ -80,17 +68,14 @@ export interface ScenarioSide {
   /** "#rrggbb": the side's mark wherever players are listed. */
   color: string;
   /**
-   * Optional: the percent of the land this side must hold to win, if not
-   * the scenario's `winPercent` (a side that starts small needs less).
+   * Optional: the side also wins by holding all the starting land of these
+   * nations (Korea 1950: North Korea wins holding all of South Korea, base
+   * in Japan or not), for `seconds` in a row (0 or absent: at once; SCEN3
+   * r27). Pieces of that land smaller than `ignoreUnder` full-size tiles
+   * (islets) don't count. Otherwise a side wins only when every nation on
+   * the other sides is beaten (ScenarioRules.scenarioWinner).
    */
-  winPercent?: number;
-  /**
-   * Optional: the side also wins as soon as it holds all the starting land
-   * of these nations (Korea 1950: North Korea wins holding all of South
-   * Korea, base in Japan or not). Pieces of that land smaller than
-   * `ignoreUnder` full-size tiles (islets) don't count.
-   */
-  winByHolding?: { nations: string[]; ignoreUnder?: number };
+  winByHolding?: { nations: string[]; ignoreUnder?: number; seconds?: number };
 }
 
 export type ScenarioStructureType =
@@ -99,7 +84,9 @@ export type ScenarioStructureType =
   | "Factory"
   | "Defense Post"
   | "Missile Silo"
-  | "SAM Launcher";
+  | "SAM Launcher"
+  // SCEN3 (r27): the Dome of Alden (a nuke shield; Korea 1950's UN Japan).
+  | "Dome";
 
 export interface ScenarioStructure {
   type: ScenarioStructureType;
@@ -142,11 +129,16 @@ export interface ScenarioNation {
   troopGrowth?: number;
   /**
    * Its gold income (trade ships, trains and the steady income), as a
-   * multiple of the usual (default 1): a blockade's 0.6, a trading power's
-   * 1.2. A balance idea under test (Thirteen Colonies 1776's blockade); no
-   * scenario sets it yet.
+   * multiple of the usual (default 1): a blockade's 0.6 (Thirteen Colonies
+   * 1776's colonies), a trading power's 1.2.
    */
   goldIncome?: number;
+  /**
+   * SCEN3 (r27): its own front rules over the scenario's (any field): the
+   * supply fields when it attacks, homeland and lastStand when it is
+   * attacked. Korea 1950: North Korea's supply runs out sooner.
+   */
+  fronts?: ScenarioFrontRules;
   /** Where its capital stands. */
   capital: [number, number];
   structures?: ScenarioStructure[];
@@ -173,6 +165,7 @@ export const SCENARIO_STRUCTURE_UNITS: Record<ScenarioStructureType, UnitType> =
     "Defense Post": UnitType.DefensePost,
     "Missile Silo": UnitType.MissileSilo,
     "SAM Launcher": UnitType.SAMLauncher,
+    Dome: UnitType.Dome,
   };
 
 // Add a scenario: its JSON here, and its id in resources/scenarios/index.json

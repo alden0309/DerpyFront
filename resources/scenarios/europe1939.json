@@ -3,11 +3,10 @@
   "title": "Europe 1939",
   "map": "Europe",
   "year": 1939,
-  "winPercent": 80,
   "capitalFullTiles": 60000,
   "rule": "europe1939",
   "sides": [
-    { "id": "Axis", "name": "Axis", "color": "#7d7d7d", "winPercent": 35 },
+    { "id": "Axis", "name": "Axis", "color": "#7d7d7d" },
     { "id": "Allies", "name": "Allies", "color": "#3f7fd6" }
   ],
   "nations": [

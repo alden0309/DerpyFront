@@ -169,6 +169,8 @@ export class GameImpl implements Game {
   private _teamGameSpawnAreas: TeamGameSpawnAreas | undefined;
   // SCEN (r25): the game's Scenario, from its config and human players.
   private _scenario: ScenarioRuntime | null;
+  // SCEN3 (r27): its rules' memory (see Game.scenarioMark).
+  private _scenarioMarks = new Map<string, number>();
   /** Tiles from nuke blast radii this tick, drained by the renderer. */
   private _nukeImpactQueue: TileRef[] = [];
 
@@ -446,6 +448,15 @@ export class GameImpl implements Game {
 
   scenario(): ScenarioRuntime | null {
     return this._scenario;
+  }
+
+  scenarioMark(key: string): number | undefined {
+    return this._scenarioMarks.get(key);
+  }
+
+  setScenarioMark(key: string, value: number | null): void {
+    if (value === null) this._scenarioMarks.delete(key);
+    else this._scenarioMarks.set(key, value);
   }
 
   createAllianceRequest(
@@ -1522,6 +1533,10 @@ export class GameImpl implements Game {
         this._sharedWaterCache.snapshot(w),
       ),
       stats: w.versioned(StatsSnapshot, (this._stats as StatsImpl).snapshot()),
+      // SCEN3 (r27): sorted, so the record doesn't depend on set order.
+      scenarioMarks: [...this._scenarioMarks].sort((a, b) =>
+        a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0,
+      ),
     };
   }
 
@@ -1582,6 +1597,7 @@ export class GameImpl implements Game {
     (this._stats as StatsImpl).restoreSnapshot(
       readVersioned(StatsSnapshot, s.stats),
     );
+    this._scenarioMarks = new Map(s.scenarioMarks);
   }
 
   conquerPlayer(conqueror: Player, conquered: Player) {
@@ -1671,7 +1687,7 @@ export class GameImpl implements Game {
 
 export const GameSnapshot = snapshotType({
   name: "Game",
-  version: 1,
+  version: 2,
   schema: z.object({
     ticks: zInt(),
     startTick: zInt().nullable(),
@@ -1705,7 +1721,12 @@ export const GameSnapshot = snapshotType({
     water: VersionedSchema,
     sharedWaterCache: VersionedSchema,
     stats: VersionedSchema,
+    scenarioMarks: z.array(z.tuple([z.string(), zInt()])),
   }),
+  migrations: {
+    // v1 games (before SCEN3 r27) had no scenario marks
+    1: (d) => ({ ...d, scenarioMarks: [] }),
+  },
 });
 export type GameState = z.infer<typeof GameSnapshot.schema>;
 

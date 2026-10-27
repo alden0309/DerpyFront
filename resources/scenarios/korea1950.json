@@ -3,7 +3,6 @@
   "title": "Korean War",
   "map": "Korea",
   "year": 1950,
-  "winPercent": 95,
   "fronts": {
     "homeland": 1,
     "lastStand": 2,
@@ -16,7 +15,6 @@
       "id": "NorthKorea",
       "name": "North Korea",
       "color": "#b8433f",
-      "winPercent": 98,
       "winByHolding": { "nations": ["south_korea"], "ignoreUnder": 200 }
     },
     { "id": "UnitedNations", "name": "United Nations", "color": "#3f74c4" }

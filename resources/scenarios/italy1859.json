@@ -3,7 +3,6 @@
   "title": "Italy Unites",
   "map": "Italia",
   "year": 1859,
-  "winPercent": 42,
   "capitalFullTiles": 30000,
   "fronts": {
     "homeland": 0.5,
@@ -16,10 +15,9 @@
     {
       "id": "Sardinia",
       "name": "Sardinia and France",
-      "color": "#3a7bd5",
-      "winPercent": 35
+      "color": "#3a7bd5"
     },
-    { "id": "Austria", "name": "Austria", "color": "#d4b13a", "winPercent": 45 }
+    { "id": "Austria", "name": "Austria", "color": "#d4b13a" }
   ],
   "nations": [
     {

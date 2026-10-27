@@ -694,6 +694,15 @@ export interface Game extends GameLike {
   nations(): Nation[];
   /** SCEN (r25): the Scenario this game plays, or null. */
   scenario(): ScenarioRuntime | null;
+  /**
+   * SCEN3 (r27): a scenario rule's memory, by name: what happened once and
+   * matters after (the tick a hold of the enemy's land began, the minute
+   * China entered the war, a wave that landed). Game state, kept in the
+   * snapshot. undefined: never set (or cleared).
+   */
+  scenarioMark(key: string): number | undefined;
+  /** SCEN3 (r27): sets (a number) or clears (null) a scenario mark. */
+  setScenarioMark(key: string, value: number | null): void;
 
   numTilesWithFallout(): number;
   stats(): Stats;
