@@ -9,7 +9,7 @@
  * Usage (from the worktree root):
  *   nice -n 10 npx tsx tests/scenario/ScenarioBalance.ts --scenario europe1939 \
  *     --seed s1 --difficulty Medium --minutes 120 [--size Normal] [--goals] \
- *     [--seat germany]
+ *     [--seat germany] [--no-nukes]
  *
  * SCEN3 (r27): --seat <nation key> plays that nation as a person's seat:
  * a human player (PlayerType.Human, so the human's numbers and everything
@@ -65,6 +65,9 @@ const overtime = parseInt(
 const ROOT = process.env.SCEN_ROOT ?? process.cwd();
 // SCEN3 (r27): a person's seat (see the header), or none.
 const seat = arg("seat", "");
+// SCEN3 (r27): --no-nukes: the host's units off for nukes and silos, to
+// compare a war without them.
+const noNukes = args.includes("--no-nukes");
 const SEAT_CLIENT = "SEAT0001";
 
 async function main() {
@@ -92,6 +95,16 @@ async function main() {
       infiniteTroops: false,
       instantBuild: false,
       randomSpawn: false,
+      ...(noNukes
+        ? {
+            disabledUnits: [
+              UnitType.AtomBomb,
+              UnitType.HydrogenBomb,
+              UnitType.MIRV,
+              UnitType.MissileSilo,
+            ],
+          }
+        : {}),
       scenario: { id, ...(seat ? { seats: { [seat]: SEAT_CLIENT } } : {}) },
     },
     players: seat
@@ -306,6 +319,7 @@ async function main() {
       scenario: id,
       seed,
       seat: seat || null,
+      ...(noNukes ? { noNukes } : {}),
       difficulty,
       size,
       winner,
