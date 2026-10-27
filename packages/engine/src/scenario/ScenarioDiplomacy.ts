@@ -104,7 +104,12 @@ export const DIPLOMACY_TUNING = {
   aiDownPaymentPercent: 25,
 };
 
-/** The editions of the scenarios that have courting (scenarioEdition). */
+/**
+ * The editions of the scenarios that have courting (scenarioEdition): it
+ * came with round 27's editions (SCENARIO_EDITION 3, Thirteen Colonies
+ * 1776's own 4, shared with SCEN3's new win rule), so older games have none
+ * and their replays are refused as from another edition.
+ */
 export const DIPLOMACY_FROM_EDITION = 3;
 const DIPLOMACY_FROM_EDITION_OF: Readonly<Record<string, number>> = {
   // Its own edition was already 3 (the blockade) before courting.

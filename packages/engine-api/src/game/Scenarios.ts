@@ -17,16 +17,19 @@ import { GameMapType } from "./GameTypes";
  * play the same. Bump it when a change to a scenario's data or rules changes
  * how its games play. 1 (or none recorded): round 1's scenarios; 2: the 1776
  * scenarios on American Revolution - Detailed, fronts that hold, the 1939
- * forts and the Red Army's purges; 3 (r27): courting the neutrals (DIPLO).
+ * forts and the Red Army's purges; 3 (SCEN3, r27): a side wins only by
+ * beating the whole other side (no land bars), with Korea's, the 1776
+ * scenarios' and Europe 1939's new rules and numbers.
  */
 export const SCENARIO_EDITION = 3;
 
 /**
  * A scenario whose play changed after that has an edition of its own (bump
  * it here, not SCENARIO_EDITION, when only one scenario changes): its older
- * games are refused, the other scenarios' still replay. 3 for Thirteen
- * Colonies 1776: the Royal Navy's blockade and Overtime from minute 40; 4
- * (r27): edition 3's courting (it can't be 3 again: its old games recorded 3).
+ * games are refused, the other scenarios' still replay. Thirteen Colonies
+ * 1776: 3 was the Royal Navy's blockade and Overtime from minute 40; 4
+ * (SCEN3, r27) is edition 3's win rule with Britain's army in waves and
+ * France (it can't be 3 again: its old games recorded 3).
  */
 const SCENARIO_EDITION_OF: Readonly<Record<string, number>> = {
   colonies1776: 4,
