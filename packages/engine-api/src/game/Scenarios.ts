@@ -17,18 +17,19 @@ import { GameMapType } from "./GameTypes";
  * play the same. Bump it when a change to a scenario's data or rules changes
  * how its games play. 1 (or none recorded): round 1's scenarios; 2: the 1776
  * scenarios on American Revolution - Detailed, fronts that hold, the 1939
- * forts and the Red Army's purges.
+ * forts and the Red Army's purges; 3 (r27): courting the neutrals (DIPLO).
  */
-export const SCENARIO_EDITION = 2;
+export const SCENARIO_EDITION = 3;
 
 /**
  * A scenario whose play changed after that has an edition of its own (bump
  * it here, not SCENARIO_EDITION, when only one scenario changes): its older
  * games are refused, the other scenarios' still replay. 3 for Thirteen
- * Colonies 1776: the Royal Navy's blockade and Overtime from minute 40.
+ * Colonies 1776: the Royal Navy's blockade and Overtime from minute 40; 4
+ * (r27): edition 3's courting (it can't be 3 again: its old games recorded 3).
  */
 const SCENARIO_EDITION_OF: Readonly<Record<string, number>> = {
-  colonies1776: 3,
+  colonies1776: 4,
 };
 
 /** The edition scenario `id`'s games are played under now. */

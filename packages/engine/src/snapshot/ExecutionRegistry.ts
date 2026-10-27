@@ -50,6 +50,11 @@ import { UpgradeStructureExecutionSnapshot } from "../execution/UpgradeStructure
 import { WarshipExecutionSnapshot } from "../execution/WarshipExecution";
 import { WinCheckExecutionSnapshot } from "../execution/WinCheckExecution";
 import { ScenarioStartExecutionSnapshot } from "../scenario/ScenarioStartExecution"; // SCEN (r25)
+// DIPLO (r27)
+import {
+  ScenarioDiplomacyExecutionSnapshot,
+  ScenarioDiplomacyIntentExecutionSnapshot,
+} from "../scenario/ScenarioDiplomacyExecution";
 import type { ExecutionSnapshotType } from "./ExecutionSnapshot";
 
 /**
@@ -94,6 +99,8 @@ export const EXECUTION_SNAPSHOT_TYPES = [
   SAMLauncherExecutionSnapshot,
   SAMMissileExecutionSnapshot,
   ScenarioStartExecutionSnapshot, // SCEN (r25)
+  ScenarioDiplomacyExecutionSnapshot, // DIPLO (r27)
+  ScenarioDiplomacyIntentExecutionSnapshot, // DIPLO (r27)
   ShellExecutionSnapshot,
   SpawnExecutionSnapshot,
   SpawnTimerExecutionSnapshot,

@@ -7,6 +7,7 @@ import {
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import { simpleHash } from "@openfront/engine-lib/Util";
 import { Execution, Game } from "../game/Game";
+import { ScenarioDiplomacyIntentExecution } from "../scenario/ScenarioDiplomacyExecution"; // DIPLO (r27)
 import { AllianceExtensionExecution } from "./alliance/AllianceExtensionExecution";
 import { AllianceRejectExecution } from "./alliance/AllianceRejectExecution";
 import { AllianceRequestExecution } from "./alliance/AllianceRequestExecution";
@@ -171,6 +172,12 @@ export class Executor {
       case "scenario_seat":
       case "scenario_deal": // DFX (r26): so does a deal of every seat
         return new NoOpExecution();
+      // DIPLO (r27): courting the neutrals in a Scenario.
+      case "scenario_gift":
+      case "scenario_invite":
+      case "scenario_ask_join":
+      case "scenario_join_reply":
+        return new ScenarioDiplomacyIntentExecution(player, intent);
       default:
         throw new Error(`intent type ${intent} not found`);
     }
