@@ -85,10 +85,17 @@ export interface ScenarioSide {
    * nations (Korea 1950: North Korea wins holding all of South Korea, base
    * in Japan or not), for `seconds` in a row (0 or absent: at once; SCEN3
    * r27). Pieces of that land smaller than `ignoreUnder` full-size tiles
-   * (islets) don't count. Otherwise a side wins only when every nation on
-   * the other sides is beaten (ScenarioRules.scenarioWinner).
+   * (islets) don't count. The hold breaks once `breakAt` full-size tiles
+   * of that land or more aren't the side's (default 1: any tile), so a
+   * raid by boat doesn't reset it. Otherwise a side wins only when every
+   * nation on the other sides is beaten (ScenarioRules.scenarioWinner).
    */
-  winByHolding?: { nations: string[]; ignoreUnder?: number; seconds?: number };
+  winByHolding?: {
+    nations: string[];
+    ignoreUnder?: number;
+    seconds?: number;
+    breakAt?: number;
+  };
 }
 
 export type ScenarioStructureType =

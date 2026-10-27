@@ -109,13 +109,17 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   the `Winner` the game records. `name` is the English name the server writes
   into the game's record. `color` marks the side wherever players are listed.
   `winByHolding` (optional), `{ "nations": ["south_korea"], "ignoreUnder":
-200, "seconds": 150 }`: the side also wins by holding all the starting
-  land of those nations for `seconds` in a row (0 or absent: at once).
-  Pieces of that land (4-connected, of one nation) smaller than
-  `ignoreUnder` full-size tiles don't count, so a few islets left don't
-  hold the war up. The hold resets the moment the other side retakes a
-  counted tile. Korea 1950: North Korea wins holding all of South Korea for
-  2.5 minutes, whatever the UN still holds in Japan. Its news keys are
+200, "seconds": 150, "breakAt": 1000 }`: the side also wins by holding
+  all the starting land of those nations for `seconds` in a row (0 or
+  absent: at once). Pieces of that land (4-connected, of one nation)
+  smaller than `ignoreUnder` full-size tiles don't count, so a few islets
+  left don't hold the war up. The hold resets the moment `breakAt`
+  full-size tiles of the counted land or more aren't the side's (default 1:
+  any tile), so the other side breaks it by retaking a real piece, not by
+  a boat raid on the coast (SCEN3, round 27: the computer's UN landed raids
+  every half minute and a hold never lasted). Korea 1950: North Korea wins
+  holding all of South Korea for 2.5 minutes, whatever the UN still holds
+  in Japan. Its news keys are
   `events_display.scenario_hold_started_<side>` and `..._broken_<side>`,
   and the countdown `heads_up_message.scenario_hold_<side>` (side in lower
   case).

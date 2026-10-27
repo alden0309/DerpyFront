@@ -78,10 +78,12 @@ describe("Korea 1950's data (SCEN3 r27)", () => {
     expect(un.troopsPercent).toBe(100);
     expect(un.structures!.filter((s) => s.type === "Dome")).toHaveLength(5);
     const side = data.sides.find((s) => s.id === "NorthKorea")!;
+    // A boat raid under 1000 tiles doesn't break the hold (SCEN3 r27).
     expect(side.winByHolding).toEqual({
       nations: ["south_korea"],
       ignoreUnder: 200,
       seconds: 150,
+      breakAt: 1000,
     });
   });
 
@@ -134,9 +136,20 @@ describe("Korea 1950: the North wins by holding the South for 2.5 minutes", () =
     expect(news[0].params?.until).toBe(t0 + 1500);
     expect(news[0].params?.time).toBe("2:30");
 
-    // A minute in, the UN retakes a counted tile: the hold resets.
+    // A raid by boat, a beachhead under `breakAt` tiles: the count goes on.
+    const breakAt = scenarioData("korea1950")!.sides.find(
+      (s) => s.id === "NorthKorea",
+    )!.winByHolding!.breakAt!;
+    expect(breakAt).toBeGreaterThan(1);
+    const raid = big.slice(0, breakAt - 1);
+    for (const t of raid) un.conquer(t);
+    expect(scenarioWinner(at(game, t0 + 300, news), false)).toBeNull();
+    expect(game.scenarioMark(key)).toBe(t0);
+
+    // A minute in, the UN retakes a counted piece's worth: the hold resets.
     expect(scenarioWinner(at(game, t0 + 600, news), false)).toBeNull();
-    un.conquer(big[0]);
+    const retaken = big.slice(0, breakAt);
+    for (const t of retaken) un.conquer(t);
     expect(scenarioWinner(at(game, t0 + 610, news), false)).toBeNull();
     expect(game.scenarioMark(key)).toBeUndefined();
     expect(news[news.length - 1]?.message).toBe(
@@ -144,7 +157,7 @@ describe("Korea 1950: the North wins by holding the South for 2.5 minutes", () =
     );
 
     // Taken back: the count starts again from there.
-    north.conquer(big[0]);
+    for (const t of retaken) north.conquer(t);
     const t1 = t0 + 1000;
     expect(scenarioWinner(at(game, t1, news), false)).toBeNull();
     expect(game.scenarioMark(key)).toBe(t1);

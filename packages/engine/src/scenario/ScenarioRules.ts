@@ -788,10 +788,11 @@ export function sideStartTiles(game: Game): Map<Team, number> {
 }
 
 /**
- * Whether `side` holds every tile its `winByHolding` names: the listed
+ * Whether `side` holds the land its `winByHolding` names: the listed
  * nations' starting land, less its pieces (4-connected, same nation)
- * smaller than `ignoreUnder` full-size tiles. False without the rule, or
- * when the pieces left are none at all.
+ * smaller than `ignoreUnder` full-size tiles, all of it but fewer than
+ * `breakAt` full-size tiles (default 1: every tile). False without the
+ * rule, or when the pieces left are none at all.
  */
 export function holdsToWin(game: Game, side: ScenarioSide): boolean {
   const rule = side.winByHolding;
@@ -801,9 +802,16 @@ export function holdsToWin(game: Game, side: ScenarioSide): boolean {
     holdTargetTiles(game, rule.nations, rule.ignoreUnder ?? 0),
   );
   if (targets.length === 0) return false;
+  // SCEN3 (r27): a landing smaller than this doesn't break a hold (in this
+  // map's tiles: a Compact map has a quarter as many).
+  const allowed =
+    Math.ceil((rule.breakAt ?? 1) / (scenario.scale * scenario.scale)) - 1;
+  let missing = 0;
   for (let i = 0; i < targets.length; i++) {
     const owner = game.owner(targets[i]);
-    if (!owner.isPlayer() || owner.team() !== side.id) return false;
+    if (!owner.isPlayer() || owner.team() !== side.id) {
+      if (++missing > allowed) return false;
+    }
   }
   return true;
 }

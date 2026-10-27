@@ -19,7 +19,8 @@
       "winByHolding": {
         "nations": ["south_korea"],
         "ignoreUnder": 200,
-        "seconds": 150
+        "seconds": 150,
+        "breakAt": 1000
       }
     },
     { "id": "UnitedNations", "name": "United Nations", "color": "#3f74c4" }

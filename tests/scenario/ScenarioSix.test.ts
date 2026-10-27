@@ -346,6 +346,7 @@ describe("Korea 1950: North Korea takes the South", () => {
   });
 
   it("wins holding all of South Korea's land, islets ignored and Japan not needed", async () => {
+    const data = scenarioData("korea1950")!;
     const g = await scenarioGame("korea1950");
     const north = g.nation("north_korea");
     const south = g.nation("south_korea");
@@ -363,26 +364,31 @@ describe("Korea 1950: North Korea takes the South", () => {
     south.setTroops(0);
     un.setTroops(0);
 
-    // All of it but one tile, which the UN holds (an Inchon landing): the
-    // war goes on.
-    for (let i = 0; i < big.length - 1; i++) north.conquer(big[i]);
-    un.conquer(big[big.length - 1]);
+    // All of it but a beachhead the UN holds (an Inchon landing), as big as
+    // breaks a hold (SCEN3 r27: smaller ones don't): the war goes on.
+    const breakAt = data.sides.find((s) => s.id === "NorthKorea")!.winByHolding!
+      .breakAt!;
+    const beachhead = big.slice(big.length - breakAt);
+    for (let i = 0; i < big.length - breakAt; i++) north.conquer(big[i]);
+    for (const t of beachhead) un.conquer(t);
     g.updates.length = 0;
     g.step(20);
     expect(wins(g)).toHaveLength(0);
+    expect(g.game.scenarioMark(holdMark("NorthKorea"))).toBeUndefined();
 
     // South Korea holding it back instead: still no win.
-    south.conquer(big[big.length - 1]);
+    for (const t of beachhead) south.conquer(t);
     south.setTroops(0);
     un.setTroops(0);
     g.step(20);
     expect(wins(g)).toHaveLength(0);
+    expect(g.game.scenarioMark(holdMark("NorthKorea"))).toBeUndefined();
 
-    // The last tile: the North's hold begins (SCEN3 r27: it wins after
+    // The last of it: the North's hold begins (SCEN3 r27: it wins after
     // holding it 150 s in a row, ScenarioKorea.test.ts), with the UN's base
     // in Japan untouched and South Korea's islets still its own.
     expect(un.numTilesOwned()).toBeGreaterThan(unLand * 0.9);
-    north.conquer(big[big.length - 1]);
+    for (const t of beachhead) north.conquer(t);
     g.step(20);
     expect(wins(g)).toHaveLength(0);
     const since = g.game.scenarioMark(holdMark("NorthKorea"))!;
