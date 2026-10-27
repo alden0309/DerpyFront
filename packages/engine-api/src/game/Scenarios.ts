@@ -1,5 +1,5 @@
 import catalog from "resources/scenarios/index.json";
-import { GameMapType } from "./GameTypes";
+import { GameMapType, UnitType } from "./GameTypes";
 
 /**
  * SCEN (r25): Scenarios, historical wars on maps we already have. This is
@@ -68,7 +68,28 @@ export interface ScenarioCatalogEntry {
    * many full-size tiles, and a share of it below (see the README).
    */
   capitalFullTiles?: number;
+  /**
+   * SCEN3 (r27): false in a scenario set before nuclear weapons (August
+   * 1945): its games have none of NUCLEAR_UNITS, whatever the host's Units
+   * settings say. Copied from the scenario's data (`nukes`).
+   */
+  nukes?: boolean;
 }
+
+/**
+ * SCEN3 (r27): what a scenario without nukes leaves out: the bombs, the
+ * silos that fire them, and the two units that only stop them (SAMs shoot
+ * down nothing else, the Dome of Alden shields only from nukes).
+ */
+export const NUCLEAR_UNITS: readonly UnitType[] = [
+  UnitType.AtomBomb,
+  UnitType.HydrogenBomb,
+  UnitType.MIRV,
+  UnitType.MIRVWarhead,
+  UnitType.MissileSilo,
+  UnitType.SAMLauncher,
+  UnitType.Dome,
+];
 
 export const SCENARIO_CATALOG: Readonly<Record<string, ScenarioCatalogEntry>> =
   catalog.scenarios as Record<string, ScenarioCatalogEntry>;
@@ -83,6 +104,17 @@ export function scenarioCatalogEntry(
   return Object.prototype.hasOwnProperty.call(SCENARIO_CATALOG, id)
     ? SCENARIO_CATALOG[id]
     : null;
+}
+
+/**
+ * SCEN3 (r27): the units scenario `id` leaves out, whatever the host chose:
+ * NUCLEAR_UNITS in a scenario without nukes, none otherwise (or outside a
+ * scenario). Config.isUnitDisabled reads it, so no setting brings them back.
+ */
+export function scenarioDisabledUnits(
+  id: string | undefined,
+): readonly UnitType[] {
+  return scenarioCatalogEntry(id)?.nukes === false ? NUCLEAR_UNITS : [];
 }
 
 /**

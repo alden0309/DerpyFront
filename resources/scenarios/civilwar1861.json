@@ -3,6 +3,7 @@
   "title": "American Civil War",
   "map": "United States",
   "year": 1861,
+  "nukes": false,
   "capitalFullTiles": 40000,
   "fronts": {
     "homeland": 0.5,

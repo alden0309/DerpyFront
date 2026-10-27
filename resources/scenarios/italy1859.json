@@ -3,6 +3,7 @@
   "title": "Italy Unites",
   "map": "Italia",
   "year": 1859,
+  "nukes": false,
   "capitalFullTiles": 30000,
   "fronts": {
     "homeland": 0.5,

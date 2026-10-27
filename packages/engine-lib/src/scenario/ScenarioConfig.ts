@@ -1,5 +1,8 @@
 import { GameMapType, GameMode } from "@openfront/engine-api/game/GameTypes";
-import { scenarioEdition } from "@openfront/engine-api/game/Scenarios";
+import {
+  scenarioDisabledUnits,
+  scenarioEdition,
+} from "@openfront/engine-api/game/Scenarios";
 import { GameConfig } from "@openfront/engine-api/Schemas";
 import { isPlayable, ScenarioData, scenarioData } from "./ScenarioData";
 
@@ -7,8 +10,9 @@ import { isPlayable, ScenarioData, scenarioData } from "./ScenarioData";
  * SCEN (r25): the settings a Scenario fixes, whatever else the host picked.
  * The solo screen and the game server both run a scenario game's config
  * through this, so a lobby can't be talked into a scenario on the wrong map
- * or with random tribes. Every other option (difficulty, units, gold, nukes,
- * AI personalities, timers...) stays the host's.
+ * or with random tribes. Every other option (difficulty, units, gold,
+ * AI personalities, timers...) stays the host's, except nukes in a scenario
+ * set before them (SCEN3 r27).
  */
 export function applyScenarioRules<C extends Partial<GameConfig>>(
   config: C,
@@ -32,6 +36,13 @@ export function applyScenarioRules<C extends Partial<GameConfig>>(
   // SCEN3 (r27): a scenario is won by beating the whole other side, so
   // Overtime (which lowers a land bar) has nothing to lower: it is off.
   config.overtime = { enabled: false };
+  // SCEN3 (r27): a scenario set before nukes has none (Config.isUnitDisabled
+  // enforces it whatever the config says; this keeps the record honest).
+  const banned = scenarioDisabledUnits(config.scenario.id);
+  if (banned.length > 0) {
+    const units = new Set([...(config.disabledUnits ?? []), ...banned]);
+    config.disabledUnits = [...units];
+  }
   return config;
 }
 

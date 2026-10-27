@@ -7,6 +7,7 @@ import {
   maps,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
+import { scenarioDisabledUnits } from "@openfront/engine-api/game/Scenarios";
 import { GameConfig, TeamCountConfig } from "@openfront/engine-api/Schemas";
 import { dealsPersonalities } from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { DoomsdayClockSpeed } from "@openfront/engine-lib/game/DoomsdayClock";
@@ -600,6 +601,8 @@ export class SinglePlayerModal extends BaseModal {
               unitTypes: {
                 titleKey: "game_settings.disable_units",
                 disabledUnits: this.disabledUnits,
+                // SCEN3 (r27): no nukes before 1945, whatever is picked.
+                lockedUnits: scenarioDisabledUnits(this.scenario?.id),
               },
             }}
             @map-selected=${this.handleConfigMapSelected}

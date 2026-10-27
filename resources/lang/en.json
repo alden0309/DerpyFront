@@ -1429,6 +1429,7 @@
     "start": "Start Game",
     "starting": "Starting…",
     "starting_gold": "Starting Gold (Millions)",
+    "unit_before_nukes": "This war is from before nuclear weapons: no nukes, silos, SAMs or Domes.",
     "water_nukes": "Water nukes"
   },
   "game_starting_modal": {

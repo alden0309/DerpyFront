@@ -3,6 +3,7 @@
   "title": "Thirteen Colonies 1776",
   "map": "American Revolution - Detailed",
   "year": 1776,
+  "nukes": false,
   "capitalFullTiles": 40000,
   "rule": "colonies1776",
   "sides": [

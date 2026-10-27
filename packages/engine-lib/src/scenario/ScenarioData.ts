@@ -51,6 +51,12 @@ export interface ScenarioData {
   capitalFullTiles?: number;
   /** Optional overrides of the front rules' defaults (ScenarioFrontRules). */
   fronts?: ScenarioFrontRules;
+  /**
+   * SCEN3 (r27): false for a scenario set before nuclear weapons (August
+   * 1945): its games have no nukes, silos, SAMs or Domes, whatever the
+   * host's Units settings (NUCLEAR_UNITS). Copied to the index.
+   */
+  nukes?: boolean;
   sides: ScenarioSide[];
   nations: ScenarioNation[];
   /**

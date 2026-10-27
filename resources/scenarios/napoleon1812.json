@@ -3,6 +3,7 @@
   "title": "Napoleon 1812",
   "map": "Europe",
   "year": 1812,
+  "nukes": false,
   "capitalFullTiles": 60000,
   "fronts": {
     "homeland": 1,

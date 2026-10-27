@@ -8,7 +8,10 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { PlayerLike } from "@openfront/engine-api/game/ReadViews";
-import { scenarioCatalogEntry } from "@openfront/engine-api/game/Scenarios"; // SCEN (r25)
+import {
+  scenarioCatalogEntry, // SCEN (r25)
+  scenarioDisabledUnits, // SCEN3 (r27)
+} from "@openfront/engine-api/game/Scenarios";
 import { DERPY_RULES, GameConfig } from "@openfront/engine-api/Schemas";
 import { pow } from "../DetMath";
 import { DoomsdayClockSpeed } from "../game/DoomsdayClock";
@@ -254,7 +257,12 @@ export class Config {
   }
 
   isUnitDisabled(unitType: UnitType): boolean {
-    return this._gameConfig.disabledUnits?.includes(unitType) ?? false;
+    return (
+      (this._gameConfig.disabledUnits?.includes(unitType) ?? false) ||
+      // SCEN3 (r27): a scenario set before nukes has none, whatever the
+      // host's Units settings.
+      scenarioDisabledUnits(this._gameConfig.scenario?.id).includes(unitType)
+    );
   }
   instantBuild(): boolean {
     return this._gameConfig.instantBuild;

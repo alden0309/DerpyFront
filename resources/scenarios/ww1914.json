@@ -3,6 +3,7 @@
   "title": "World War I",
   "map": "Europe",
   "year": 1914,
+  "nukes": false,
   "capitalFullTiles": 60000,
   "fronts": {
     "homeland": 0.5,

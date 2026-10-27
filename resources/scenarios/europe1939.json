@@ -3,6 +3,7 @@
   "title": "Europe 1939",
   "map": "Europe",
   "year": 1939,
+  "nukes": false,
   "capitalFullTiles": 60000,
   "rule": "europe1939",
   "sides": [
