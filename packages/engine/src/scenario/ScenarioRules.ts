@@ -87,6 +87,12 @@ export interface ScenarioRule {
    * person chooses for themselves.
    */
   target?(game: Game, nation: Player): Player | null;
+  /**
+   * SCEN3 (r27): whether the computer's logic leaves enemy `other` alone
+   * for now (it still answers its attacks): Europe 1939's Axis and the
+   * Soviet Union while their pact holds. A person chooses for themselves.
+   */
+  spares?(game: Game, nation: Player, other: Player): boolean;
 }
 
 /**
@@ -463,6 +469,12 @@ export const SCENARIO_RULES: Record<string, ScenarioRule> = {
       game.scenario()?.nationOf(nation)?.key === "germany"
         ? enemyNation(game, nation, "poland")
         : null,
+    // The pact binds both ways: the computer's Axis leaves the Soviet
+    // Union alone until it is in the war (minute 20, or a person's attack).
+    spares: (game, nation, other) =>
+      nation.team() === "Axis" &&
+      game.scenario()?.nationOf(other)?.key === "soviet_union" &&
+      sovietEntry(game) === null,
   },
 };
 
@@ -844,7 +856,8 @@ export function holdTargetTiles(
 /**
  * Whether computer-run `nation` should leave `other` alone while it has
  * side enemies to fight: in a scenario, a nation on a side goes for the
- * other sides before any neutral, and a neutral starts no wars at all.
+ * other sides before any neutral, and a neutral starts no wars at all; and
+ * (SCEN3 r27) any enemy the scenario's rule spares for now.
  */
 export function scenarioSparesTarget(
   game: Game,
@@ -852,7 +865,8 @@ export function scenarioSparesTarget(
   other: Player,
 ): boolean {
   if (game.scenario() === null) return false;
-  return nation.team() !== null && other.team() === null;
+  if (nation.team() !== null && other.team() === null) return true;
+  return scenarioRule(game)?.spares?.(game, nation, other) ?? false;
 }
 
 /** Whether a nation on a side still has an enemy (a nation on another side). */

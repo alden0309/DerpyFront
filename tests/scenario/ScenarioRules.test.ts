@@ -31,6 +31,7 @@ import {
   joinSide,
   SCENARIO_RULES,
   scenarioHoldsFire,
+  scenarioSparesTarget,
   SIDE_OUT_DIVISOR,
 } from "@openfront/engine/scenario/ScenarioRules";
 import { describe, expect, it } from "vitest";
@@ -294,6 +295,29 @@ describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
       karelia,
     );
     expect(early / late).toBeCloseTo(EUROPE_1939_PURGE_FACTOR, 6);
+  }, 120_000);
+
+  it("binds the computer's Axis too: it leaves the Soviet Union alone until it is in the war", async () => {
+    const g = await scenarioGame("europe1939");
+    const { game } = g;
+    const at = (ticks: number) => {
+      const view = Object.create(game) as Game;
+      view.ticks = () => ticks;
+      return view;
+    };
+    const ussr = g.nation("soviet_union");
+    const germany = g.nation("germany");
+    const finland = g.nation("finland");
+    const poland = g.nation("poland");
+    expect(scenarioSparesTarget(at(100), germany, ussr)).toBe(true);
+    expect(scenarioSparesTarget(at(100), finland, ussr)).toBe(true);
+    expect(scenarioSparesTarget(at(100), germany, poland)).toBe(false);
+    // From minute 20, or once the Soviet Union is in the war, no longer.
+    expect(
+      scenarioSparesTarget(at(EUROPE_1939_SOVIET_PACT_TICKS), germany, ussr),
+    ).toBe(false);
+    game.setScenarioMark(EUROPE_1939_SOVIET_WAR, 500);
+    expect(scenarioSparesTarget(at(600), germany, ussr)).toBe(false);
   }, 120_000);
 
   it("makes Soviet attacks beyond its 1939 borders cost extra for a while after it enters the war", async () => {

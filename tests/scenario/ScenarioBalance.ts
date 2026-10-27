@@ -24,6 +24,7 @@ import {
   GameType,
   Nation,
   PlayerType,
+  UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { GameStartInfo } from "@openfront/engine-api/Schemas";
@@ -120,10 +121,26 @@ async function main() {
   );
   let winner: unknown = null;
   const joins: string[] = [];
+  // SCEN3 (r27): nukes launched, by the launcher's side (or "-").
+  const nukes: Record<string, number> = {};
+  const nukeIds = new Set<number>();
   const runner = await createGameRunner(gameStart, undefined, files, (gu) => {
     if ("errMsg" in gu) throw new Error(gu.errMsg + "\n" + gu.stack);
     const w = gu.updates[GameUpdateType.Win];
     if (w.length > 0 && winner === null) winner = w[0].winner ?? "none";
+    for (const u of gu.updates[GameUpdateType.Unit]) {
+      if (
+        (u.unitType === UnitType.AtomBomb ||
+          u.unitType === UnitType.HydrogenBomb ||
+          u.unitType === UnitType.MIRV) &&
+        !nukeIds.has(u.id)
+      ) {
+        nukeIds.add(u.id);
+        const owner = runner.game.playerBySmallID(u.ownerID);
+        const side = owner.isPlayer() ? (owner.team() ?? "-") : "-";
+        nukes[side] = (nukes[side] ?? 0) + 1;
+      }
+    }
     for (const e of gu.updates[GameUpdateType.DisplayEvent]) {
       if (e.message === "events_display.scenario_joined_side") {
         joins.push(
@@ -326,6 +343,7 @@ async function main() {
       joins,
       alive,
       startTroops,
+      nukes,
       ...(withGoals ? { goals } : {}), // DFX (r26)
     }),
   );
