@@ -66,10 +66,10 @@ describe("scenario city troops", () => {
             expect(levels() * perLevel).toBeGreaterThan(max);
             expect(added).toBeLessThanOrEqual(max);
             expect(config.maxTroops(p)).toBeLessThan(before + max + 1);
-            expect(p.scenarioCityTroopsMax()).toBe(max);
+            expect(p.scenarioCityTroopsMax?.()).toBe(max);
           } else {
             expect(added).toBeCloseTo((levels() - levelsBefore) * perLevel, 0);
-            expect(p.scenarioCityTroopsMax()).toBe(Infinity);
+            expect(p.scenarioCityTroopsMax?.()).toBe(Infinity);
           }
         }
       } finally {
