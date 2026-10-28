@@ -278,9 +278,11 @@ export class EventsDisplay extends LitElement implements Controller {
     if (isDiplomacyMessage(event.message)) {
       params = diplomacyParams({ ...event, params });
     }
-    // SCEN (r25): a neutral joining a side names the side in your language.
+    // SCEN (r25): a neutral joining a side names the side in your language
+    // (SCEN3 r27: and a Loyalist colony declaring for the King).
     if (
-      event.message === "events_display.scenario_joined_side" &&
+      (event.message === "events_display.scenario_joined_side" ||
+        event.message === "events_display.scenario_loyalists") &&
       typeof params.side === "string"
     ) {
       params = { ...params, side: sideName(params.side) };

@@ -1273,7 +1273,7 @@
     "scenario_hold_broken_northkorea": "The United Nations break North Korea's hold on the South.",
     "scenario_hold_started_northkorea": "North Korea holds all of the South. The United Nations have {time} to retake ground, or the war is lost.",
     "scenario_joined_side": "{name} is at war with {by} and joins the {side}.",
-    "scenario_loyalists": "{name}'s capital has fallen and its Loyalists take over: {name} joins the {side}.",
+    "scenario_loyalists": "{name} declares for the King: its capital has fallen, and its Loyalists bring it over to the {side}.",
     "scenario_wave_british": "British and Hessian regiments land at {place}: {troops} troops for {name}.",
     "scenario_wave_british_arrive": "British and Hessian regiments arrive: {troops} troops for {name}.",
     "scenario_wave_british_assault": "British and Hessian regiments sail for {place}: {troops} troops for {name}.",
@@ -1656,7 +1656,7 @@
     "radial_donate_troops": "Donate troops equivalent to your attack ratio slider percentage to the ally you opened the radial menu on.",
     "radial_info": "Open the Info menu.",
     "radial_title": "Radial menu",
-    "scenarios_colonies": "In Thirteen Colonies 1776 the Royal Navy blockades the coast, so the colonies earn less gold. Britain starts with its garrisons, and its army comes by sea in waves at New York, Boston and Charleston, landing on whoever holds the port. Partway through, France enters the war for the Patriots with an army and a fleet.",
+    "scenarios_colonies": "In Thirteen Colonies 1776 the Royal Navy blockades the coast, so the colonies earn less gold. Britain starts with its garrisons, and its army comes by sea in waves at New York, Boston and Charleston, landing on whoever holds the port. Partway through, France enters the war for the Patriots with an army and a fleet. New York, New Jersey, the Carolinas and Georgia, where the Loyalists were strongest, declare for the King if their capital falls to Britain's side, and fight for Britain from then on; a colony a person plays never changes sides.",
     "scenarios_desc": "Scenarios start a historical war on a map you know: every nation holds its real borders, capital and army from the first second. Pick a nation, solo or with friends; nations nobody picks are run by the computer. Nations on a side are allied for good and win together when every nation on the other side is beaten (wiped out, or down to a few scraps of land). A neutral that is invaded, or that attacks, joins the war against the side it fought, and stays.",
     "scenarios_fronts": "Fronts hold in every scenario: nations fight harder on their own soil, and harder still as they lose it; armies weaken the farther they fight from home, by land or by sea.",
     "scenarios_goals": "Each nation has one optional goal, shown under it on the Scenarios screen and under the timer in game: a historical stretch, like holding your capital past a minute or taking a city in time (on a Compact map, by half the minutes). Meet it in a game on Hard or Impossible for {coins} bonus Derp Coins, once per goal (signed in). Losing the war doesn't stop you collecting it, and it never decides who wins.",
@@ -3130,7 +3130,7 @@
     },
     "colonies1776": {
       "date": "Summer 1776",
-      "description": "The thirteen colonies have declared independence, each under its own government. Britain holds Quebec, Nova Scotia, East Florida and the forts of the Great Lakes, its fleet holds the St. Lawrence, and Howe has landed an army on Staten Island. The forts stand, from Quebec to Ticonderoga and Charleston, and both sides have fleets on the lakes. The native nations stand apart. The Royal Navy blockades the coast: the colonies earn less gold. Britain holds its forts with garrisons; its army comes by sea in waves, at New York, Boston and Charleston. After Saratoga, France joins the Patriots with an army and a fleet.",
+      "description": "The thirteen colonies have declared independence, each under its own government. Britain holds Quebec, Nova Scotia, East Florida and the forts of the Great Lakes, its fleet holds the St. Lawrence, and Howe has landed an army on Staten Island. The forts stand, from Quebec to Ticonderoga and Charleston, and both sides have fleets on the lakes. The native nations stand apart. The Royal Navy blockades the coast: the colonies earn less gold. Britain holds its forts with garrisons; its army comes by sea in waves, at New York, Boston and Charleston. After Saratoga, France joins the Patriots with an army and a fleet. Where the Loyalists were strongest (New York, New Jersey, the Carolinas and Georgia), a colony whose capital falls to Britain declares for the King and changes sides.",
       "neutral": "Native nations",
       "title": "Thirteen Colonies 1776"
     },

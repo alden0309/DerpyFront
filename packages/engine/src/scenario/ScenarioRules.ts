@@ -348,10 +348,11 @@ export const COLONIES_1776_WAVES: ScenarioWave[] = [
 ];
 
 /**
- * Thirteen Colonies 1776, balance idea C (no data names it yet): Loyalist
- * colonies. A computer-run colony among these whose capital falls to
- * Britain's side (its capital gone, and the spot it started on held by
- * Britain's side) joins Britain's side for good, and everyone hears. A
+ * Thirteen Colonies 1776: Loyalist colonies (round 25's balance idea C, on
+ * in the scenario's own rule since SCEN3 r27, edition 5). A computer-run
+ * colony among these whose capital falls to Britain's side (its capital
+ * gone, and the spot it started on held by Britain's side) joins Britain's
+ * side for good, and everyone hears ("New York declares for the King"). A
  * player's colony never changes sides. New York and the south, where the
  * Loyalists were strongest.
  */
@@ -401,14 +402,17 @@ function turnColonies1776Loyalists(game: Game): void {
 
 /** The special rules, by name. Add one here and name it in the data. */
 export const SCENARIO_RULES: Record<string, ScenarioRule> = {
-  // SCEN3 (r27): Britain's army in waves, and France.
+  // SCEN3 (r27): Britain's army in waves, France, and (edition 5) the
+  // Loyalist colonies.
   colonies1776: {
     tick: (game) => {
       landWaves(game, COLONIES_1776_WAVES, COLONIES_1776_PLACES);
+      turnColonies1776Loyalists(game);
     },
     troopCapBonus: (game, player) => waveCap(game, COLONIES_1776_WAVES, player),
   },
-  // Round 25's balance idea C (no data names it): Loyalist colonies.
+  // The Loyalist colonies alone (round 25's idea C; colonies1776 runs them
+  // too since SCEN3 r27).
   colonies1776_loyalists: {
     tick: (game) => {
       turnColonies1776Loyalists(game);

@@ -19,6 +19,7 @@ import {
   COLONIES_1776_PLACES,
   COLONIES_1776_WAVES,
   SCENARIO_RULES,
+  scenarioWinner,
 } from "@openfront/engine/scenario/ScenarioRules";
 import { waveMark } from "@openfront/engine/scenario/ScenarioWaves";
 import { describe, expect, it } from "vitest";
@@ -273,6 +274,53 @@ describe("Thirteen Colonies 1776: France enters the war (SCEN3 r27)", () => {
 });
 
 describe("Thirteen Colonies 1776: Loyalist colonies (idea C)", () => {
+  // SCEN3 (r27): on in the scenario's own rule (edition 5).
+  it("turn in the scenario's own rule: New York declares for the King when its capital falls", async () => {
+    const g = await scenarioGame("colonies1776");
+    const { game } = g;
+    expect(scenarioData("colonies1776")!.rule).toBe("colonies1776");
+    const rule = SCENARIO_RULES.colonies1776;
+    const britain = g.nation("great_britain");
+    const newYork = g.nation("new_york");
+    const news: News[] = [];
+    rule.tick!(at(game, 60, news));
+    expect(newYork.team()).toBe("Patriots");
+    expect(news).toEqual([]);
+    takeCapital(game, newYork, britain);
+    rule.tick!(at(game, 70, news));
+    expect(newYork.team()).toBe("British");
+    expect(news).toEqual([
+      {
+        message: "events_display.scenario_loyalists",
+        params: { name: newYork.displayName(), side: "British" },
+      },
+    ]);
+  }, 120_000);
+
+  it("count for Britain under the win rule once they have turned", async () => {
+    const g = await scenarioGame("colonies1776");
+    const { game } = g;
+    const britain = g.nation("great_britain");
+    const georgia = g.nation("georgia");
+    // Every other Patriot colony beaten: Georgia alone still holds the
+    // Patriots' war, while it is a Patriot colony.
+    for (const p of game.players()) {
+      if (p === georgia || p.team() !== "Patriots") continue;
+      for (const t of [...p.tiles()]) britain.conquer(t);
+    }
+    expect(georgia.numTilesOwned()).toBeGreaterThan(
+      Math.ceil(game.numLandTiles() / 500),
+    );
+    expect(scenarioWinner(at(game, 600, []), false)).toBeNull();
+    // Its capital falls and it declares for the King: its land is Britain's
+    // side now, and Britain has won.
+    takeCapital(game, georgia, britain);
+    SCENARIO_RULES.colonies1776.tick!(at(game, 610, []));
+    expect(georgia.team()).toBe("British");
+    expect(georgia.numTilesOwned()).toBeGreaterThan(0);
+    expect(scenarioWinner(at(game, 620, []), false)).toBe("British");
+  }, 120_000);
+
   it("a Loyalist colony whose capital falls to Britain joins Britain for good", async () => {
     const g = await scenarioGame("colonies1776");
     const { game } = g;
@@ -297,7 +345,7 @@ describe("Thirteen Colonies 1776: Loyalist colonies (idea C)", () => {
     expect(news.length).toBe(1);
   }, 120_000);
 
-  it("leaves the other colonies, and a player's colony, on their side", async () => {
+  it("leave the other colonies, and a player's colony, on their side", async () => {
     const g = await scenarioGame("colonies1776", {
       players: [{ clientID: "PLAYERAA", username: "Alden", nation: "georgia" }],
     });
@@ -310,6 +358,10 @@ describe("Thirteen Colonies 1776: Loyalist colonies (idea C)", () => {
     takeCapital(game, massachusetts, britain);
     const news: News[] = [];
     SCENARIO_RULES.colonies1776_loyalists.tick!(at(game, 600, news));
+    expect(georgia.team()).toBe("Patriots");
+    expect(massachusetts.team()).toBe("Patriots");
+    // The scenario's own rule too (SCEN3 r27, edition 5).
+    SCENARIO_RULES.colonies1776.tick!(at(game, 610, news));
     expect(georgia.team()).toBe("Patriots");
     expect(massachusetts.team()).toBe("Patriots");
     expect(news).toEqual([]);
@@ -401,20 +453,22 @@ describe("Thirteen Colonies 1776 as the owner picked it (idea E3)", () => {
   }, 120_000);
 
   it("refuses its old games' replays (SCEN3 r27: every scenario's)", () => {
-    expect(scenarioEdition("colonies1776")).toBe(4);
+    // 5 (SCEN3 r27): the Loyalist colonies.
+    expect(scenarioEdition("colonies1776")).toBe(5);
     expect(SCENARIO_EDITION).toBe(3);
     // Europe 1939 and Continental Army 1776 have their own editions since
     // their tuning went on (SCEN3 r27).
     expect(scenarioEdition("europe1939")).toBe(4);
     expect(scenarioEdition("continental1776")).toBe(4);
     expect(scenarioEdition("napoleon1812")).toBe(SCENARIO_EDITION);
-    for (const old of [2, 3]) {
+    // Edition 4's games had no Loyalist colonies.
+    for (const old of [2, 3, 4]) {
       expect(
         scenarioReplayable({ scenario: { id: "colonies1776", edition: old } }),
       ).toBe(false);
     }
     expect(
-      scenarioReplayable({ scenario: { id: "colonies1776", edition: 4 } }),
+      scenarioReplayable({ scenario: { id: "colonies1776", edition: 5 } }),
     ).toBe(true);
     // Round 25's games of the other scenarios (edition 2) are refused too:
     // the win rule changed for every scenario.
@@ -434,6 +488,6 @@ describe("Thirteen Colonies 1776 as the owner picked it (idea E3)", () => {
     const config: Partial<GameConfig> = applyScenarioRules({
       scenario: { id: "colonies1776" },
     });
-    expect(config.scenario!.edition).toBe(4);
+    expect(config.scenario!.edition).toBe(5);
   });
 });
