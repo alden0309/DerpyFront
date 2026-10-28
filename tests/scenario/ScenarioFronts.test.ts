@@ -168,12 +168,15 @@ describe("fronts that hold", () => {
     expect(scenarioAttackFactor(game, north, south, busan)).toBeGreaterThan(
       (1 + data.fronts!.homeland!) * data.fronts!.supplyMax!,
     );
-    // The South at home is untouched by the North's own rules.
+    // The South at home is untouched by the North's own rules (it has its
+    // own: it holds less hard at home, SCEN3 r27).
     const ri = data.nations.findIndex((n) => n.key === "south_korea");
     expect(frontRules(scenario, ri)).toEqual({
       ...FRONT_DEFAULTS,
       ...data.fronts,
+      ...data.nations[ri].fronts,
     });
+    expect(frontRules(scenario, ri).supplyMax).toBe(data.fronts!.supplyMax);
   }, 120_000);
 
   it("has the defaults resources/scenarios/README.md's table gives", () => {

@@ -380,10 +380,14 @@ describe("Thirteen Colonies 1776 as the owner picked it (idea E3)", () => {
     expect(data.nations.filter((n) => n.goldIncome === 0.6).length).toBe(13);
   });
 
-  it("leaves every other scenario as it was", () => {
+  it("leaves every other scenario as it was (but 1939's Soviet industry, SCEN3 r27)", () => {
     for (const id of ["continental1776", "europe1939"]) {
       const data = scenarioData(id)!;
       for (const n of data.nations) {
+        if (id === "europe1939" && n.key === "soviet_union") {
+          expect(n.goldIncome).toBe(2);
+          continue;
+        }
         expect(n.goldIncome, `${id} ${n.key}`).toBeUndefined();
       }
     }
