@@ -36,6 +36,8 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   as that side; one that never joined counts for nobody. A side with
   `winByHolding` also wins by holding that land for its `seconds` in a row
   (Korea 1950: North Korea, 2.5 minutes, with a countdown everyone sees).
+  A scenario with an `armistice` ends at its minute: the side holding more
+  land wins, a hold under way or not (Korea 1950: minute 60, as in 1953).
   At the lobby timer, or the 170-minute limit, the side holding the most of
   its own starting land (its land now over its land at the start) wins.
   Overtime is off in scenarios: it lowers a land bar, and there is none.
@@ -64,6 +66,7 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   "year": 1939,
   "capitalFullTiles": 40000, // optional, see Capitals
   "nukes": false, // optional: false before August 1945, see Nukes
+  "armistice": { "minute": 60, "warnMinutes": 5 }, // optional, see Armistice
   "fronts": { "supplyMax": 2.5 }, // optional, see Fronts
   "rule": "korea", // optional special rule (ScenarioRules.ts)
   "sides": [{ "id": "Axis", "name": "Axis", "color": "#7d7d7d" }],
@@ -105,6 +108,19 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   and the lobby shows those toggles off and locked. A structure of those
   types in the data isn't built. Copy the field to `index.json`, like
   `capitalFullTiles` (tests/scenario/ScenarioNukes.test.ts checks both).
+- **Armistice** (SCEN3, round 27; Korea 1950): `"armistice": { "minute":
+60, "warnMinutes": 5 }` ends the war at that minute of the game's clock
+  (from the end of the spawn phase; on a Compact map half, rounded up, like
+  the goals' minutes): the side whose nations hold more land in all wins,
+  whatever a side's `winByHolding` hold has left to run (a hold that ends
+  sooner still wins sooner). A tie in land goes to the side holding the most
+  of its own starting land (the time-up rule), then to the first side
+  listed. Everyone hears of the talks `warnMinutes` before (default 5;
+  `events_display.scenario_armistice_talks`), a countdown shows from then
+  (`heads_up_message.scenario_armistice`), and the end is a news line
+  (`events_display.scenario_armistice_<side>`) and the win screen's
+  `scenarios.win_armistice.<side>` (side in lower case). A scenario with
+  one bumps its edition (`SCENARIO_EDITION_OF`).
 - **Sides:** `id` is the side's team name in the game, its key in en.json and
   the `Winner` the game records. `name` is the English name the server writes
   into the game's record. `color` marks the side wherever players are listed.

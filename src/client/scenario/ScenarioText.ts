@@ -49,6 +49,15 @@ export function sideWinLine(side: ScenarioSide | string): string {
   return tr(`scenarios.win.${id.toLowerCase()}`, sideName(side));
 }
 
+/**
+ * SCEN3 (r27): "The United Nations win at the armistice": a war ended by its
+ * armistice (ScenarioData.armistice), falling back to the plain win line.
+ */
+export function sideArmisticeLine(side: ScenarioSide | string): string {
+  const id = typeof side === "string" ? side : side.id;
+  return tr(`scenarios.win_armistice.${id.toLowerCase()}`, sideWinLine(side));
+}
+
 /** A side's mark for text-only lists: a coloured circle near its colour. */
 export function sideMark(color: string): string {
   const h = color.replace("#", "");

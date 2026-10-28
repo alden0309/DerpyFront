@@ -64,6 +64,13 @@ export interface ScenarioData {
    * nukes, balances them with it.
    */
   nukePrice?: number;
+  /**
+   * SCEN3 (r27): the war ends at `minute` (the map's minute: half, rounded
+   * up, on a Compact map, like the goals): the side holding more land wins,
+   * as at Korea's 1953 armistice. Everyone hears of the talks `warnMinutes`
+   * before (default 5), and a countdown shows from then.
+   */
+  armistice?: { minute: number; warnMinutes?: number };
   sides: ScenarioSide[];
   nations: ScenarioNation[];
   /**
@@ -218,6 +225,24 @@ const ALL: Record<string, ScenarioData> = {
   ww1914: ww1914 as unknown as ScenarioData,
   korea1950: korea1950 as unknown as ScenarioData,
 };
+
+/**
+ * SCEN3 (r27): when a scenario's armistice ends the war (`at`), and when its
+ * talks are announced (`warnAt`), in ticks of the game's clock (from the end
+ * of the spawn phase, like the goals'), and the minute it ends (null: no
+ * armistice). The minutes are the map's: half, rounded up, on a Compact map.
+ */
+export function armisticeTicks(
+  data: Pick<ScenarioData, "armistice">,
+  compact: boolean,
+): { minute: number; at: number; warnAt: number } | null {
+  const a = data.armistice;
+  if (a === undefined) return null;
+  const minute = (m: number) => (compact ? Math.ceil(m / 2) : m);
+  const at = minute(a.minute);
+  const warn = minute(Math.max(0, a.minute - (a.warnMinutes ?? 5)));
+  return { minute: at, at: at * 600, warnAt: warn * 600 };
+}
 
 /** A scenario's data, or null if there is no such scenario. */
 export function scenarioData(id: string | undefined): ScenarioData | null {
