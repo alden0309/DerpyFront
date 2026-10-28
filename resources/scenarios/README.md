@@ -166,6 +166,11 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   and lastStand when it is attacked. Korea 1950's North runs out of supply
   sooner (`supplyPer100` 0.8, `supplyMax` 3.5); 1939's Soviet Union is a
   wall at home (`homeland` 1).
+- **cityTroopsMax** (optional, SCEN3 round 27) caps the troops (as players
+  see them, half on a Compact map) a nation's cities add to its troop cap,
+  however many it builds. Europe 1939: 400K for the small nations (a
+  computer-run Hungary built its cap from 0.24M to 8.8M in 40 minutes),
+  1.5M for Italy, 4M for Germany.
 - **Structures:** `City`, `Port`, `Factory`, `Defense Post`, `Missile Silo`,
   `SAM Launcher`, `Dome` (SCEN3: a Dome of Alden, which only stops nukes, in
   a 100-tile range; five at most per nation), with an optional `level`. Each stands at the nearest place

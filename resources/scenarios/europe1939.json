@@ -20,6 +20,7 @@
       "troopsPercent": 100,
       "gold": 3000000,
       "troopCapBonus": 1500000,
+      "cityTroopsMax": 4000000,
       "capital": [1550, 762],
       "structures": [
         { "type": "City", "at": [1411, 720], "level": 2 },

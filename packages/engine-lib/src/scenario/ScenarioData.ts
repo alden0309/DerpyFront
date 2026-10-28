@@ -150,7 +150,8 @@ export interface ScenarioNation {
    * SCEN3 (r27): the most troops (as players see them) its cities may add
    * to its troop cap, however many it builds (half as much in a Compact
    * game). Europe 1939's small nations: a computer-run Hungary built its
-   * cap from 0.24M to 8.8M in 40 minutes. Absent: no limit.
+   * cap from 0.24M to 8.8M in 40 minutes; Italy and Germany have caps too.
+   * Absent: no limit.
    */
   cityTroopsMax?: number;
   /**

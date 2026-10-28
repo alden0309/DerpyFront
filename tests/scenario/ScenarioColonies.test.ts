@@ -403,7 +403,9 @@ describe("Thirteen Colonies 1776 as the owner picked it (idea E3)", () => {
   it("refuses its old games' replays (SCEN3 r27: every scenario's)", () => {
     expect(scenarioEdition("colonies1776")).toBe(4);
     expect(SCENARIO_EDITION).toBe(3);
-    expect(scenarioEdition("europe1939")).toBe(SCENARIO_EDITION);
+    // Europe 1939 has its own edition since its tuning went on (SCEN3 r27).
+    expect(scenarioEdition("europe1939")).toBe(4);
+    expect(scenarioEdition("napoleon1812")).toBe(SCENARIO_EDITION);
     for (const old of [2, 3]) {
       expect(
         scenarioReplayable({ scenario: { id: "colonies1776", edition: old } }),
@@ -415,10 +417,17 @@ describe("Thirteen Colonies 1776 as the owner picked it (idea E3)", () => {
     // Round 25's games of the other scenarios (edition 2) are refused too:
     // the win rule changed for every scenario.
     expect(
-      scenarioReplayable({ scenario: { id: "europe1939", edition: 2 } }),
+      scenarioReplayable({ scenario: { id: "napoleon1812", edition: 2 } }),
     ).toBe(false);
     expect(
+      scenarioReplayable({ scenario: { id: "napoleon1812", edition: 3 } }),
+    ).toBe(true);
+    // Europe 1939's edition-3 games had no cap on Germany's cities.
+    expect(
       scenarioReplayable({ scenario: { id: "europe1939", edition: 3 } }),
+    ).toBe(false);
+    expect(
+      scenarioReplayable({ scenario: { id: "europe1939", edition: 4 } }),
     ).toBe(true);
     const config: Partial<GameConfig> = applyScenarioRules({
       scenario: { id: "colonies1776" },
