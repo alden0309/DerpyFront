@@ -83,7 +83,7 @@ describe("a scenario's fixed settings", () => {
     expect(target.scenario).toEqual({
       id: "continental1776",
       seats: {},
-      edition: SCENARIO_EDITION,
+      edition: scenarioEdition("continental1776"),
     });
   });
 });
