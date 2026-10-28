@@ -639,8 +639,8 @@
     },
     "korea1950": {
       "north_korea": {
-        "normal": [798, 1765],
-        "compact": [398, 883]
+        "normal": [395, 2074],
+        "compact": [197, 1037]
       },
       "south_korea": {
         "normal": [464, 1270],
