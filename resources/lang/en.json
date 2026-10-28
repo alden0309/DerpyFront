@@ -2979,7 +2979,7 @@
       "ottoman": "Take Kars",
       "persia": "Take Tiflis",
       "portugal": "Take Olivenza",
-      "romania": "Take Brașov",
+      "romania": "Take Brașov before minute {minute}",
       "russia": "Take Vienna before minute {minute}",
       "serbia": "Hold Belgrade past minute {minute}",
       "spain": "Take Oran",

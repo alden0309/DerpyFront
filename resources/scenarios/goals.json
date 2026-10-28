@@ -1147,7 +1147,8 @@
           "name": "Brașov",
           "at": [2045, 1041],
           "of": "austria_hungary"
-        }
+        },
+        "minute": 25
       },
       "greece": {
         "kind": "take",
