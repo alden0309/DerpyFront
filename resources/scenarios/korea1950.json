@@ -5,6 +5,7 @@
   "year": 1950,
   "rule": "korea1950",
   "nukePrice": 2,
+  "armistice": { "minute": 60, "warnMinutes": 5 },
   "fronts": {
     "homeland": 1,
     "lastStand": 2,

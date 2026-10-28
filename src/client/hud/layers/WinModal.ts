@@ -54,7 +54,7 @@ import {
   provisionalXpRules,
   reconcileXp,
 } from "../../ProvisionalXpAtDeath";
-import { sideWinLine } from "../../scenario/ScenarioText"; // SCEN (r25)
+import { sideArmisticeLine, sideWinLine } from "../../scenario/ScenarioText"; // SCEN (r25)
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
 import { SendWinnerEvent } from "../../Transport";
 import { GameView } from "../../view";
@@ -959,7 +959,18 @@ export class WinModal extends LitElement implements Controller {
         // Allies win"), with everyone who was on it.
         if ((this.game.scenario?.() ?? null) !== null) {
           const side = wu.winner[1];
-          this._title = sideWinLine(side);
+          // SCEN3 (r27): a war ended by its armistice says so (the engine's
+          // news of it comes on the same tick as the win).
+          const byArmistice = (
+            updates?.[GameUpdateType.DisplayEvent] ?? []
+          ).some(
+            (e) =>
+              e.message ===
+              `events_display.scenario_armistice_${side.toLowerCase()}`,
+          );
+          this._title = byArmistice
+            ? sideArmisticeLine(side)
+            : sideWinLine(side);
           this.sideMembers = this.game
             .playerViews()
             .filter((p) => p.team() === side)

@@ -1,9 +1,11 @@
 import {
+  GameMapSize,
   GameMode,
   GameType,
   RankedType,
 } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
+import { armisticeTicks } from "@openfront/engine-lib/scenario/ScenarioData";
 import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { Controller } from "../../Controller";
@@ -41,6 +43,13 @@ export class HeadsUpMessage extends LitElement implements Controller {
   // news when the hold starts; cleared when it breaks.
   @state()
   private hold: { side: string; until: number } | null = null;
+
+  // SCEN3 (r27): the seconds to a scenario's armistice (Korea 1950), from
+  // its talks to its minute on the game's clock; null outside that, and
+  // once the war is over.
+  @state()
+  private armisticeLeft: number | null = null;
+  private warOver = false;
 
   private static readonly CATCHING_UP_SHOW_THRESHOLD = 10;
   // How long the overtime announcement banner stays up after the start minute.
@@ -170,13 +179,14 @@ export class HeadsUpMessage extends LitElement implements Controller {
         this.hold = null;
       }
     }
+    if ((updates?.[GameUpdateType.Win]?.length ?? 0) > 0) this.warOver = true;
     if (
       this.hold !== null &&
-      ((updates?.[GameUpdateType.Win]?.length ?? 0) > 0 ||
-        this.game.ticks() > this.hold.until + 10)
+      (this.warOver || this.game.ticks() > this.hold.until + 10)
     ) {
       this.hold = null;
     }
+    this.armisticeLeft = this.armisticeSeconds();
 
     const showImmunityHudDuration = 10 * 10;
     const spawnEnd = this.game.config().numSpawnPhaseTurns();
@@ -252,6 +262,32 @@ export class HeadsUpMessage extends LitElement implements Controller {
     return this.game.config().isRandomSpawn()
       ? translateText("heads_up_message.random_spawn")
       : translateText("heads_up_message.choose_spawn");
+  }
+
+  /**
+   * SCEN3 (r27): the seconds left to the armistice, from its talks to its
+   * minute (the engine's armisticeTicks, on the goals' clock), or null.
+   */
+  private armisticeSeconds(): number | null {
+    if (this.warOver || this.game.inSpawnPhase()) return null;
+    const roster = this.game.scenario();
+    if (roster === null) return null;
+    const compact =
+      this.game.config().gameConfig().gameMapSize === GameMapSize.Compact;
+    const a = armisticeTicks(roster.data, compact);
+    if (a === null) return null;
+    const t = Math.floor(this.game.elapsedGameSeconds() * 10);
+    // The engine ends the war within its next second's check.
+    if (t < a.warnAt || t > a.at + 20) return null;
+    return Math.max(0, Math.ceil((a.at - t) / 10));
+  }
+
+  /** SCEN3 (r27): "Armistice in 4:12. Whoever holds more ground wins". */
+  private armisticeMessage(): string {
+    const s = this.armisticeLeft!;
+    return translateText("heads_up_message.scenario_armistice", {
+      time: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`,
+    });
   }
 
   /** SCEN3 (r27): "North Korea holds the South: 2:14". */
@@ -333,23 +369,42 @@ export class HeadsUpMessage extends LitElement implements Controller {
               </div>
             `
           : null}
-        <!-- SCEN3 (r27): the countdown sits over the left sidebar (z-900),
-          which spans a phone's width: everyone must see it. -->
-        ${this.hold !== null
+        <!-- SCEN3 (r27): the countdowns (a hold's, the armistice's, one over
+          the other) sit over the left sidebar (z-900), which spans a phone's
+          width: everyone must see them. -->
+        ${this.hold !== null || this.armisticeLeft !== null
           ? html`
               <div
-                data-scenario-hold
                 class="fixed ${this.isVisible
                   ? "top-[22%]"
                   : "top-[15%]"} left-1/2 -translate-x-1/2 z-[901]
-                            inline-flex items-center justify-center min-h-8 lg:min-h-10
+                            flex flex-col items-center gap-1 w-fit max-w-[90vw]"
+                @contextmenu=${(e: MouseEvent) => e.preventDefault()}
+              >
+                ${this.hold !== null
+                  ? html`<div
+                      data-scenario-hold
+                      class="inline-flex items-center justify-center min-h-8 lg:min-h-10
                             w-fit max-w-[90vw]
                             bg-red-900/80 border border-red-400/60 rounded-md lg:rounded-lg
                             backdrop-blur-xs text-white text-md lg:text-xl font-semibold
                             tabular-nums px-3 lg:px-4 py-1 text-center break-words"
-                @contextmenu=${(e: MouseEvent) => e.preventDefault()}
-              >
-                ${this.holdMessage()}
+                    >
+                      ${this.holdMessage()}
+                    </div>`
+                  : null}
+                ${this.armisticeLeft !== null
+                  ? html`<div
+                      data-scenario-armistice
+                      class="inline-flex items-center justify-center min-h-8 lg:min-h-10
+                            w-fit max-w-[90vw]
+                            bg-slate-800/80 border border-sky-300/60 rounded-md lg:rounded-lg
+                            backdrop-blur-xs text-white text-md lg:text-xl font-semibold
+                            tabular-nums px-3 lg:px-4 py-1 text-center break-words"
+                    >
+                      ${this.armisticeMessage()}
+                    </div>`
+                  : null}
               </div>
             `
           : null}

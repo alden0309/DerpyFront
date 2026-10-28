@@ -29,10 +29,12 @@ export const SCENARIO_EDITION = 3;
  * games are refused, the other scenarios' still replay. Thirteen Colonies
  * 1776: 3 was the Royal Navy's blockade and Overtime from minute 40; 4
  * (SCEN3, r27) is edition 3's win rule with Britain's army in waves and
- * France (it can't be 3 again: its old games recorded 3).
+ * France (it can't be 3 again: its old games recorded 3). Korean War 1950:
+ * 4 (SCEN3, r27) adds the armistice at minute 60.
  */
 const SCENARIO_EDITION_OF: Readonly<Record<string, number>> = {
   colonies1776: 4,
+  korea1950: 4,
 };
 
 /** The edition scenario `id`'s games are played under now. */

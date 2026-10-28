@@ -5,7 +5,10 @@ import {
   Team,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
-import { ScenarioSide } from "@openfront/engine-lib/scenario/ScenarioData";
+import {
+  armisticeTicks,
+  ScenarioSide,
+} from "@openfront/engine-lib/scenario/ScenarioData";
 import { Game, Player } from "../game/Game";
 import { scenarioStartLabels } from "./ScenarioLabels";
 import {
@@ -686,11 +689,28 @@ export function scenarioWinner(game: Game, timeUp: boolean): Team | null {
   for (const [side, t] of tiles) if (t >= minLand) alive.add(side);
   if (alive.size === 1) return [...alive][0];
   if (alive.size === 0) return null;
+  // SCEN3 (r27): an armistice ends the war at its minute, a hold under way
+  // or not (Korea 1950: minute 60).
+  const armistice = armisticeWinner(game, alive, tiles);
+  if (armistice !== null) return armistice;
   const held = holdWinner(game, alive);
   if (held !== null) return held;
   if (!timeUp) return null;
-  // Time's up: land now over land at the start, compared by
-  // cross-multiplying (exact integers). Ties go to the first side listed.
+  return bestByOwnLand(game, alive, tiles);
+}
+
+/**
+ * Time's up: the side holding the most of its own starting land (its land
+ * now over its land at the start), compared by cross-multiplying (exact
+ * integers). Ties go to the first side listed.
+ */
+function bestByOwnLand(
+  game: Game,
+  alive: ReadonlySet<Team>,
+  tiles: ReadonlyMap<Team, number>,
+): Team | null {
+  const scenario = game.scenario();
+  if (scenario === null) return null;
   const start = sideStartTiles(game);
   let best: Team | null = null;
   let bestNow = 0;
@@ -706,6 +726,67 @@ export function scenarioWinner(game: Game, timeUp: boolean): Team | null {
     }
   }
   return best;
+}
+
+/** The scenario mark holding the tick an armistice's talks were announced. */
+export const ARMISTICE_TALKS = "armistice:talks";
+
+/**
+ * SCEN3 (r27): a scenario's armistice (ScenarioData.armistice). At its
+ * warning, everyone hears that the war ends at its minute; at its minute,
+ * the side holding more land (all its nations' land, Japan's included in
+ * Korea) wins, and everyone hears. A tie in land, which a tile count all
+ * but never gives, goes to the side holding the most of its own starting
+ * land (the time-up rule), then to the first side listed. Null before then,
+ * or without an armistice.
+ */
+function armisticeWinner(
+  game: Game,
+  alive: ReadonlySet<Team>,
+  tiles: ReadonlyMap<Team, number>,
+): Team | null {
+  const scenario = game.scenario();
+  if (scenario === null) return null;
+  const a = armisticeTicks(scenario.data, scenario.scale === 2);
+  if (a === null) return null;
+  // The game's clock, like the goals': from the end of the spawn phase.
+  const t = Math.round(game.elapsedGameSeconds() * 10);
+  if (t >= a.warnAt && game.scenarioMark(ARMISTICE_TALKS) === undefined) {
+    game.setScenarioMark(ARMISTICE_TALKS, game.ticks());
+    game.displayMessage(
+      "events_display.scenario_armistice_talks",
+      MessageType.CONQUERED_PLAYER,
+      null,
+      undefined,
+      { minute: a.minute },
+    );
+  }
+  if (t < a.at) return null;
+  let most = -1;
+  let leaders: Team[] = [];
+  for (const side of scenario.data.sides) {
+    if (!alive.has(side.id)) continue;
+    const held = tiles.get(side.id) ?? 0;
+    if (held > most) {
+      most = held;
+      leaders = [side.id];
+    } else if (held === most) {
+      leaders.push(side.id);
+    }
+  }
+  const winner =
+    leaders.length === 1
+      ? leaders[0]
+      : bestByOwnLand(game, new Set(leaders), tiles);
+  if (winner === null) return null;
+  game.displayMessage(
+    `events_display.scenario_armistice_${winner.toLowerCase()}`,
+    MessageType.CONQUERED_PLAYER,
+    null,
+    undefined,
+    { side: winner },
+  );
+  return winner;
 }
 
 /**

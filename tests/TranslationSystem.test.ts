@@ -34,13 +34,16 @@ const DYNAMIC_KEY_PATTERNS: RegExp[] = [
   /^scenario_nation\.[^.]+$/,
   /^scenarios\.[^.]+\.(title|date|description|neutral)$/,
   /^scenarios\.win\.[^.]+$/,
+  // SCEN3 (r27): a side's win at an armistice (ScenarioText sideArmisticeLine).
+  /^scenarios\.win_armistice\.[^.]+$/,
   // DFX (r26): a nation's Scenario goal, keyed by scenario and nation id
   // (engine-lib/scenario/ScenarioGoals.ts goalTextKey, read by ScenarioGoalText).
   /^scenario_goal_text\.[^.]+\.[^.]+$/,
-  // SCEN3 (r27): a scenario's waves and holds, named by the engine
-  // (ScenarioWaves.ts, ScenarioRules.ts holdWinner), and a wave's landing
-  // place (scenario_place.<place>, translated by EventsDisplay).
-  /^events_display\.scenario_(wave|hold)_.+$/,
+  // SCEN3 (r27): a scenario's waves, holds and armistice, named by the
+  // engine (ScenarioWaves.ts, ScenarioRules.ts holdWinner, armisticeWinner),
+  // and a wave's landing place (scenario_place.<place>, translated by
+  // EventsDisplay).
+  /^events_display\.scenario_(wave|hold|armistice)_.+$/,
   /^scenario_place\.[^.]+$/,
   // DIPLO (r27): a side's name in the courting panel, keyed by side id
   // (ScenarioDiplomacyClient.ts sideInSentence).

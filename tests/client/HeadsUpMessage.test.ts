@@ -140,6 +140,7 @@ describe("HeadsUpMessage scenario hold countdown", () => {
     isSpawnImmunityActive: () => false,
     isCatchingUp: () => false,
     elapsedGameSeconds: () => ticks / 10,
+    scenario: () => null,
     config: () => ({
       hasExtendedSpawnImmunity: () => false,
       numSpawnPhaseTurns: () => 100,
@@ -225,5 +226,112 @@ describe("HeadsUpMessage scenario hold countdown", () => {
     element.tick();
     await element.updateComplete;
     expect(banner()).toBeNull();
+  });
+});
+
+// SCEN3 (r27): the armistice's countdown (Korea 1950), from its talks five
+// minutes before to its minute, on the game's clock (half on Compact).
+describe("HeadsUpMessage scenario armistice countdown", () => {
+  let element: HeadsUpMessage;
+  let elapsed = 0;
+  let wins: unknown[] = [];
+  let mapSize: string | undefined;
+  let hold: { message: string; params?: Record<string, unknown> }[] = [];
+
+  const game = {
+    ticks: () => 100 + elapsed,
+    updatesSinceLastTick: () => ({
+      [GameUpdateType.DisplayEvent]: hold,
+      [GameUpdateType.GamePaused]: [],
+      [GameUpdateType.Win]: wins,
+    }),
+    inSpawnPhase: () => false,
+    isSpawnImmunityActive: () => false,
+    isCatchingUp: () => false,
+    elapsedGameSeconds: () => elapsed / 10,
+    scenario: () => ({
+      data: { id: "korea1950", armistice: { minute: 60, warnMinutes: 5 } },
+      seats: new Map(),
+    }),
+    config: () => ({
+      hasExtendedSpawnImmunity: () => false,
+      numSpawnPhaseTurns: () => 100,
+      isReplay: () => false,
+      isIntentionalSpectator: () => false,
+      isRandomSpawn: () => false,
+      spawnImmunityDuration: () => 50,
+      overtimeConfig: () => ({ enabled: false, startMinutes: 30 }),
+      gameConfig: () => ({ gameMapSize: mapSize }),
+    }),
+  };
+
+  beforeEach(async () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => {},
+    });
+    if (!customElements.get("heads-up-message")) {
+      customElements.define("heads-up-message", HeadsUpMessage);
+    }
+    element = document.createElement("heads-up-message") as HeadsUpMessage;
+    element.game = game as never;
+    document.body.appendChild(element);
+    elapsed = 0;
+    wins = [];
+    hold = [];
+    mapSize = undefined;
+    await element.updateComplete;
+  });
+
+  afterEach(() => {
+    element.remove();
+    vi.unstubAllGlobals();
+  });
+
+  const banner = () =>
+    element.querySelector<HTMLElement>("[data-scenario-armistice]");
+
+  async function at(ticks: number): Promise<void> {
+    elapsed = ticks;
+    element.tick();
+    await element.updateComplete;
+  }
+
+  it("counts down from minute 55 to minute 60, and goes when the war ends", async () => {
+    await at(32_990);
+    expect(banner()).toBeNull();
+    await at(33_000);
+    expect(banner()?.textContent).toContain(
+      "heads_up_message.scenario_armistice 5:00",
+    );
+    await at(35_990);
+    expect(banner()?.textContent).toContain("0:01");
+    await at(36_000);
+    expect(banner()?.textContent).toContain("0:00");
+    wins = [{ winner: ["team", "UnitedNations"] }];
+    await at(36_010);
+    expect(banner()).toBeNull();
+  });
+
+  it("comes at minute 28 for minute 30 on a Compact map", async () => {
+    mapSize = "Compact";
+    await at(16_790);
+    expect(banner()).toBeNull();
+    await at(16_800);
+    expect(banner()?.textContent).toContain("2:00");
+  });
+
+  it("sits with a hold's countdown, one over the other", async () => {
+    hold = [
+      {
+        message: "events_display.scenario_hold_started_northkorea",
+        params: { side: "NorthKorea", until: 100 + 34_500 },
+      },
+    ];
+    await at(34_000);
+    const holdBanner = element.querySelector("[data-scenario-hold]");
+    expect(holdBanner?.textContent).toContain("0:50");
+    expect(banner()?.textContent).toContain("3:20");
+    expect(holdBanner?.parentElement).toBe(banner()?.parentElement);
   });
 });
