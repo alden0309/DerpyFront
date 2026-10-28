@@ -198,7 +198,7 @@ export const KOREA_1950_CHINA = "china";
 export const KOREA_1950_WAVES: ScenarioWave[] = [
   {
     id: "busan",
-    minute: 3,
+    minute: 4,
     side: "UnitedNations",
     troops: 500_000,
     cap: 500_000,
@@ -208,7 +208,7 @@ export const KOREA_1950_WAVES: ScenarioWave[] = [
   },
   {
     id: "incheon",
-    minute: 8,
+    minute: 10,
     side: "UnitedNations",
     troops: 800_000,
     cap: 800_000,

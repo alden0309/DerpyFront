@@ -4,6 +4,7 @@
   "map": "Korea",
   "year": 1950,
   "rule": "korea1950",
+  "nukePrice": 2,
   "fronts": {
     "homeland": 1,
     "lastStand": 2,
@@ -32,10 +33,11 @@
       "flag": "kp",
       "side": "NorthKorea",
       "color": "#a8423c",
-      "troopsPercent": 100,
+      "troopsPercent": 50,
       "gold": 1500000,
-      "troopCapBonus": 1000000,
+      "troopCapBonus": 2800000,
       "fronts": { "supplyPer100": 0.8, "supplyMax": 3.5 },
+      "troopGrowth": 1.03,
       "capital": [264, 972],
       "structures": [
         { "type": "City", "at": [552, 784], "level": 2 },
@@ -69,6 +71,8 @@
       "color": "#3f6fc0",
       "troopsPercent": 42,
       "gold": 400000,
+      "goldIncome": 0.5,
+      "fronts": { "homeland": 0.5, "lastStand": 0.5 },
       "capital": [464, 1270],
       "structures": [
         { "type": "City", "at": [726, 1613], "level": 2 },
@@ -99,8 +103,9 @@
       "side": "UnitedNations",
       "color": "#58b0c8",
       "troopsPercent": 100,
-      "gold": 500000,
-      "troopCapBonus": 1500000,
+      "gold": 200000,
+      "troopCapBonus": 800000,
+      "goldIncome": 0.5,
       "capital": [1019, 2061],
       "structures": [
         { "type": "City", "at": [1003, 2125] },

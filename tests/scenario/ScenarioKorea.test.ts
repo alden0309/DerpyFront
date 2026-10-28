@@ -70,11 +70,19 @@ describe("Korea 1950's data (SCEN3 r27)", () => {
     expect(data.rule).toBe("korea1950");
     const north = data.nations.find((n) => n.key === "north_korea")!;
     const un = data.nations.find((n) => n.key === "un_command")!;
-    // Round 25: +4M. About a third of the head start now.
-    expect(north.troopCapBonus).toBeLessThanOrEqual(1_500_000);
+    // Round 25: +4M and every troop at the start. Now it starts with half
+    // of a smaller cap (about a third of round 25's army, the test below)
+    // and grows into the rest: deep reserves, not a head start.
+    expect(north.troopCapBonus).toBeLessThan(4_000_000);
+    expect(north.troopsPercent).toBeLessThanOrEqual(50);
+    expect(north.troopGrowth ?? 1).toBeGreaterThanOrEqual(1);
     // Its supply runs out sooner than the scenario's.
     expect(north.fronts?.supplyMax).toBeGreaterThan(data.fronts!.supplyMax!);
-    expect(un.troopCapBonus).toBeGreaterThanOrEqual(1_000_000);
+    expect(un.troopCapBonus).toBeGreaterThanOrEqual(500_000);
+    // Nukes stay, dearer than usual; the UN's trade economy is cut back
+    // (its Japan is nuke-proof under the Domes, so the bombs are the UN's).
+    expect(data.nukePrice).toBeGreaterThan(1);
+    expect(un.goldIncome).toBeLessThan(1);
     expect(un.troopsPercent).toBe(100);
     expect(un.structures!.filter((s) => s.type === "Dome")).toHaveLength(5);
     const side = data.sides.find((s) => s.id === "NorthKorea")!;
@@ -97,7 +105,8 @@ describe("Korea 1950's data (SCEN3 r27)", () => {
     // Round 25's North had 4.85M on Hard (its 4M bonus and its land).
     expect(north.troops() / 10).toBeLessThan(2_200_000);
     expect(north.troops() / 10).toBeGreaterThan(1_200_000);
-    expect(un.troops() / 10).toBeGreaterThan(1_000_000);
+    // The UN Command: about 0.9M here, 1.1M once its capital counts.
+    expect(un.troops() / 10).toBeGreaterThan(800_000);
     const domes = un.units(UnitType.Dome);
     expect(domes).toHaveLength(5);
     // Every tile of the UN's Japan lies under a Dome.
