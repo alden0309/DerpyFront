@@ -16,9 +16,9 @@
       "flag": "union_flag_1707",
       "side": "British",
       "color": "#c8312d",
-      "troopsPercent": 80,
+      "troopsPercent": 72,
       "gold": 3000000,
-      "troopCapBonus": 500000,
+      "troopCapBonus": 200000,
       "capital": [1039, 141],
       "structures": [
         { "type": "City", "at": [879, 336], "level": 2 },

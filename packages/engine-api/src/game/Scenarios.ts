@@ -32,9 +32,11 @@ export const SCENARIO_EDITION = 3;
  * France (it can't be 3 again: its old games recorded 3). Korean War 1950:
  * 4 (SCEN3, r27) adds the armistice at minute 60. Europe 1939: 4 (SCEN3,
  * r27, still tuning) caps what Germany's cities add to its troops.
+ * Continental Army 1776: 4 (SCEN3, r27) gives Britain a smaller army.
  */
 const SCENARIO_EDITION_OF: Readonly<Record<string, number>> = {
   colonies1776: 4,
+  continental1776: 4,
   europe1939: 4,
   korea1950: 4,
 };

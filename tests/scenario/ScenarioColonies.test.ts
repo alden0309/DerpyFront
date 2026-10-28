@@ -403,8 +403,10 @@ describe("Thirteen Colonies 1776 as the owner picked it (idea E3)", () => {
   it("refuses its old games' replays (SCEN3 r27: every scenario's)", () => {
     expect(scenarioEdition("colonies1776")).toBe(4);
     expect(SCENARIO_EDITION).toBe(3);
-    // Europe 1939 has its own edition since its tuning went on (SCEN3 r27).
+    // Europe 1939 and Continental Army 1776 have their own editions since
+    // their tuning went on (SCEN3 r27).
     expect(scenarioEdition("europe1939")).toBe(4);
+    expect(scenarioEdition("continental1776")).toBe(4);
     expect(scenarioEdition("napoleon1812")).toBe(SCENARIO_EDITION);
     for (const old of [2, 3]) {
       expect(

@@ -459,11 +459,8 @@
       "united_colonies": {
         "kind": "take",
         "place": {
-          "name": "Montreal",
-          "at": [880, 335],
-          "of": "great_britain"
-        },
-        "minute": 14
+          "capitalOf": "great_britain"
+        }
       },
       "haudenosaunee": {
         "kind": "hold",
