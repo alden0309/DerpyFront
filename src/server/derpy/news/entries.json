@@ -1,5 +1,40 @@
 [
   {
+    "id": "2026-10-26-first-life",
+    "date": "2026-10-26",
+    "game": "conquest",
+    "title": "First life: a Conquest tutorial",
+    "body": "New to Derpy Conquest? Live your first life as Thomas or Hannah Hale, a young cooper in Boston, 1700. About fifteen minutes, and 250 Derp Coins when you finish."
+  },
+  {
+    "id": "2026-10-26-watch-replays-together",
+    "date": "2026-10-26",
+    "game": "derpyfront",
+    "title": "Watch replays together",
+    "body": "Open any saved DerpyFront game with friends. The host plays, pauses and rewinds for everyone. Every replay now has a timeline you can drag, plus Back 10 seconds, Back 1 minute and Back to the start."
+  },
+  {
+    "id": "2026-10-26-random-history-and-goals",
+    "date": "2026-10-26",
+    "game": "derpyfront",
+    "title": "Random history and scenario goals",
+    "body": "Random history drops you into a random war as a random nation. Every scenario nation has an optional historical goal: meet it on Hard or Impossible for 200 Derp Coins, once each."
+  },
+  {
+    "id": "2026-10-26-badges-and-pictures",
+    "date": "2026-10-26",
+    "game": "site",
+    "title": "Badges and profile pictures",
+    "body": "Earn badges across Derp Land and pin up to three beside your name. Pick one of 35 pictures or upload your own."
+  },
+  {
+    "id": "2026-10-26-chapter-one-revised",
+    "date": "2026-10-26",
+    "game": "based",
+    "title": "Chapter one, revised",
+    "body": "Foreign words now read by how much French he knows. He travels as John Locke, a wine shipper from San Diego."
+  },
+  {
     "id": "2026-10-20-scenarios",
     "date": "2026-10-20",
     "game": "derpyfront",
