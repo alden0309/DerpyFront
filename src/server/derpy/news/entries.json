@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-10-28-scenarios-rebalanced",
+    "date": "2026-10-28",
+    "game": "derpyfront",
+    "title": "Scenarios, rebalanced for Hard",
+    "body": "Scenarios are now won by beating every nation on the other side. Nukes are gone from wars before 1945. Korea starts closer: North Korea must hold the whole South for two and a half minutes, the UN fights from behind its Domes in Japan, and China joins if the UN nears the Yalu. In 1939 Germany strikes Poland first and the Soviets keep their pact until minute 20; in 1776 Britain's army lands in waves and France joins the Patriots.\n\nYou can also court the neutrals now: send gifts to win their goodwill, invite them to join your side, or, playing a neutral, ask to join one. Each leans the way history did, so some cost far more than others."
+  },
+  {
     "id": "2026-10-26-first-life",
     "date": "2026-10-26",
     "game": "conquest",
