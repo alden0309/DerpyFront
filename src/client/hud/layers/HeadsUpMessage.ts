@@ -333,13 +333,15 @@ export class HeadsUpMessage extends LitElement implements Controller {
               </div>
             `
           : null}
+        <!-- SCEN3 (r27): the countdown sits over the left sidebar (z-900),
+          which spans a phone's width: everyone must see it. -->
         ${this.hold !== null
           ? html`
               <div
                 data-scenario-hold
                 class="fixed ${this.isVisible
                   ? "top-[22%]"
-                  : "top-[15%]"} left-1/2 -translate-x-1/2 z-[799]
+                  : "top-[15%]"} left-1/2 -translate-x-1/2 z-[901]
                             inline-flex items-center justify-center min-h-8 lg:min-h-10
                             w-fit max-w-[90vw]
                             bg-red-900/80 border border-red-400/60 rounded-md lg:rounded-lg
