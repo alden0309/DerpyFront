@@ -3,6 +3,7 @@ import { within } from "@openfront/engine-lib/Util";
 import { EventBus } from "@openfront/shared/EventBus";
 import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { SendScenarioDiplomacyIntentEvent } from "../../scenario/ScenarioDiplomacyClient"; // DIPLO (r27)
 import {
   SendDonateGoldIntentEvent,
   SendDonateTroopsIntentEvent,
@@ -16,7 +17,8 @@ export class SendResourceModal extends LitElement {
   @property({ attribute: false }) eventBus: EventBus | null = null;
 
   @property({ type: Boolean }) open: boolean = false;
-  @property({ type: String }) mode: "troops" | "gold" = "troops";
+  // DIPLO (r27): "gift" is gold sent to a Scenario's neutral, as a gift.
+  @property({ type: String }) mode: "troops" | "gold" | "gift" = "troops";
 
   @property({ type: Object }) total: number | bigint = 0;
   @property({ type: Object }) uiState: UIState | null = null; // to seed initial %
@@ -27,6 +29,8 @@ export class SendResourceModal extends LitElement {
   @property({ attribute: false }) gameView: GameView | null = null;
 
   @property({ type: String }) heading: string | null = null;
+  /** DIPLO (r27): an optional line under the heading (what a gift does). */
+  @property({ type: String }) note: string | null = null;
 
   @state() private sendAmount: number = 0;
   @state() private selectedPercent: number | null = null;
@@ -99,6 +103,17 @@ export class SendResourceModal extends LitElement {
       const myTroops = Number(myPlayer.troops());
       if (amount > myTroops) return;
       this.eventBus.emit(new SendDonateTroopsIntentEvent(target, amount));
+    } else if (this.mode === "gift") {
+      // DIPLO (r27)
+      const myGold = Number(myPlayer.gold());
+      if (amount > myGold) return;
+      this.eventBus.emit(
+        new SendScenarioDiplomacyIntentEvent({
+          type: "scenario_gift",
+          neutral: target.id(),
+          gold: amount,
+        }),
+      );
     } else {
       const myGold = Number(myPlayer.gold());
       if (amount > myGold) return;
@@ -557,7 +572,15 @@ export class SendResourceModal extends LitElement {
             class="rounded-2xl bg-zinc-900 p-5 shadow-2xl ring-1 ring-zinc-800 max-h-[90vh] text-zinc-200"
             @click=${(e: MouseEvent) => e.stopPropagation()}
           >
-            ${this.renderHeader()} ${this.renderAvailable()}
+            ${this.renderHeader()}
+            ${this.note !== null // DIPLO (r27)
+              ? html`<p
+                  class="-mt-1 mb-3 text-[13px] leading-snug text-zinc-400"
+                >
+                  ${this.note}
+                </p>`
+              : html``}
+            ${this.renderAvailable()}
             ${!this.isTargetAlive() ? this.renderDeadNote() : html``}
             ${this.renderPresets(percent)} ${this.renderSlider(percent)}
             ${this.mode === "troops"

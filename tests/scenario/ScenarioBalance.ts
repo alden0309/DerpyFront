@@ -8,14 +8,30 @@
  *
  * Usage (from the worktree root):
  *   nice -n 10 npx tsx tests/scenario/ScenarioBalance.ts --scenario europe1939 \
- *     --seed s1 --difficulty Medium --minutes 120 [--size Normal] [--goals]
+ *     --seed s1 --difficulty Medium --minutes 120 [--size Normal] [--goals] \
+ *     [--seat germany] [--no-nukes]
+ *
+ * SCEN3 (r27): --seat <nation key> plays that nation as a person's seat:
+ * a human player (PlayerType.Human, so the human's numbers and everything
+ * the rules give or deny a person) seated at the nation, driven by the
+ * computer's own logic (a NationExecution) at the game's difficulty.
+ *
+ * The seat stands in for a person, so it does what a person can do by hand
+ * even where the computer's code only lets a Nation do it (standInSeat):
+ * it lands beachhead boats and pays for escorted transports as a Hard
+ * nation does, and courts the neutrals with its side's computer courting
+ * (DIPLO). What a person can't do it doesn't either: the engine's rules
+ * stay a person's (troop numbers, bots annexed only by nations).
  */
 import {
+  Cell,
   Difficulty,
   GameMapSize,
   GameMode,
   GameType,
+  Nation,
   PlayerType,
+  UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { GameStartInfo } from "@openfront/engine-api/Schemas";
@@ -26,7 +42,11 @@ import {
   goalTileXY,
   scenarioGoal,
 } from "@openfront/engine-lib/scenario/ScenarioGoals"; // DFX (r26)
+import { NationExecution } from "@openfront/engine/execution/NationExecution";
+import { AiAttackBehavior } from "@openfront/engine/execution/utils/AiAttackBehavior";
+import { Player } from "@openfront/engine/game/Game";
 import { createGameRunner } from "@openfront/engine/GameRunner";
+import { ScenarioDiplomacy } from "@openfront/engine/scenario/ScenarioDiplomacy";
 import { GOAL_CHECK_INTERVAL } from "@openfront/engine/scenario/ScenarioGoals"; // DFX (r26)
 import { loadMapFiles } from "@openfront/shared/GameMapLoader";
 import path from "path";
@@ -53,6 +73,61 @@ const overtime = parseInt(
   10,
 );
 const ROOT = process.env.SCEN_ROOT ?? process.cwd();
+// SCEN3 (r27): a person's seat (see the header), or none.
+const seat = arg("seat", "");
+// SCEN3 (r27): --no-nukes: the host's units off for nukes and silos, to
+// compare a war without them.
+const noNukes = args.includes("--no-nukes");
+const SEAT_CLIENT = "SEAT0001";
+
+/**
+ * SCEN3 (r27): lets the seat use, while `fn` runs, the computer code that
+ * checks for a Nation: within these calls the seat answers type() as one.
+ */
+function asNation<T>(seatPlayer: Player, fn: () => T): T {
+  const self = seatPlayer as unknown as { type: () => PlayerType };
+  self.type = () => PlayerType.Nation;
+  try {
+    return fn();
+  } finally {
+    delete (self as { type?: unknown }).type;
+  }
+}
+
+/**
+ * SCEN3 (r27): what a person does by hand that the computer's code only
+ * lets a Nation do: beachhead boats and escorted transports (a person
+ * launches both from the build and boat menus) and courting the neutrals
+ * (a person gives and invites from a neutral's panel). Each method runs
+ * with the seat seen as a Nation; anyone else's calls are untouched.
+ */
+function standInSeat(seatPlayer: Player): void {
+  type Method = (...args: unknown[]) => unknown;
+  const wrap = (
+    proto: Record<string, Method>,
+    name: string,
+    involves: (self: Record<string, unknown>) => boolean,
+  ) => {
+    const orig = proto[name];
+    if (typeof orig !== "function") throw new Error(`no method ${name}`);
+    proto[name] = function (this: Record<string, unknown>, ...args) {
+      return involves(this)
+        ? asNation(seatPlayer, () => orig.apply(this, args))
+        : orig.apply(this, args);
+    };
+  };
+  const ai = AiAttackBehavior.prototype as unknown as Record<string, Method>;
+  const mine = (self: Record<string, unknown>) => self.player === seatPlayer;
+  wrap(ai, "landsBeachheads", mine);
+  wrap(ai, "shouldEscort", mine);
+  // The computer's courting runs for every side at once; only the seat's
+  // side sees a change (its seat counts as one of its computer nations).
+  const diplomacy = ScenarioDiplomacy.prototype as unknown as Record<
+    string,
+    Method
+  >;
+  wrap(diplomacy, "court", () => true);
+}
 
 async function main() {
   console.debug = () => {};
@@ -79,10 +154,32 @@ async function main() {
       infiniteTroops: false,
       instantBuild: false,
       randomSpawn: false,
-      scenario: { id },
+      ...(noNukes
+        ? {
+            disabledUnits: [
+              UnitType.AtomBomb,
+              UnitType.HydrogenBomb,
+              UnitType.MIRV,
+              UnitType.MissileSilo,
+            ],
+          }
+        : {}),
+      scenario: { id, ...(seat ? { seats: { [seat]: SEAT_CLIENT } } : {}) },
     },
-    players: [],
+    players: seat
+      ? [
+          {
+            clientID: SEAT_CLIENT,
+            username: "Seat",
+            clanTag: null,
+            isLobbyCreator: true,
+          },
+        ]
+      : [],
   };
+  if (seat && !data.nations.some((n) => n.key === seat)) {
+    throw new Error(`${id} has no nation ${seat}`);
+  }
   // The scenario's fixed settings, as the solo screen and the server apply
   // them (its own Overtime among them); --overtime overrides.
   applyScenarioRules(gameStart.config);
@@ -96,20 +193,45 @@ async function main() {
   );
   let winner: unknown = null;
   const joins: string[] = [];
+  // DIPLO (r27): the neutrals courted into a side, and when.
+  const courted: string[] = [];
+  // SCEN3 (r27): nukes launched, by the launcher's side (or "-").
+  const nukes: Record<string, number> = {};
+  const nukeIds = new Set<number>();
   const runner = await createGameRunner(gameStart, undefined, files, (gu) => {
     if ("errMsg" in gu) throw new Error(gu.errMsg + "\n" + gu.stack);
     const w = gu.updates[GameUpdateType.Win];
     if (w.length > 0 && winner === null) winner = w[0].winner ?? "none";
+    for (const u of gu.updates[GameUpdateType.Unit]) {
+      if (
+        (u.unitType === UnitType.AtomBomb ||
+          u.unitType === UnitType.HydrogenBomb ||
+          u.unitType === UnitType.MIRV) &&
+        !nukeIds.has(u.id)
+      ) {
+        nukeIds.add(u.id);
+        const owner = runner.game.playerBySmallID(u.ownerID);
+        const side = owner.isPlayer() ? (owner.team() ?? "-") : "-";
+        nukes[side] = (nukes[side] ?? 0) + 1;
+      }
+    }
     for (const e of gu.updates[GameUpdateType.DisplayEvent]) {
+      if (e.message === "scenario_diplomacy.msg_joined") {
+        courted.push(
+          `${(runner.game.ticks() / 600).toFixed(1)}m ${e.params?.name} -> ${e.params?.side}`,
+        );
+      }
       if (e.message === "events_display.scenario_joined_side") {
         joins.push(
           `${Math.round(runner.game.ticks() / 600)}m ${e.params?.name} -> ${e.params?.side} (by ${e.params?.by})`,
         );
       }
-      // A special rule's news (a colony changing sides, a landing).
+      // A special rule's news (a colony changing sides, a landing, a
+      // wave, a hold, a nation entering the war).
       if (
         e.message === "events_display.scenario_loyalists" ||
-        e.message.startsWith("events_display.scenario_landing_")
+        (e.message.startsWith("events_display.scenario_") &&
+          e.message !== "events_display.scenario_joined_side")
       ) {
         joins.push(
           `${Math.round(runner.game.ticks() / 600)}m ${e.message.replace("events_display.scenario_", "")} ${e.params?.name}`,
@@ -119,6 +241,26 @@ async function main() {
   });
   const t0 = Date.now();
   const game = runner.game;
+  // SCEN3 (r27): the person's seat, driven by the computer's logic.
+  if (seat) {
+    const human = game.playerByClientID(SEAT_CLIENT);
+    if (human === null) throw new Error("no seat player");
+    standInSeat(human);
+    const n = data.nations.find((x) => x.key === seat)!;
+    const scale = size === GameMapSize.Compact ? 2 : 1;
+    game.addExecution(
+      new NationExecution(
+        gameStart.gameID,
+        new Nation(
+          new Cell(
+            Math.floor(n.capital[0] / scale),
+            Math.floor(n.capital[1] / scale),
+          ),
+          human.info(),
+        ),
+      ),
+    );
+  }
   const land = game.numLandTiles();
   const shares: Record<string, number[]> = {};
   for (const s of data.sides) shares[s.id] = [];
@@ -127,8 +269,11 @@ async function main() {
   // Every 30 s: each side's progress towards its bar (ContestedMetric.ts).
   const samples: ContestedSample[] = [];
   const start: Record<string, number> = {};
-  const bar = (side: string) =>
-    data.sides.find((s) => s.id === side)?.winPercent ?? data.winPercent;
+  // SCEN3 (r27): no land bars any more; a side's goal is all the land the
+  // sides hold at the start (the other side beaten), so progress runs from
+  // its own land at the start (0) to all of the sides' land (1).
+  let sidesLand = 0;
+  const bar = () => sidesLand;
   const sideLand = () => {
     const by: Record<string, number> = {};
     for (const s of data.sides) by[s.id] = 0;
@@ -173,6 +318,7 @@ async function main() {
     }
   };
   // DFX (r26) end
+  const startTroops: Record<string, number> = {};
   let tick = 0;
   for (; tick < maxTicks && winner === null; tick++) {
     runner.addTurn({ turnNumber: tick, intents: [] });
@@ -181,12 +327,24 @@ async function main() {
     if (tick === 2 || (tick > 2 && tick % 300 === 0)) {
       const by = sideLand();
       const progress: Record<string, number> = {};
+      if (tick === 2) {
+        sidesLand = 0;
+        for (const s of data.sides) sidesLand += (100 * by[s.id]) / land;
+      }
       for (const s of data.sides) {
         const pct = (100 * by[s.id]) / land;
         if (tick === 2) start[s.id] = pct;
-        progress[s.id] = (pct - start[s.id]) / (bar(s.id) - start[s.id]);
+        progress[s.id] = (pct - start[s.id]) / (bar() - start[s.id]);
       }
       samples.push({ minute: tick / 600, progress });
+    }
+    // SCEN3 (r27): the sides' nations' troops a second in (as players see
+    // them), to compare starting armies.
+    if (tick === 12) {
+      for (const p of game.players()) {
+        if (p.team() === null) continue;
+        startTroops[p.name()] = Math.round(p.troops() / 10);
+      }
     }
     if (verbose && tick % 600 === 20) {
       const rows = game
@@ -216,7 +374,9 @@ async function main() {
   if (withGoals) checkGoals(true); // DFX (r26)
   const alive = game
     .players()
-    .filter((p) => p.type() === PlayerType.Nation)
+    .filter(
+      (p) => p.type() === PlayerType.Nation || p.type() === PlayerType.Human,
+    )
     .map(
       (p) =>
         `${p.name()}[${p.team() ?? "-"}] ${Math.round((1000 * p.numTilesOwned()) / land) / 10}%`,
@@ -225,6 +385,8 @@ async function main() {
     JSON.stringify({
       scenario: id,
       seed,
+      seat: seat || null,
+      ...(noNukes ? { noNukes } : {}),
       difficulty,
       size,
       winner,
@@ -260,7 +422,10 @@ async function main() {
       wallSeconds: Math.round((Date.now() - t0) / 1000),
       shares,
       joins,
+      courted,
       alive,
+      startTroops,
+      nukes,
       ...(withGoals ? { goals } : {}), // DFX (r26)
     }),
   );

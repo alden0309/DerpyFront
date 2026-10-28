@@ -5,6 +5,7 @@ import {
   GameMode,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
+import { scenarioDisabledUnits } from "@openfront/engine-api/game/Scenarios";
 import {
   GameConfigPatch,
   isValidGameID,
@@ -67,10 +68,7 @@ import {
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { SendScenarioSeatIntentEvent } from "./LobbyEvents";
 import { boardSeats } from "./scenario/ScenarioNationBoard";
-import {
-  renderScenarioPanel,
-  scenarioOvertimeFrom,
-} from "./scenario/ScenarioPanel";
+import { renderScenarioPanel } from "./scenario/ScenarioPanel";
 import { ScenarioPick, scenarioPickFromArgs } from "./scenario/ScenarioPick";
 // DFX (r26): "Random nations"
 import { social } from "../derpland/Social";
@@ -481,8 +479,6 @@ export class HostLobbyModal extends BaseModal {
   }
 
   protected renderBody() {
-    // SCEN (r25): a scenario that sets its own Overtime locks the option.
-    const lockedOvertime = scenarioOvertimeFrom(this.scenario);
     const secondsRemaining =
       this.lobbyStartAt !== null
         ? getSecondsUntilServerTimestamp(
@@ -580,27 +576,29 @@ export class HostLobbyModal extends BaseModal {
         .onInput=${this.handleCustomAllianceMinutesInput}
         .onKeyDown=${this.handleCustomAllianceMinutesKeyDown}
       ></toggle-input-card>`,
-      html`<toggle-input-card
-        .labelKey=${"game_settings.overtime"}
-        .checked=${lockedOvertime !== undefined || this.overtime}
-        .locked=${lockedOvertime !== undefined}
-        .note=${lockedOvertime === undefined
-          ? undefined
-          : translateText("game_settings.overtime_scenario", {
-              minutes: lockedOvertime,
-            })}
-        .inputMin=${1}
-        .inputMax=${120}
-        .inputStep=${1}
-        .inputValue=${lockedOvertime ?? this.overtimeStartMinutes}
-        .inputAriaLabel=${translateText("game_settings.overtime")}
-        .inputPlaceholder=${translateText("game_settings.mins_placeholder")}
-        .defaultInputValue=${30}
-        .minValidOnEnable=${1}
-        .onToggle=${this.handleOvertimeToggle}
-        .onInput=${this.handleOvertimeMinutesInput}
-        .onKeyDown=${this.handleOvertimeMinutesKeyDown}
-      ></toggle-input-card>`,
+      // SCEN3 (r27): a scenario is won by beating the other side, so it has
+      // no Overtime (no land bar to lower): no option for it.
+      ...(this.scenario === null
+        ? [
+            html`<toggle-input-card
+              .labelKey=${"game_settings.overtime"}
+              .checked=${this.overtime}
+              .inputMin=${1}
+              .inputMax=${120}
+              .inputStep=${1}
+              .inputValue=${this.overtimeStartMinutes}
+              .inputAriaLabel=${translateText("game_settings.overtime")}
+              .inputPlaceholder=${translateText(
+                "game_settings.mins_placeholder",
+              )}
+              .defaultInputValue=${30}
+              .minValidOnEnable=${1}
+              .onToggle=${this.handleOvertimeToggle}
+              .onInput=${this.handleOvertimeMinutesInput}
+              .onKeyDown=${this.handleOvertimeMinutesKeyDown}
+            ></toggle-input-card>`,
+          ]
+        : []),
       html`<toggle-input-card
         .labelKey=${"game_settings.gold_multiplier"}
         .checked=${this.goldMultiplier}
@@ -826,6 +824,8 @@ export class HostLobbyModal extends BaseModal {
               unitTypes: {
                 titleKey: "game_settings.disable_units",
                 disabledUnits: this.disabledUnits,
+                // SCEN3 (r27): no nukes before 1945, whatever is picked.
+                lockedUnits: scenarioDisabledUnits(this.scenario?.id),
               },
             }}
             @map-selected=${this.handleConfigMapSelected}

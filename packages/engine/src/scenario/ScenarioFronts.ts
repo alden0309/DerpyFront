@@ -46,6 +46,8 @@ interface FrontCache {
   nationBySmallID: Map<number, number>;
   /** nation index -> cell distances (in half cells) from its starting land. */
   supply: Map<number, Uint16Array>;
+  /** 1 + nation index (0: none) -> its front rules (frontRules). */
+  rules: Map<number, Required<ScenarioFrontRules>>;
   gridW: number;
   gridH: number;
 }
@@ -63,12 +65,27 @@ function cache(game: Game, scenario: ScenarioRuntime): FrontCache {
       startTiles,
       nationBySmallID: new Map(),
       supply: new Map(),
+      rules: new Map(),
       gridW: Math.ceil(game.width() / CELL),
       gridH: Math.ceil(game.height() / CELL),
     };
     CACHE.set(scenario, c);
   }
   return c;
+}
+
+/** frontRules for 1 + nation index `label` (0: the scenario's), cached. */
+function rulesOf(
+  c: FrontCache,
+  scenario: ScenarioRuntime,
+  label: number,
+): Required<ScenarioFrontRules> {
+  let r = c.rules.get(label);
+  if (r === undefined) {
+    r = frontRules(scenario, label === 0 ? undefined : label - 1);
+    c.rules.set(label, r);
+  }
+  return r;
 }
 
 function nationIndex(
@@ -134,16 +151,24 @@ function supplyGrid(c: FrontCache, game: Game, label: number): Uint16Array {
   return g;
 }
 
-/** The scenario's front rules, its own over the defaults. */
+/**
+ * The scenario's front rules, its own over the defaults; with `nation` (an
+ * index in the data), that nation's own over those (SCEN3 r27).
+ */
 export function frontRules(
   scenario: ScenarioRuntime,
+  nation?: number,
 ): Required<ScenarioFrontRules> {
-  return { ...FRONT_DEFAULTS, ...(scenario.data.fronts ?? {}) };
+  const own =
+    nation === undefined ? undefined : scenario.data.nations[nation]?.fronts;
+  return { ...FRONT_DEFAULTS, ...(scenario.data.fronts ?? {}), ...own };
 }
 
 /**
  * How much more an attack on `tile` costs: 1 outside a scenario, else the
- * homeland, supply and special-rule factors multiplied (at least 1).
+ * homeland and supply factors multiplied (at least 1), times the special
+ * rule's factor (which may be below 1: SCEN3 r27). The homeland factors
+ * are the defender's own rules, the supply factors the attacker's.
  */
 export function scenarioAttackFactor(
   game: Game,
@@ -154,12 +179,12 @@ export function scenarioAttackFactor(
   const scenario = game.scenario();
   if (scenario === null) return 1;
   const c = cache(game, scenario);
-  const rules = frontRules(scenario);
   let factor = 1;
 
   // Homeland: the defender on its own starting land.
   const d = nationIndex(c, scenario, defender);
   if (d !== 0 && c.labels[tile] === d) {
+    const rules = rulesOf(c, scenario, d);
     const start = c.startTiles[d];
     const lost =
       start === 0 ? 0 : Math.max(0, 1 - defender.numTilesOwned() / start);
@@ -168,6 +193,7 @@ export function scenarioAttackFactor(
 
   // Supply: the attacker's distance from its own starting land.
   const a = nationIndex(c, scenario, attacker);
+  const rules = rulesOf(c, scenario, a);
   if (a !== 0 && rules.supplyPer100 > 0) {
     const grid = supplyGrid(c, game, a);
     const x = game.x(tile);
@@ -182,7 +208,11 @@ export function scenarioAttackFactor(
     );
   }
 
-  const special = scenarioRule(game)?.attackFactor?.(game, attacker, defender);
-  if (special !== undefined) factor *= special;
-  return Math.max(1, factor);
+  const special = scenarioRule(game)?.attackFactor?.(
+    game,
+    attacker,
+    defender,
+    tile,
+  );
+  return Math.max(1, factor) * (special ?? 1);
 }

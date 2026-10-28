@@ -10,6 +10,7 @@ import korea1950 from "resources/scenarios/korea1950.json";
 import napoleon1812 from "resources/scenarios/napoleon1812.json";
 import threekingdoms219 from "resources/scenarios/threekingdoms219.json";
 import ww1914 from "resources/scenarios/ww1914.json";
+import type { ScenarioLeaningWord } from "./ScenarioLeaning"; // DIPLO (r27)
 
 /**
  * SCEN (r25): a Scenario's data, as stored in resources/scenarios/<id>.json
@@ -47,15 +48,22 @@ export interface ScenarioData {
   map: GameMapType;
   /** The year it starts in (the full date and text are in en.json). */
   year: number;
-  /**
-   * A side wins when it holds more than this percent of the land (or when
-   * every nation of every other side is gone).
-   */
-  winPercent: number;
   /** See ScenarioCatalogEntry.capitalFullTiles (it is copied to the index). */
   capitalFullTiles?: number;
   /** Optional overrides of the front rules' defaults (ScenarioFrontRules). */
   fronts?: ScenarioFrontRules;
+  /**
+   * SCEN3 (r27): false for a scenario set before nuclear weapons (August
+   * 1945): its games have no nukes, silos, SAMs or Domes, whatever the
+   * host's Units settings (NUCLEAR_UNITS). Copied to the index.
+   */
+  nukes?: boolean;
+  /**
+   * SCEN3 (r27): what the bombs (atom, hydrogen, MIRV) cost here, as a
+   * multiple of the usual (default 1). Korea 1950, the one scenario with
+   * nukes, balances them with it.
+   */
+  nukePrice?: number;
   sides: ScenarioSide[];
   nations: ScenarioNation[];
   /**
@@ -63,13 +71,6 @@ export interface ScenarioData {
    * something the data can't say. None of the first three need one.
    */
   rule?: string;
-  /**
-   * Overtime from this minute on, whatever the host picked (both sides' bars
-   * sink as Overtime's do): a war of endurance, where one side has to hold
-   * out and the other break through first. A balance idea under test
-   * (Thirteen Colonies 1776); no scenario sets it yet.
-   */
-  overtimeFrom?: number;
 }
 
 export interface ScenarioSide {
@@ -80,17 +81,21 @@ export interface ScenarioSide {
   /** "#rrggbb": the side's mark wherever players are listed. */
   color: string;
   /**
-   * Optional: the percent of the land this side must hold to win, if not
-   * the scenario's `winPercent` (a side that starts small needs less).
+   * Optional: the side also wins by holding all the starting land of these
+   * nations (Korea 1950: North Korea wins holding all of South Korea, base
+   * in Japan or not), for `seconds` in a row (0 or absent: at once; SCEN3
+   * r27). Pieces of that land smaller than `ignoreUnder` full-size tiles
+   * (islets) don't count. The hold breaks once `breakAt` full-size tiles
+   * of that land or more aren't the side's (default 1: any tile), so a
+   * raid by boat doesn't reset it. Otherwise a side wins only when every
+   * nation on the other sides is beaten (ScenarioRules.scenarioWinner).
    */
-  winPercent?: number;
-  /**
-   * Optional: the side also wins as soon as it holds all the starting land
-   * of these nations (Korea 1950: North Korea wins holding all of South
-   * Korea, base in Japan or not). Pieces of that land smaller than
-   * `ignoreUnder` full-size tiles (islets) don't count.
-   */
-  winByHolding?: { nations: string[]; ignoreUnder?: number };
+  winByHolding?: {
+    nations: string[];
+    ignoreUnder?: number;
+    seconds?: number;
+    breakAt?: number;
+  };
 }
 
 export type ScenarioStructureType =
@@ -99,7 +104,9 @@ export type ScenarioStructureType =
   | "Factory"
   | "Defense Post"
   | "Missile Silo"
-  | "SAM Launcher";
+  | "SAM Launcher"
+  // SCEN3 (r27): the Dome of Alden (a nuke shield; Korea 1950's UN Japan).
+  | "Dome";
 
 export interface ScenarioStructure {
   type: ScenarioStructureType;
@@ -133,6 +140,13 @@ export interface ScenarioNation {
    */
   troopCapBonus?: number;
   /**
+   * SCEN3 (r27): the most troops (as players see them) its cities may add
+   * to its troop cap, however many it builds (half as much in a Compact
+   * game). Europe 1939's small nations: a computer-run Hungary built its
+   * cap from 0.24M to 8.8M in 40 minutes. Absent: no limit.
+   */
+  cityTroopsMax?: number;
+  /**
    * How fast its troops grow back, as a multiple of the usual (default 1):
    * deep reserves, like the Red Army's in 1939 or Britain's from overseas
    * in 1776. A coalition of many small nations regrows faster in all than
@@ -142,11 +156,16 @@ export interface ScenarioNation {
   troopGrowth?: number;
   /**
    * Its gold income (trade ships, trains and the steady income), as a
-   * multiple of the usual (default 1): a blockade's 0.6, a trading power's
-   * 1.2. A balance idea under test (Thirteen Colonies 1776's blockade); no
-   * scenario sets it yet.
+   * multiple of the usual (default 1): a blockade's 0.6 (Thirteen Colonies
+   * 1776's colonies), a trading power's 1.2.
    */
   goldIncome?: number;
+  /**
+   * SCEN3 (r27): its own front rules over the scenario's (any field): the
+   * supply fields when it attacks, homeland and lastStand when it is
+   * attacked. Korea 1950: North Korea's supply runs out sooner.
+   */
+  fronts?: ScenarioFrontRules;
   /** Where its capital stands. */
   capital: [number, number];
   structures?: ScenarioStructure[];
@@ -154,6 +173,15 @@ export interface ScenarioNation {
   warships?: [number, number][];
   /** False keeps players from picking it (default true). */
   playable?: boolean;
+  // DIPLO (r27): courting the neutrals (README, "Courting the neutrals").
+  /**
+   * A neutral's historical leaning toward each side (side id -> word), which
+   * multiplies its price there (ScenarioLeaning.ts). A side left out: "open".
+   */
+  leaning?: Record<string, ScenarioLeaningWord>;
+  /** From `minute` on, these sides' leanings instead (Turkey 1939, late). */
+  leaningLate?: { minute: number; sides: Record<string, ScenarioLeaningWord> };
+  // DIPLO (r27) end
   /**
    * Its territory: polygons as rings of integer pixel corners, each ring a
    * string "x0,y0,dx1,dy1,dx2,dy2,..." (deltas after the first point).
@@ -173,6 +201,7 @@ export const SCENARIO_STRUCTURE_UNITS: Record<ScenarioStructureType, UnitType> =
     "Defense Post": UnitType.DefensePost,
     "Missile Silo": UnitType.MissileSilo,
     "SAM Launcher": UnitType.SAMLauncher,
+    Dome: UnitType.Dome,
   };
 
 // Add a scenario: its JSON here, and its id in resources/scenarios/index.json

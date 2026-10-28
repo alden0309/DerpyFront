@@ -28,14 +28,17 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   longest land border with, or if it borders none of them, the smallest. A
   neutral that attacks a side joins that side's enemies the same way. Either
   way it is a news line for everyone.
-- **Victory:** a side wins when every other side is gone (a side holding
-  under 0.2% of the land, a leftover fort or islet, counts as gone),
-  when it holds all the starting land its `winByHolding` names, or when it
-  holds more than its bar of the land: the side's own `winPercent`,
-  else the scenario's (Overtime lowers every bar as in other games). Sides
-  that start very unequal get unequal bars (1939: the Allies hold 60% at the
-  start, the Axis 19%). At the lobby timer, or the 170-minute limit, the side
-  nearest its bar (its land over its bar) wins.
+- **Victory** (SCEN3, round 27; there are no land bars): a side wins only
+  when every nation on the other sides is beaten, wiped out or reduced to
+  scraps: those nations together hold under 0.2% of the land
+  (`SIDE_OUT_DIVISOR`), so a leftover fort or islet doesn't hold the war up.
+  A neutral that joined a side (invaded, attacking, or by diplomacy) counts
+  as that side; one that never joined counts for nobody. A side with
+  `winByHolding` also wins by holding that land for its `seconds` in a row
+  (Korea 1950: North Korea, 2.5 minutes, with a countdown everyone sees).
+  At the lobby timer, or the 170-minute limit, the side holding the most of
+  its own starting land (its land now over its land at the start) wins.
+  Overtime is off in scenarios: it lowers a land bar, and there is none.
 - **Fronts hold** (every scenario, `packages/engine/src/scenario/ScenarioFronts.ts`):
   - _Homeland:_ attacking a nation on its own starting land costs more, and
     more again the more of its starting size it has lost (a last stand).
@@ -59,14 +62,11 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   "title": "Europe 1939", // English name (records, live games list)
   "map": "Europe", // GameMapType value (the map's name)
   "year": 1939,
-  "winPercent": 60, // % of the land a side must hold to win
   "capitalFullTiles": 40000, // optional, see Capitals
+  "nukes": false, // optional: false before August 1945, see Nukes
   "fronts": { "supplyMax": 2.5 }, // optional, see Fronts
   "rule": "korea", // optional special rule (ScenarioRules.ts)
-  "overtimeFrom": 40, // optional: Overtime from minute 40, whatever the host picked
-  "sides": [
-    { "id": "Axis", "name": "Axis", "color": "#7d7d7d", "winPercent": 40 },
-  ],
+  "sides": [{ "id": "Axis", "name": "Axis", "color": "#7d7d7d" }],
   "nations": [
     {
       "key": "germany", // [a-z0-9_]{1,32}, unique in the scenario
@@ -95,16 +95,34 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
 
 - **Coordinates** are pixels of the map's full-size `map.bin` (the Normal
   size). A Compact game halves them.
+- **Nukes** (SCEN3, round 27): `"nukes": false` for a scenario set before
+  nuclear weapons (August 1945), which is all of them but Korea 1950. Its
+  games have no atom or hydrogen bombs, MIRVs, missile silos, SAM launchers
+  or Domes of Alden (`NUCLEAR_UNITS` in `Scenarios.ts`: SAMs shoot down
+  only nukes and a Dome only stops nukes, so neither has a use without
+  them), whatever the host's Units settings say: `Config.isUnitDisabled`
+  reads it, `applyScenarioRules` adds them to the game's disabled units,
+  and the lobby shows those toggles off and locked. A structure of those
+  types in the data isn't built. Copy the field to `index.json`, like
+  `capitalFullTiles` (tests/scenario/ScenarioNukes.test.ts checks both).
 - **Sides:** `id` is the side's team name in the game, its key in en.json and
   the `Winner` the game records. `name` is the English name the server writes
   into the game's record. `color` marks the side wherever players are listed.
-  `winPercent` (optional) is the side's own bar for a land win.
   `winByHolding` (optional), `{ "nations": ["south_korea"], "ignoreUnder":
-200 }`: the side also wins as soon as it holds all the starting land of
-  those nations. Pieces of that land (4-connected, of one nation) smaller
-  than `ignoreUnder` full-size tiles don't count, so a few islets left
-  don't hold the war up. Korea 1950: North Korea wins holding all of South
-  Korea, whatever the UN still holds in Japan.
+200, "seconds": 150, "breakAt": 1000 }`: the side also wins by holding
+  all the starting land of those nations for `seconds` in a row (0 or
+  absent: at once). Pieces of that land (4-connected, of one nation)
+  smaller than `ignoreUnder` full-size tiles don't count, so a few islets
+  left don't hold the war up. The hold resets the moment `breakAt`
+  full-size tiles of the counted land or more aren't the side's (default 1:
+  any tile), so the other side breaks it by retaking a real piece, not by
+  a boat raid on the coast (SCEN3, round 27: the computer's UN landed raids
+  every half minute and a hold never lasted). Korea 1950: North Korea wins
+  holding all of South Korea for 2.5 minutes, whatever the UN still holds
+  in Japan. Its news keys are
+  `events_display.scenario_hold_started_<side>` and `..._broken_<side>`,
+  and the countdown `heads_up_message.scenario_hold_<side>` (side in lower
+  case).
 - **Nations:** listed in the order the Scenarios screen and the seat fallback
   use (the strongest first reads best). `name` must equal en.json's
   `scenario_nation.<key>`. Keys are global in en.json: reuse `germany` across
@@ -127,12 +145,14 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   trade ships, trains and the steady income. A blockade's 0.6: Thirteen
   Colonies 1776's colonies, whose trade among thirteen friendly colonies
   otherwise pays for cities enough to outgrow Britain's army.
-- **overtimeFrom** (optional) turns Overtime on from that minute, whatever
-  the host picked: both sides' bars sink 2 points a minute from then on, so
-  a side that is holding out wins if the other can't break through first
-  (Thirteen Colonies 1776: from minute 40).
+- **fronts** on a nation (optional, SCEN3 round 27): its own front rules
+  over the scenario's (below): the supply fields when it attacks, homeland
+  and lastStand when it is attacked. Korea 1950's North runs out of supply
+  sooner (`supplyPer100` 0.8, `supplyMax` 3.5); 1939's Soviet Union is a
+  wall at home (`homeland` 1).
 - **Structures:** `City`, `Port`, `Factory`, `Defense Post`, `Missile Silo`,
-  `SAM Launcher`, with an optional `level`. Each stands at the nearest place
+  `SAM Launcher`, `Dome` (SCEN3: a Dome of Alden, which only stops nukes, in
+  a 100-tile range; five at most per nation), with an optional `level`. Each stands at the nearest place
   its owner may build one (on its own land, a port on the coast, 15 tiles
   from the others); one that finds no place is skipped. The capital is a
   Capital, the fork's one-per-nation building.
@@ -219,9 +239,38 @@ condition) is a `ScenarioRule` in `SCENARIO_RULES`
   side a neutral joins;
 - `holdsFire(game, nation)`: a computer-run nation on a side starts no
   attacks for now (Europe 1939's pact and Phoney War);
-- `attackFactor(game, attacker, defender)`: a further factor on the cost of
-  an attacker's attacks (Europe 1939: the Soviet Union's purged officer
-  corps, for the first minutes).
+- `attackFactor(game, attacker, defender, tile)`: a further factor on the
+  cost of an attacker's attacks, below 1 for cheaper ones (Europe 1939: the
+  Soviet Union's purged officer corps for the first minutes, its offensives
+  beyond its 1939 borders for a while after it enters the war, and
+  Germany's opening against a computer-run Poland);
+- `tick(game)`: every second, before the win check (waves, a nation
+  entering the war);
+- `troopCapBonus(game, player)`: a raise of a nation's troop cap now, on
+  top of its data's (the waves'); players see it in their troop bar;
+- `target(game, nation)` (SCEN3): the enemy a computer-run nation goes for
+  first (Europe 1939: Germany into Poland). It still answers attacks first
+  and keeps its reserve.
+
+What a rule must remember (the tick a hold began, China in the war, a wave
+landed) it keeps as **scenario marks** (`game.scenarioMark(key)`,
+`setScenarioMark`), game state in the snapshot; the hooks keep nothing of
+their own.
+
+**Waves** (SCEN3, `packages/engine/src/scenario/ScenarioWaves.ts`):
+reinforcements a rule lands as the war goes on. A wave is due at its minute,
+or that long after a mark (China's, after the UN nears the Yalu). It lands at
+the first of its places its side holds (the nation holding it gets the
+troops), else, with an `assault` place, its nation sails the troops for that
+place and lands on whoever holds it, else they join its nation where it is.
+Its `troops` come with `cap`, a raise of the receiver's troop cap for good
+(troops over a cap fall back to it at once, so a wave without one only
+refills an army), and `ships` warships may come too. News:
+`events_display.scenario_wave_<news>` (`_assault`, `_arrive`), with the place
+from `scenario_place.<place>`. Korea 1950: the UN at Busan (else in Japan)
+and Incheon (landing on it if lost), China's three after the mark; Thirteen
+Colonies 1776: Britain's army at New York, Boston and Charleston, and France
+at Yorktown or Newport with a fleet.
 
 Add a hook there if a scenario needs another; it runs on every client, so
 keep it deterministic (the game's ticks and state, integer or plain
@@ -229,6 +278,86 @@ arithmetic, DetMath for anything else; no clocks, no Math.random).
 
 The `title` is the English name the server uses (the game's record, the live
 games list); the menu shows `scenarios.<id>.title`.
+
+<!-- DIPLO (r27) -->
+
+## Courting the neutrals (DIPLO, round 27)
+
+The sides may court the neutrals instead of invading them
+(`packages/engine/src/scenario/ScenarioDiplomacy.ts`):
+
+- **Gifts.** A nation on a side sends a neutral gold (its panel's "Send a
+  gift", or the radial menu's handshake). The gold goes to the neutral, and
+  raises its **goodwill** toward the giver's side by as much. Every side can
+  give, so it can become a bidding war. Goodwill fades by about 4% a minute.
+- **Invitations.** A side's nation invites a neutral to join. A computer-run
+  neutral says yes when its goodwill toward that side has reached its price
+  there and the war is old enough for a neutral of its size; otherwise it
+  says no and why ("Spain is wary of the Axis: not ready to join"). A
+  neutral played by a person gets a Join / Decline card for a minute. One
+  invitation per side per neutral a minute.
+- **Asking to join.** A neutral played by a person may ask a side to join it
+  (its own panel, or a side's nation's). The side's people get an Accept /
+  Refuse card and the first answer decides. If nobody answers in 30
+  seconds, or nobody on the side is a person, the computer answers: yes,
+  unless the side has no nation left in the war. One ask per side a minute.
+- **Joining** is for good, as with an invasion: the neutral is on that side
+  and at war with the others, and everyone sees "Spain joins the Axis".
+  Invading a neutral still pushes it to the invader's enemies.
+- **Computer-run sides** set 15% of their richest computer-run nation's
+  income aside in a chest for gifts (taken from that nation; the richest,
+  not all: thirteen colonies don't court thirteen times as hard as one
+  Britain), up to five minutes of the going rate. They court the neutral
+  leaning their way (eager or leans) that is nearest to joining, if they
+  could win it within about ten minutes of setting aside: a down payment of
+  a quarter of what it needs, which shows on its panel, then, once the
+  chest holds it all and the war is old enough, the rest at once, a little
+  over the price, and an invitation straight after. They invite any
+  neutral that is ready (a person's at most every three minutes).
+
+**The price** of a neutral for a side is its **size**, in minutes of a big
+nation's income, times the **going rate**, times its **leaning** there:
+
+- _size_: 40 times its troop cap over the mean cap of the three biggest
+  nations on the sides, at the start, between 1.5 and 10 minutes;
+- _going rate_: the mean income a minute so far of the three biggest
+  earners on the sides (at least 1M), so prices rise as the war economy
+  grows;
+- _leaning_: the data's word for that side (below).
+
+A neutral joins nobody before minute 4 + its size (at least 6, at most 14):
+nobody buys a big neutral in the first minutes. The numbers are
+`DIPLOMACY_TUNING` in ScenarioDiplomacy.ts.
+
+**The data.** A neutral's `leaning` gives a word per side (a side left out
+is "open"), and `leaningLate` changes some of them from a minute on:
+
+```json
+"leaning": { "Axis": "reluctant", "Allies": "reluctant" },
+"leaningLate": { "minute": 45, "sides": { "Allies": "open" } }
+```
+
+| word        | price | meaning                                                   |
+| ----------- | ----- | --------------------------------------------------------- |
+| `eager`     | x0.6  | it joined this side in the real war, or allied with it    |
+| `leans`     | x0.8  | sympathy, a treaty, trade or a dynasty pulled it this way |
+| `open`      | x1    | no strong pull either way                                 |
+| `reluctant` | x1.5  | distrust or old grievances                                |
+| `opposed`   | x2.5  | it opposed this side's aims, or fought it                 |
+| `aloof`     | x6    | it held to strict neutrality all war: close to impossible |
+| `never`     | -     | history says it could not happen (used once, sparingly)   |
+
+Every neutral in every scenario has a word for every side
+(`tests/scenario/ScenarioDiplomacy.test.ts` checks it); a nation on a side
+has none. They are the nations' own interests as history shows them, not
+prizes: the 1776 native nations, for one, weighed which side threatened
+their land more. The border tools' recipes don't know these fields, so a
+scenario rebuilt from its recipe needs its leanings copied back.
+
+Courting needs the scenario's edition 3 (Thirteen Colonies 1776: 4);
+older games have none and their replays are refused, as with any edition.
+
+<!-- DIPLO (r27) end -->
 
 ## Goals (DFX, round 26)
 
@@ -326,3 +455,35 @@ and latitude with the border tools' fitted projections.
 - Three Kingdoms 219: hand-drawn from the commandery lines of standard
   historical atlases.
 - Map projections: fitted from each map's land mask against Natural Earth.
+
+<!-- DIPLO (r27): the neutrals' leanings -->
+
+- The neutrals' leanings (`leaning`, `leaningLate`): Wikipedia, "Spain
+  during World War II", "Portugal during World War II", "Anglo-Portuguese
+  Alliance", "Irish neutrality during World War II", "Switzerland during the
+  World Wars", "Sweden during World War II", "Turkey in World War II",
+  "Denmark in World War II", "Occupation of the Baltic states", "Klaipėda
+  Region", "Invasion of Iceland", "Anglo-Soviet invasion of Iran", "Saudi
+  Arabia in World War II"; "Native Americans in the American Revolution",
+  "Joseph Brant", "Stockbridge Militia", "Treaty of Fort Pitt", "Cornstalk",
+  "Cherokee–American wars", "Catawba people", the Treaty of Watertown (1776)
+  and historyofmassachusetts.org, "Native Americans in the Revolutionary
+  War"; "Italy in World War I", "Treaty of London (1915)", "Ottoman–German
+  alliance", "Bulgaria during World War I", "Romania in World War I",
+  "Greece during World War I", "Portugal in World War I", "German
+  occupation of Luxembourg during World War I", "Principality of Albania",
+  "Persian campaign (World War I)"; "Leopold II, Grand Duke of Tuscany",
+  "Francis V, Duke of Modena" (and his Estense brigade, which followed him
+  into Austrian Venetia in June 1859, ilmondodeglischuetzen.eu), "Battle of
+  Grahovac", "Second Italian War of Independence"; "Act of Mediation",
+  "Treaty of Bucharest (1812)", "Russo-Persian War (1804–1813)", "First
+  Serbian Uprising", "Montenegro (Bay of Kotor, 1806–1814)", "Slimane of
+  Morocco" and yabiladi.com, "1805: Morocco supplied the British fleet";
+  "Gongsun Kang", "Goguryeo–Wei War", "Battle of Mount Qi" (Kebineng's
+  Xianbei with Shu, 231), "Zhuge Liang's Southern Campaign" (Yong Kai and
+  Wu), "Lu Xun (Eastern Wu)" (Cao Cao's seal for Fei Zhan and the
+  Shanyue), "Shanyue"; "Kentucky in the American Civil War", "Indian
+  Territory in the American Civil War", "List of treaties of the
+  Confederate States of America" (the Creek treaty of 10 July, the Choctaw
+  and Chickasaw of 12 July and the Cherokee of 7 October 1861), "John Ross
+  (Cherokee chief)", "Opothleyahola".

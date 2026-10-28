@@ -114,6 +114,11 @@ const SAMPLE_INTENTS: StampedIntent[] = [
     config: { bots: 5, instantBuild: true },
   },
   { type: "toggle_game_start_timer", clientID: P1 },
+  // DIPLO (r27): courting the neutrals in a Scenario.
+  { type: "scenario_gift", clientID: P1, neutral: P2, gold: 2_500_000 },
+  { type: "scenario_invite", clientID: P1, neutral: P2 },
+  { type: "scenario_ask_join", clientID: P2, side: "Allies" },
+  { type: "scenario_join_reply", clientID: P3, other: P2, accept: true },
 ];
 
 const SERVER_MESSAGES: ServerMessage[] = [

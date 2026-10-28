@@ -35,7 +35,8 @@
         "iran",
         "saudi_arabia"
       ],
-      "capitalFullTiles": 60000
+      "capitalFullTiles": 60000,
+      "nukes": false
     },
     "colonies1776": {
       "map": "American Revolution - Detailed",
@@ -68,7 +69,8 @@
         "creek",
         "seminole"
       ],
-      "capitalFullTiles": 40000
+      "capitalFullTiles": 40000,
+      "nukes": false
     },
     "continental1776": {
       "map": "American Revolution - Detailed",
@@ -89,7 +91,8 @@
         "creek",
         "seminole"
       ],
-      "capitalFullTiles": 40000
+      "capitalFullTiles": 40000,
+      "nukes": false
     },
     "threekingdoms219": {
       "map": "China - Romance Of The Three Kingdoms",
@@ -106,7 +109,8 @@
         "nanzhong",
         "shanyue"
       ],
-      "capitalFullTiles": 60000
+      "capitalFullTiles": 60000,
+      "nukes": false
     },
     "napoleon1812": {
       "map": "Europe",
@@ -137,7 +141,8 @@
         "montenegro",
         "sardinia"
       ],
-      "capitalFullTiles": 60000
+      "capitalFullTiles": 60000,
+      "nukes": false
     },
     "italy1859": {
       "map": "Italia",
@@ -158,7 +163,8 @@
         "montenegro",
         "ottoman"
       ],
-      "capitalFullTiles": 30000
+      "capitalFullTiles": 30000,
+      "nukes": false
     },
     "civilwar1861": {
       "map": "United States",
@@ -179,7 +185,8 @@
         "choctaw",
         "chickasaw"
       ],
-      "capitalFullTiles": 40000
+      "capitalFullTiles": 40000,
+      "nukes": false
     },
     "ww1914": {
       "map": "Europe",
@@ -209,7 +216,8 @@
         "albania",
         "persia"
       ],
-      "capitalFullTiles": 60000
+      "capitalFullTiles": 60000,
+      "nukes": false
     },
     "korea1950": {
       "map": "Korea",

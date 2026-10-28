@@ -254,13 +254,22 @@ export class HelpModal extends BaseModal {
             <p class="mb-2 text-white/70 text-sm">
               ${translateText("help_modal.scenarios_fronts")}
             </p>
-            <!-- SCEN (r25): Thirteen Colonies 1776's blockade and Overtime -->
+            <!-- SCEN (r25): Thirteen Colonies 1776's blockade (SCEN3 r27:
+                 and Britain's waves and France) -->
             <p class="mb-2 text-white/70 text-sm">
               ${translateText("help_modal.scenarios_colonies")}
+            </p>
+            <!-- SCEN3 (r27): Korea's hold, waves and China -->
+            <p class="mb-2 text-white/70 text-sm" data-help-korea>
+              ${translateText("help_modal.scenarios_korea")}
             </p>
             <!-- DFX (r26): Random history and Random nations -->
             <p class="mb-2 text-white/70 text-sm" data-help-random-history>
               ${translateText("help_modal.scenarios_random")}
+            </p>
+            <!-- DIPLO (r27): courting the neutrals -->
+            <p class="mb-2 text-white/70 text-sm" data-help-courting>
+              ${translateText("scenario_diplomacy.help")}
             </p>
             <!-- DFX (r26): Scenario goals -->
             <p class="mb-6 text-white/70 text-sm" data-help-goals>

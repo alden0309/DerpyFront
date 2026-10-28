@@ -5,10 +5,15 @@ import {
   Team,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
-import { renderTroops } from "@openfront/engine-lib/Format";
 import { ScenarioSide } from "@openfront/engine-lib/scenario/ScenarioData";
 import { Game, Player } from "../game/Game";
 import { scenarioStartLabels } from "./ScenarioLabels";
+import {
+  landWaves,
+  ScenarioPlaces,
+  ScenarioWave,
+  waveCap,
+} from "./ScenarioWaves";
 
 /**
  * SCEN (r25): the rules a Scenario adds while it is played.
@@ -47,28 +52,47 @@ export interface ScenarioRule {
    */
   holdsFire?(game: Game, nation: Player): boolean;
   /**
-   * How much more `attacker`'s attacks on `defender` cost now (1: no
-   * change; 1.5: half as much again), on top of the front rules
-   * (ScenarioFronts.ts). For a nation weaker or stronger in attack for a
-   * while.
+   * How much more `attacker`'s attacks on `defender` cost now, on `tile`
+   * (1: no change; 1.5: half as much again; SCEN3 r27: below 1, cheaper), on
+   * top of the front rules (ScenarioFronts.ts). For a nation weaker or
+   * stronger in attack for a while, or beyond a line.
    */
-  attackFactor?(game: Game, attacker: Player, defender: Player): number;
+  attackFactor?(
+    game: Game,
+    attacker: Player,
+    defender: Player,
+    tile: TileRef,
+  ): number;
   /**
    * Every second (each side win check, every 10 ticks), just before the
    * check: for what happens at a time (reinforcements landing) or when
    * something changes hands. Like the other hooks it works from the game's
-   * state and its tick count alone and keeps nothing of its own, so a game
-   * restored from a snapshot plays on the same.
+   * state and its tick count; what it must remember it keeps as scenario
+   * marks (game state), so a game restored from a snapshot plays on the
+   * same.
    */
   tick?(game: Game): void;
   /**
    * Troops (counted as the data counts them, like troopCapBonus) that
    * `player`'s troop cap is raised by now, on top of its data's
-   * troopCapBonus: an army that grows as the war goes on. Like the rest,
-   * from the game's state and tick count alone. Engine only for now: a
-   * client's troop bar shows the data's cap (a balance idea under test).
+   * troopCapBonus: an army that grows as the war goes on (waves). Players
+   * see it in their troop bar (PlayerUpdate.scenarioCap).
    */
   troopCapBonus?(game: Game, player: Player): number;
+  /**
+   * SCEN3 (r27): the enemy the computer's logic sends a nation after first,
+   * by land or sea, or null: Europe 1939's Germany goes for Poland, Korea's
+   * North for the South. It still answers attacks first and keeps its
+   * reserve (AiAttackBehavior). Only the computer's logic reads it; a
+   * person chooses for themselves.
+   */
+  target?(game: Game, nation: Player): Player | null;
+  /**
+   * SCEN3 (r27): whether the computer's logic leaves enemy `other` alone
+   * for now (it still answers its attacks): Europe 1939's Axis and the
+   * Soviet Union while their pact holds. A person chooses for themselves.
+   */
+  spares?(game: Game, nation: Player, other: Player): boolean;
 }
 
 /**
@@ -92,64 +116,51 @@ export const EUROPE_1939_PURGE_FACTOR = 2;
  * Allies won every game.)
  */
 export const EUROPE_1939_HOLD_TICKS: Record<string, number> = {
-  soviet_union: EUROPE_1939_PURGE_TICKS,
   france: 10 * 600,
   united_kingdom: 10 * 600,
+  // SCEN3 (r27): and the Allies that were still neutral in 1939 (the Low
+  // Countries and Norway until spring 1940, Yugoslavia and Greece until
+  // the Balkan campaign), so a computer-run Germany's first war is Poland's
+  // and not an answer to Belgium's attack.
+  belgium: 10 * 600,
+  netherlands: 10 * 600,
+  norway: 10 * 600,
+  yugoslavia: 10 * 600,
+  greece: 10 * 600,
 };
 
 /**
- * Thirteen Colonies 1776, a balance idea put to the owner (no scenario's data
- * names this rule yet, so nothing plays it): Britain's reinforcements from
- * overseas, Howe's regiments and the Hessians, land in waves. A wave lands
- * at the first of its places Britain's side still holds (a tile of it
- * within LANDING_REACH full-size tiles), else at Quebec, and joins Britain's
- * troops; everyone hears. Troops are counted as the data counts them
- * (troopCapBonus): a tenth of the engine's. A wave can take Britain over its
- * troop cap for a while; the excess drains back as any troops over the cap
- * do. Tuned with the balance runs (exported so they can try other waves).
+ * SCEN3 (r27): the Soviet Union stays out (the pact) until the Axis attacks
+ * it, or until minute 20 (June 1941), extending round 25's ten minutes. The
+ * mark `soviet_war` holds the tick it entered the war.
  */
-export const COLONIES_1776_PLACES: Record<string, readonly [number, number]> = {
-  staten_island: [927, 923],
-  new_york: [934, 909],
-  charleston: [483, 1920],
-  quebec: [1039, 141],
-};
-export interface Colonies1776Wave {
-  minute: number;
-  troops: number;
-  /**
-   * How much the wave raises Britain's troop cap for good, from its minute
-   * on, wherever it lands (0 or absent: it only brings troops).
-   */
-  cap?: number;
-  /** Where it lands: the first of these Britain's side holds, else Quebec. */
-  at: readonly string[];
-}
-export const COLONIES_1776_WAVES: Colonies1776Wave[] = [
-  { minute: 10, troops: 1_000_000, at: ["staten_island", "new_york"] },
-  { minute: 20, troops: 1_000_000, at: ["staten_island", "new_york"] },
-  {
-    minute: 30,
-    troops: 1_000_000,
-    at: ["charleston", "staten_island", "new_york"],
-  },
-  {
-    minute: 40,
-    troops: 1_000_000,
-    at: ["charleston", "staten_island", "new_york"],
-  },
-];
-const LANDING_REACH = 8;
-/** The news line for a landing at each place. */
-const LANDING_NEWS: Record<string, string> = {
-  staten_island: "events_display.scenario_landing_staten_island",
-  new_york: "events_display.scenario_landing_new_york",
-  charleston: "events_display.scenario_landing_charleston",
-  quebec: "events_display.scenario_landing_quebec",
-};
+export const EUROPE_1939_SOVIET_PACT_TICKS = 20 * 600;
+export const EUROPE_1939_SOVIET_WAR = "soviet_war";
+
+/**
+ * SCEN3 (r27): then the Red Army is a wall at home (its data's homeland
+ * rule), but its attacks beyond its 1939 borders cost extra for a while
+ * after it enters the war: a slow steamroller, not an instant win. Each
+ * step is [minutes after entering, factor].
+ */
+export const EUROPE_1939_SOVIET_ABROAD: readonly (readonly [number, number])[] =
+  [
+    [15, 2],
+    [30, 1.5],
+  ];
+
+/**
+ * SCEN3 (r27): Germany goes for Poland first and runs through it, as in
+ * September 1939, when the computer runs Germany (Europe 1939's `target`;
+ * it still answers attacks and keeps its reserve). Against a computer-run
+ * Poland only, Germany's attacks cost this much for the first minutes
+ * (whoever plays Germany); a person playing Poland gets a real fight.
+ */
+export const EUROPE_1939_BLITZ_TICKS = 6 * 600;
+export const EUROPE_1939_BLITZ_FACTOR = 0.5;
 
 /** The player playing scenario nation `key`, if any. */
-function scenarioPlayer(game: Game, key: string): Player | null {
+export function scenarioPlayer(game: Game, key: string): Player | null {
   const scenario = game.scenario();
   if (scenario === null) return null;
   for (const p of game.players()) {
@@ -158,71 +169,180 @@ function scenarioPlayer(game: Game, key: string): Player | null {
   return null;
 }
 
-/** Whether `side` holds a tile within LANDING_REACH of full-size pixel `at`. */
-function sideHoldsNear(
-  game: Game,
-  side: Team,
-  at: readonly [number, number],
-): boolean {
+/**
+ * Korea 1950 (SCEN3 r27): the UN's reinforcements and China's volunteers
+ * (ScenarioWaves.ts). Places in full-size map pixels.
+ */
+export const KOREA_1950_PLACES: ScenarioPlaces = {
+  busan: [823, 1708],
+  incheon: [404, 1290],
+  sasebo: [909, 2143],
+};
+
+/**
+ * The UN pushing north past this map row (full-size pixels; Pyongyang is
+ * at 972, the Chongchon and Hamhung about 800) brings China in, as in
+ * October 1950: the mark `china` is set, and its waves follow.
+ */
+export const KOREA_1950_YALU_LINE = 880;
+export const KOREA_1950_CHINA = "china";
+
+/**
+ * Busan's wave lands if the UN still holds the pocket (else in Japan, where
+ * it helps less); Incheon's comes only while the UN holds Busan (else not
+ * at all): at Incheon if the UN holds it, else it sails from South Korea's
+ * coast (or Japan) and lands on it. Holding the pocket pays. China's
+ * three come only after the UN nears the Yalu, to save a collapsing North,
+ * not to win the war on their own.
+ */
+export const KOREA_1950_WAVES: ScenarioWave[] = [
+  {
+    id: "busan",
+    minute: 4,
+    side: "UnitedNations",
+    troops: 500_000,
+    cap: 500_000,
+    at: ["busan", "sasebo"],
+    by: ["un_command", "south_korea"],
+    news: "un",
+  },
+  {
+    id: "incheon",
+    minute: 10,
+    side: "UnitedNations",
+    troops: 800_000,
+    cap: 800_000,
+    requires: "busan",
+    at: ["incheon"],
+    assault: "incheon",
+    by: ["south_korea", "un_command"],
+    news: "un",
+  },
+  ...[0, 2, 4].map(
+    (minute, i): ScenarioWave => ({
+      id: `china${i + 1}`,
+      minute,
+      after: KOREA_1950_CHINA,
+      side: "NorthKorea",
+      troops: 400_000,
+      cap: 400_000,
+      by: ["north_korea"],
+      news: "china",
+    }),
+  ),
+];
+
+/** China enters once a UN nation holds land north of the Yalu line. */
+function koreaChinaEnters(game: Game): void {
+  if (game.scenarioMark(KOREA_1950_CHINA) !== undefined) return;
   const scenario = game.scenario();
-  if (scenario === null) return false;
-  const [cx, cy] = scenario.px(at);
-  const r = Math.ceil(LANDING_REACH / scenario.scale);
-  for (let y = cy - r; y <= cy + r; y++) {
-    for (let x = cx - r; x <= cx + r; x++) {
-      if (!game.isValidCoord(x, y)) continue;
-      const owner = game.owner(game.ref(x, y));
-      if (owner.isPlayer() && owner.team() === side) return true;
+  if (scenario === null) return;
+  const north = scenarioPlayer(game, "north_korea");
+  if (north === null || !north.isAlive()) return;
+  const line = KOREA_1950_YALU_LINE / scenario.scale;
+  for (const p of game.players()) {
+    if (p.team() !== "UnitedNations") continue;
+    let past = false;
+    p.borderTiles().forEach((t) => {
+      if (!past && game.y(t) < line) past = true;
+    });
+    if (past) {
+      game.setScenarioMark(KOREA_1950_CHINA, game.ticks());
+      return;
     }
   }
-  return false;
 }
 
-/** How much the waves landed so far have raised Britain's troop cap. */
-function colonies1776WaveCap(game: Game, player: Player): number {
-  if (game.scenario()?.nationOf(player)?.key !== "great_britain") return 0;
-  const t = game.ticks();
-  let cap = 0;
-  for (const wave of COLONIES_1776_WAVES) {
-    if (t >= wave.minute * 600) cap += wave.cap ?? 0;
-  }
-  return cap;
-}
-
-/** The wave due this second, if any, lands. */
-function landColonies1776Waves(game: Game): void {
-  const t = game.ticks();
-  for (const wave of COLONIES_1776_WAVES) {
-    const due = wave.minute * 600;
-    // The hook runs every 10 ticks: exactly one run falls in the window.
-    if (t < due || t >= due + 10) continue;
-    const britain = scenarioPlayer(game, "great_britain");
-    if (britain === null || !britain.isAlive()) return;
-    const side = britain.team();
-    if (side === null) return;
-    const place = [...wave.at, "quebec"].find((k) => {
-      const at = COLONIES_1776_PLACES[k];
-      return (
-        at !== undefined &&
-        LANDING_NEWS[k] !== undefined &&
-        sideHoldsNear(game, side, at)
-      );
-    });
-    if (place === undefined) continue;
-    const scale = game.scenario()?.scale ?? 1;
-    const troops = (wave.troops * 10) / (scale > 1 ? 2 : 1);
-    britain.addTroops(troops);
-    game.displayMessage(
-      LANDING_NEWS[place],
-      MessageType.NAVAL_INVASION_INBOUND,
-      null,
-      undefined,
-      { name: britain.displayName(), troops: renderTroops(troops) },
-      undefined,
-      britain.id(),
-    );
-  }
-}
+/**
+ * Thirteen Colonies 1776 (SCEN3 r27): Britain starts with its garrisons and
+ * its army comes from overseas in waves, at New York (where Howe's army is
+ * on Staten Island), Boston and Charleston: it lands where Britain holds
+ * the port, else sails for it and lands on whoever holds it. After
+ * Saratoga, France enters the war for the Patriots: its army lands at the
+ * Chesapeake (Yorktown) or Newport with a fleet. Places in full-size map
+ * pixels. Tuned with the balance runs.
+ */
+export const COLONIES_1776_PLACES: ScenarioPlaces = {
+  staten_island: [927, 923],
+  new_york: [934, 909],
+  boston: [1159, 670],
+  charleston: [483, 1920],
+  quebec: [1039, 141],
+  yorktown: [771, 1356],
+  newport: [1139, 739],
+};
+const COLONIES = [
+  "virginia",
+  "pennsylvania",
+  "massachusetts",
+  "new_york",
+  "north_carolina",
+  "south_carolina",
+  "maryland",
+  "connecticut",
+  "new_jersey",
+  "georgia",
+  "new_hampshire",
+  "rhode_island",
+  "delaware",
+];
+export const COLONIES_1776_WAVES: ScenarioWave[] = [
+  {
+    id: "howe",
+    minute: 2,
+    side: "British",
+    troops: 1_200_000,
+    cap: 1_200_000,
+    at: ["staten_island", "new_york"],
+    assault: "new_york",
+    by: ["great_britain"],
+    news: "british",
+  },
+  {
+    id: "boston",
+    minute: 7,
+    side: "British",
+    troops: 1_200_000,
+    cap: 1_200_000,
+    at: ["boston"],
+    assault: "boston",
+    by: ["great_britain"],
+    news: "british",
+  },
+  {
+    id: "charleston",
+    minute: 12,
+    side: "British",
+    troops: 1_200_000,
+    cap: 1_200_000,
+    at: ["charleston"],
+    assault: "charleston",
+    by: ["great_britain"],
+    news: "british",
+  },
+  {
+    id: "clinton",
+    minute: 18,
+    side: "British",
+    troops: 1_200_000,
+    cap: 1_200_000,
+    at: ["new_york", "staten_island"],
+    assault: "new_york",
+    by: ["great_britain"],
+    news: "british",
+  },
+  {
+    id: "france",
+    minute: 15,
+    side: "Patriots",
+    troops: 1_000_000,
+    cap: 1_000_000,
+    at: ["yorktown", "newport"],
+    by: COLONIES,
+    ships: 4,
+    news: "france",
+  },
+];
 
 /**
  * Thirteen Colonies 1776, balance idea C (no data names it yet): Loyalist
@@ -278,29 +398,43 @@ function turnColonies1776Loyalists(game: Game): void {
 
 /** The special rules, by name. Add one here and name it in the data. */
 export const SCENARIO_RULES: Record<string, ScenarioRule> = {
-  // Thirteen Colonies 1776's balance ideas, one by one and together (no
-  // data names them until the owner picks).
-  colonies1776_waves: {
+  // SCEN3 (r27): Britain's army in waves, and France.
+  colonies1776: {
     tick: (game) => {
-      landColonies1776Waves(game);
+      landWaves(game, COLONIES_1776_WAVES, COLONIES_1776_PLACES);
     },
-    troopCapBonus: colonies1776WaveCap,
+    troopCapBonus: (game, player) => waveCap(game, COLONIES_1776_WAVES, player),
   },
+  // Round 25's balance idea C (no data names it): Loyalist colonies.
   colonies1776_loyalists: {
     tick: (game) => {
       turnColonies1776Loyalists(game);
     },
   },
-  colonies1776: {
+  // SCEN3 (r27): the UN's waves, China's, and the North's hold (data).
+  korea1950: {
+    // The North's war aim: the South, to the last island.
+    target: (game, nation) =>
+      game.scenario()?.nationOf(nation)?.key === "north_korea"
+        ? enemyNation(game, nation, "south_korea")
+        : null,
     tick: (game) => {
-      landColonies1776Waves(game);
-      turnColonies1776Loyalists(game);
+      koreaChinaEnters(game);
+      landWaves(game, KOREA_1950_WAVES, KOREA_1950_PLACES);
     },
-    troopCapBonus: colonies1776WaveCap,
+    troopCapBonus: (game, player) => waveCap(game, KOREA_1950_WAVES, player),
   },
   europe1939: {
+    tick: (game) => {
+      europe1939SovietEntry(game);
+    },
     holdsFire: (game, nation) => {
       const key = game.scenario()?.nationOf(nation)?.key;
+      if (key === "soviet_union") {
+        return (
+          sovietEntry(game) === null && nation.incomingAttacks().length === 0
+        );
+      }
       const until =
         key !== undefined &&
         Object.prototype.hasOwnProperty.call(EUROPE_1939_HOLD_TICKS, key)
@@ -308,13 +442,89 @@ export const SCENARIO_RULES: Record<string, ScenarioRule> = {
           : 0;
       return game.ticks() < until && nation.incomingAttacks().length === 0;
     },
-    attackFactor: (game, attacker) =>
-      game.ticks() < EUROPE_1939_PURGE_TICKS &&
-      game.scenario()?.nationOf(attacker)?.key === "soviet_union"
-        ? EUROPE_1939_PURGE_FACTOR
-        : 1,
+    attackFactor: (game, attacker, defender, tile) => {
+      const scenario = game.scenario();
+      if (scenario === null) return 1;
+      const key = scenario.nationOf(attacker)?.key;
+      const t = game.ticks();
+      if (key === "soviet_union") {
+        let f = t < EUROPE_1939_PURGE_TICKS ? EUROPE_1939_PURGE_FACTOR : 1;
+        const own = scenario.data.nations.findIndex((n) => n.key === key) + 1;
+        if (scenarioStartLabels(game, scenario)[tile] !== own) {
+          f *= sovietAbroadFactor(game);
+        }
+        return f;
+      }
+      if (
+        key === "germany" &&
+        t < EUROPE_1939_BLITZ_TICKS &&
+        defender.type() === PlayerType.Nation &&
+        scenario.nationOf(defender)?.key === "poland"
+      ) {
+        return EUROPE_1939_BLITZ_FACTOR;
+      }
+      return 1;
+    },
+    target: (game, nation) =>
+      game.scenario()?.nationOf(nation)?.key === "germany"
+        ? enemyNation(game, nation, "poland")
+        : null,
+    // The pact binds both ways: the computer's Axis leaves the Soviet
+    // Union alone until it is in the war (minute 20, or a person's attack).
+    spares: (game, nation, other) =>
+      nation.team() === "Axis" &&
+      game.scenario()?.nationOf(other)?.key === "soviet_union" &&
+      sovietEntry(game) === null,
   },
 };
+
+/** Scenario nation `key`, if it is alive and an enemy of `nation`. */
+function enemyNation(game: Game, nation: Player, key: string): Player | null {
+  const p = scenarioPlayer(game, key);
+  if (p === null || !p.isAlive()) return null;
+  if (p.team() === null || p.team() === nation.team()) return null;
+  return p;
+}
+
+/**
+ * Europe 1939: the tick the Soviet Union entered the war (the Axis
+ * attacked it, or the pact ran out), or null while it stays out.
+ */
+export function sovietEntry(game: Game): number | null {
+  const mark = game.scenarioMark(EUROPE_1939_SOVIET_WAR);
+  if (mark !== undefined) return mark;
+  return game.ticks() >= EUROPE_1939_SOVIET_PACT_TICKS
+    ? EUROPE_1939_SOVIET_PACT_TICKS
+    : null;
+}
+
+/** Each second: the Soviet Union enters the war once attacked. */
+function europe1939SovietEntry(game: Game): void {
+  if (game.scenarioMark(EUROPE_1939_SOVIET_WAR) !== undefined) return;
+  const ussr = scenarioPlayer(game, "soviet_union");
+  if (ussr === null) return;
+  const t = game.ticks();
+  const attacked = ussr
+    .incomingAttacks()
+    .some((a) => a.attacker().team() !== ussr.team());
+  if (attacked || t >= EUROPE_1939_SOVIET_PACT_TICKS) {
+    game.setScenarioMark(
+      EUROPE_1939_SOVIET_WAR,
+      attacked ? t : Math.min(t, EUROPE_1939_SOVIET_PACT_TICKS),
+    );
+  }
+}
+
+/** What a Soviet attack beyond its 1939 borders costs now (1: as usual). */
+export function sovietAbroadFactor(game: Game): number {
+  const entry = sovietEntry(game);
+  if (entry === null) return EUROPE_1939_SOVIET_ABROAD[0]?.[1] ?? 1;
+  const since = game.ticks() - entry;
+  for (const [minutes, factor] of EUROPE_1939_SOVIET_ABROAD) {
+    if (since < minutes * 600) return factor;
+  }
+  return 1;
+}
 
 /** The game's special rule, if its scenario names one. */
 export function scenarioRule(game: Game): ScenarioRule | null {
@@ -408,7 +618,13 @@ function sideTiles(game: Game, side: Team): number {
   return tiles;
 }
 
-/** A neutral joins `side` for the rest of the game, and everyone hears. */
+/**
+ * A neutral joins `side` for the rest of the game, and everyone hears. The
+ * one path by which a neutral joins a side, whatever brought it in (an
+ * invasion, its own attack, or diplomacy): its team becomes the side, so it
+ * is at war with the other sides from then on and counts as its side for
+ * the win (scenarioWinner), like any nation that started there.
+ */
 export function joinSide(
   game: Game,
   neutral: Player,
@@ -432,22 +648,29 @@ export function joinSide(
   );
 }
 
-/**
- * The side that has won, or null: the only side with nations left, or one
- * holding more than its bar of the land. Each side's bar is its own
- * `winPercent` (a side that starts small needs less), else the scenario's,
- * lowered by Overtime as much as the usual bar would be at `elapsedSeconds`.
- * At the lobby timer or the hard limit, pass `timeUp`: the side nearest its
- * bar (land over bar) wins.
- */
-/** A side holding less than 1/500 of the land (0.2%) is out of the war. */
+/** A side holding less than 1/500 of the land (0.2%) is beaten. */
 export const SIDE_OUT_DIVISOR = 500;
 
-export function scenarioWinner(
-  game: Game,
-  elapsedSeconds: number,
-  timeUp: boolean,
-): Team | null {
+/** The scenario mark holding the tick a side's hold (winByHolding) began. */
+export function holdMark(side: Team): string {
+  return `hold:${side}`;
+}
+
+/**
+ * SCEN3 (r27): the side that has won, or null. There are no land bars: a
+ * side wins only when every nation on every other side is beaten, which is
+ * when those nations together hold under 0.2% of the land (a leftover fort
+ * or islet the computer never gets round to doesn't hold the war up). A
+ * neutral that joined a side counts as that side (it is on its team); one
+ * that never joined counts for nobody. A side with `winByHolding` also wins
+ * by holding that land for its `seconds` in a row (Korea 1950). At the
+ * lobby timer or the hard limit (`timeUp`), the side holding the most of its
+ * own starting land (its land now over its land at the start) wins.
+ *
+ * Runs once a second (WinCheckExecution): a hold's start and break are
+ * kept as a scenario mark and told to everyone.
+ */
+export function scenarioWinner(game: Game, timeUp: boolean): Team | null {
   const scenario = game.scenario();
   if (scenario === null) return null;
   const tiles = new Map<Team, number>();
@@ -458,44 +681,118 @@ export function scenarioWinner(
     tiles.set(side, tiles.get(side)! + p.numTilesOwned());
   }
   const land = game.numLandTiles() - game.numTilesWithFallout();
-  // A side is still in the war while it holds a scrap of land worth the
-  // name (0.2%): a fort or an islet the computer never gets round to
-  // taking doesn't hold the war up.
   const minLand = Math.max(1, Math.ceil(land / SIDE_OUT_DIVISOR));
   const alive = new Set<Team>();
   for (const [side, t] of tiles) if (t >= minLand) alive.add(side);
   if (alive.size === 1) return [...alive][0];
   if (alive.size === 0) return null;
-  // A side that holds all the land its rule names wins outright.
-  for (const side of scenario.data.sides) {
-    if (alive.has(side.id) && holdsToWin(game, side)) return side.id;
-  }
-  // The side furthest towards its bar: tiles / bar, compared by
+  const held = holdWinner(game, alive);
+  if (held !== null) return held;
+  if (!timeUp) return null;
+  // Time's up: land now over land at the start, compared by
   // cross-multiplying (exact integers). Ties go to the first side listed.
+  const start = sideStartTiles(game);
   let best: Team | null = null;
-  let bestTiles = 0;
-  let bestBar = 1;
+  let bestNow = 0;
+  let bestStart = 1;
   for (const side of scenario.data.sides) {
     if (!alive.has(side.id)) continue;
-    const t = tiles.get(side.id)!;
-    const bar = scenarioSideWinPercent(game, side.id, elapsedSeconds);
-    if (best === null || t * bestBar > bestTiles * bar) {
+    const now = tiles.get(side.id)!;
+    const was = Math.max(1, start.get(side.id) ?? 0);
+    if (best === null || now * bestStart > bestNow * was) {
       best = side.id;
-      bestTiles = t;
-      bestBar = bar;
+      bestNow = now;
+      bestStart = was;
     }
   }
-  if (best === null) return null;
-  if (timeUp) return best;
-  // Whole percentages, exact integer math.
-  return bestTiles * 100 > land * bestBar ? best : null;
+  return best;
 }
 
 /**
- * Whether `side` holds every tile its `winByHolding` names: the listed
+ * The side whose hold (winByHolding) has lasted its seconds, or null.
+ * A side that holds all the land its rule names starts its hold (a mark),
+ * and loses it the moment the land is no longer all its own; everyone hears
+ * both. A rule without seconds wins at once.
+ */
+function holdWinner(game: Game, alive: ReadonlySet<Team>): Team | null {
+  const scenario = game.scenario();
+  if (scenario === null) return null;
+  for (const side of scenario.data.sides) {
+    const rule = side.winByHolding;
+    if (rule === undefined) continue;
+    const key = holdMark(side.id);
+    const since = game.scenarioMark(key);
+    const holds = alive.has(side.id) && holdsToWin(game, side);
+    const need = Math.max(0, Math.round((rule.seconds ?? 0) * 10));
+    const news = side.id.toLowerCase();
+    if (!holds) {
+      if (since !== undefined) {
+        game.setScenarioMark(key, null);
+        game.displayMessage(
+          `events_display.scenario_hold_broken_${news}`,
+          MessageType.ATTACK_FAILED,
+          null,
+          undefined,
+          { side: side.id },
+        );
+      }
+      continue;
+    }
+    if (need === 0) return side.id;
+    if (since === undefined) {
+      game.setScenarioMark(key, game.ticks());
+      game.displayMessage(
+        `events_display.scenario_hold_started_${news}`,
+        MessageType.CONQUERED_PLAYER,
+        null,
+        undefined,
+        {
+          side: side.id,
+          until: game.ticks() + need,
+          time: clockTime(need / 10),
+        },
+      );
+      continue;
+    }
+    if (game.ticks() - since >= need) return side.id;
+  }
+  return null;
+}
+
+/** "2:30" for 150 seconds. */
+function clockTime(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+const SIDE_START = new WeakMap<object, Map<Team, number>>();
+
+/** The land each side's nations held at the start (this map's tiles). */
+export function sideStartTiles(game: Game): Map<Team, number> {
+  const scenario = game.scenario();
+  if (scenario === null) return new Map();
+  let bySide = SIDE_START.get(scenario);
+  if (bySide === undefined) {
+    const labels = scenarioStartLabels(game, scenario);
+    const perNation = new Uint32Array(scenario.data.nations.length + 1);
+    for (let i = 0; i < labels.length; i++) perNation[labels[i]]++;
+    bySide = new Map();
+    for (const side of scenario.sideIds()) bySide.set(side, 0);
+    scenario.data.nations.forEach((n, i) => {
+      if (n.side === null) return;
+      bySide!.set(n.side, (bySide!.get(n.side) ?? 0) + perNation[i + 1]);
+    });
+    SIDE_START.set(scenario, bySide);
+  }
+  return bySide;
+}
+
+/**
+ * Whether `side` holds the land its `winByHolding` names: the listed
  * nations' starting land, less its pieces (4-connected, same nation)
- * smaller than `ignoreUnder` full-size tiles. False without the rule, or
- * when the pieces left are none at all.
+ * smaller than `ignoreUnder` full-size tiles, all of it but fewer than
+ * `breakAt` full-size tiles (default 1: every tile). False without the
+ * rule, or when the pieces left are none at all.
  */
 export function holdsToWin(game: Game, side: ScenarioSide): boolean {
   const rule = side.winByHolding;
@@ -505,9 +802,16 @@ export function holdsToWin(game: Game, side: ScenarioSide): boolean {
     holdTargetTiles(game, rule.nations, rule.ignoreUnder ?? 0),
   );
   if (targets.length === 0) return false;
+  // SCEN3 (r27): a landing smaller than this doesn't break a hold (in this
+  // map's tiles: a Compact map has a quarter as many).
+  const allowed =
+    Math.ceil((rule.breakAt ?? 1) / (scenario.scale * scenario.scale)) - 1;
+  let missing = 0;
   for (let i = 0; i < targets.length; i++) {
     const owner = game.owner(targets[i]);
-    if (!owner.isPlayer() || owner.team() !== side.id) return false;
+    if (!owner.isPlayer() || owner.team() !== side.id) {
+      if (++missing > allowed) return false;
+    }
   }
   return true;
 }
@@ -558,27 +862,10 @@ export function holdTargetTiles(
 }
 
 /**
- * A side's bar for a land win at `elapsedSeconds`: its own percent (or the
- * scenario's), lowered by Overtime as much as the usual bar would be; at
- * least 1.
- */
-export function scenarioSideWinPercent(
-  game: Game,
-  side: Team,
-  elapsedSeconds: number,
-): number {
-  const data = game.scenario()?.data;
-  if (data === undefined) return 100;
-  const own = data.sides.find((s) => s.id === side)?.winPercent;
-  const base = game.config().percentageTilesOwnedToWin(0);
-  const now = game.config().percentageTilesOwnedToWin(elapsedSeconds);
-  return Math.max(1, (own ?? data.winPercent) - (base - now));
-}
-
-/**
  * Whether computer-run `nation` should leave `other` alone while it has
  * side enemies to fight: in a scenario, a nation on a side goes for the
- * other sides before any neutral, and a neutral starts no wars at all.
+ * other sides before any neutral, and a neutral starts no wars at all; and
+ * (SCEN3 r27) any enemy the scenario's rule spares for now.
  */
 export function scenarioSparesTarget(
   game: Game,
@@ -586,7 +873,8 @@ export function scenarioSparesTarget(
   other: Player,
 ): boolean {
   if (game.scenario() === null) return false;
-  return nation.team() !== null && other.team() === null;
+  if (nation.team() !== null && other.team() === null) return true;
+  return scenarioRule(game)?.spares?.(game, nation, other) ?? false;
 }
 
 /** Whether a nation on a side still has an enemy (a nation on another side). */
@@ -594,6 +882,15 @@ export function scenarioHasSideEnemies(game: Game, nation: Player): boolean {
   const side = nation.team();
   if (game.scenario() === null || side === null) return false;
   return game.players().some((p) => p.team() !== null && p.team() !== side);
+}
+
+/**
+ * SCEN3 (r27): the enemy the computer's logic sends `nation` after first
+ * now (its scenario rule's `target`), or null.
+ */
+export function scenarioTarget(game: Game, nation: Player): Player | null {
+  if (game.scenario() === null) return null;
+  return scenarioRule(game)?.target?.(game, nation) ?? null;
 }
 
 /**

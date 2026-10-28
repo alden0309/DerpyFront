@@ -3,7 +3,7 @@
   "title": "Napoleon 1812",
   "map": "Europe",
   "year": 1812,
-  "winPercent": 73,
+  "nukes": false,
   "capitalFullTiles": 60000,
   "fronts": {
     "homeland": 1,
@@ -16,14 +16,12 @@
     {
       "id": "French",
       "name": "France and allies",
-      "color": "#3f6fd0",
-      "winPercent": 38
+      "color": "#3f6fd0"
     },
     {
       "id": "Coalition",
       "name": "Coalition",
-      "color": "#c4463c",
-      "winPercent": 73
+      "color": "#c4463c"
     }
   ],
   "nations": [
@@ -35,7 +33,7 @@
       "color": "#3a64c8",
       "troopsPercent": 100,
       "gold": 2200000,
-      "troopCapBonus": 1000000,
+      "troopCapBonus": 600000,
       "capital": [1101, 910],
       "structures": [
         { "type": "City", "at": [1201, 1036], "level": 2 },
@@ -503,6 +501,7 @@
       "name": "Ottoman Empire",
       "flag": "tr",
       "side": null,
+      "leaning": { "French": "reluctant", "Coalition": "opposed" },
       "color": "#9d8f6b",
       "troopsPercent": 60,
       "gold": 700000,
@@ -537,6 +536,7 @@
       "name": "Switzerland",
       "flag": "ch",
       "side": null,
+      "leaning": { "French": "leans", "Coalition": "reluctant" },
       "color": "#c95550",
       "troopsPercent": 60,
       "gold": 250000,
@@ -554,6 +554,7 @@
       "name": "Morocco",
       "flag": "ma",
       "side": null,
+      "leaning": { "French": "reluctant", "Coalition": "open" },
       "color": "#a86a4a",
       "troopsPercent": 45,
       "gold": 150000,
@@ -571,6 +572,7 @@
       "name": "Persia",
       "flag": "Persia",
       "side": null,
+      "leaning": { "French": "open", "Coalition": "opposed" },
       "color": "#6f9f80",
       "troopsPercent": 45,
       "gold": 150000,
@@ -587,6 +589,7 @@
       "name": "Serbia",
       "flag": "rs",
       "side": null,
+      "leaning": { "French": "reluctant", "Coalition": "leans" },
       "color": "#a8463a",
       "troopsPercent": 45,
       "gold": 60000,
@@ -600,6 +603,7 @@
       "name": "Montenegro",
       "flag": "me",
       "side": null,
+      "leaning": { "French": "opposed", "Coalition": "eager" },
       "color": "#7c3f2f",
       "troopsPercent": 40,
       "gold": 30000,
@@ -611,6 +615,7 @@
       "name": "Kingdom of Sardinia",
       "flag": "Kingdom of Sardinia",
       "side": null,
+      "leaning": { "French": "never", "Coalition": "eager" },
       "color": "#7f8fb0",
       "troopsPercent": 40,
       "gold": 80000,

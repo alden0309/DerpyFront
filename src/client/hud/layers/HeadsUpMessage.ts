@@ -36,6 +36,12 @@ export class HeadsUpMessage extends LitElement implements Controller {
   @state()
   private isOvertimeNotice = false;
 
+  // SCEN3 (r27): a side holding the land it wins by (Korea 1950's North
+  // holding the South): its id and the tick it wins at, from the engine's
+  // news when the hold starts; cleared when it breaks.
+  @state()
+  private hold: { side: string; until: number } | null = null;
+
   private static readonly CATCHING_UP_SHOW_THRESHOLD = 10;
   // How long the overtime announcement banner stays up after the start minute.
   private static readonly OVERTIME_NOTICE_SECONDS = 5;
@@ -152,6 +158,25 @@ export class HeadsUpMessage extends LitElement implements Controller {
     if (pauseUpdates && pauseUpdates.length > 0) {
       this.isPaused = pauseUpdates[pauseUpdates.length - 1].paused;
     }
+    // SCEN3 (r27): a scenario hold starting or breaking.
+    for (const e of updates?.[GameUpdateType.DisplayEvent] ?? []) {
+      if (e.message.startsWith("events_display.scenario_hold_started_")) {
+        const side = e.params?.side;
+        const until = e.params?.until;
+        if (typeof side === "string" && typeof until === "number") {
+          this.hold = { side, until };
+        }
+      } else if (e.message.startsWith("events_display.scenario_hold_broken_")) {
+        this.hold = null;
+      }
+    }
+    if (
+      this.hold !== null &&
+      ((updates?.[GameUpdateType.Win]?.length ?? 0) > 0 ||
+        this.game.ticks() > this.hold.until + 10)
+    ) {
+      this.hold = null;
+    }
 
     const showImmunityHudDuration = 10 * 10;
     const spawnEnd = this.game.config().numSpawnPhaseTurns();
@@ -229,6 +254,16 @@ export class HeadsUpMessage extends LitElement implements Controller {
       : translateText("heads_up_message.choose_spawn");
   }
 
+  /** SCEN3 (r27): "North Korea holds the South: 2:14". */
+  private holdMessage(): string {
+    const hold = this.hold!;
+    const s = Math.max(0, Math.ceil((hold.until - this.game.ticks()) / 10));
+    return translateText(
+      `heads_up_message.scenario_hold_${hold.side.toLowerCase()}`,
+      { time: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` },
+    );
+  }
+
   private onCloseCollusionWarning = (): void => {
     localStorage.setItem(COLLUSION_WARNING_CLOSED_KEY, "true");
     this.hasClosedCollusionWarning = true;
@@ -295,6 +330,26 @@ export class HeadsUpMessage extends LitElement implements Controller {
                 @contextmenu=${(e: MouseEvent) => e.preventDefault()}
               >
                 ${this.getMessage()}
+              </div>
+            `
+          : null}
+        <!-- SCEN3 (r27): the countdown sits over the left sidebar (z-900),
+          which spans a phone's width: everyone must see it. -->
+        ${this.hold !== null
+          ? html`
+              <div
+                data-scenario-hold
+                class="fixed ${this.isVisible
+                  ? "top-[22%]"
+                  : "top-[15%]"} left-1/2 -translate-x-1/2 z-[901]
+                            inline-flex items-center justify-center min-h-8 lg:min-h-10
+                            w-fit max-w-[90vw]
+                            bg-red-900/80 border border-red-400/60 rounded-md lg:rounded-lg
+                            backdrop-blur-xs text-white text-md lg:text-xl font-semibold
+                            tabular-nums px-3 lg:px-4 py-1 text-center break-words"
+                @contextmenu=${(e: MouseEvent) => e.preventDefault()}
+              >
+                ${this.holdMessage()}
               </div>
             `
           : null}

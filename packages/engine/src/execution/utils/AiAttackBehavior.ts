@@ -45,6 +45,7 @@ import { PathFinding } from "../../pathfinding/PathFinder";
 import {
   scenarioHasSideEnemies,
   scenarioSparesTarget,
+  scenarioTarget,
 } from "../../scenario/ScenarioRules"; // SCEN (r25)
 import type {
   SnapshotReader,
@@ -789,6 +790,15 @@ export class AiAttackBehavior {
 
     const donate = (): boolean => this.donateTroops();
 
+    // SCEN3 (r27): the enemy a scenario's rule sends this nation after
+    // first (Europe 1939: Germany into Poland; Korea 1950: the North into
+    // the South, islands too), by land or by sea. Answering attacks and the
+    // reserve come before it (attackBestTarget).
+    const focus = (): boolean => {
+      const target = scenarioTarget(this.game, this.player);
+      return target !== null && this.sendAttack(target);
+    };
+
     const crown = (): boolean => {
       const leader = this.findCrownTarget(borderingEnemies);
       return (
@@ -814,17 +824,17 @@ export class AiAttackBehavior {
       case Difficulty.Easy:
         // So dumb, they cant even find islanders
         // prettier-ignore
-        return [nuked, bots, retaliate, assist, betray, hated, weakest];
+        return [focus, nuked, bots, retaliate, assist, betray, hated, weakest];
       case Difficulty.Medium:
         // prettier-ignore
-        return [bots, nuked, assist, betray, hated, afk, traitor, crown, weakest, island, donate];
+        return [focus, bots, nuked, assist, betray, hated, afk, traitor, crown, weakest, island, donate];
       case Difficulty.Hard:
         // Strong veryWeak and juicy strats after the distracting hated strat, to make the nations weaker than impossible
         // prettier-ignore
-        return [bots, assist, betray, nuked, traitor, afk, hated, veryWeak, juicy, victim, crown, weakest, island, donate];
+        return [focus, bots, assist, betray, nuked, traitor, afk, hated, veryWeak, juicy, victim, crown, weakest, island, donate];
       case Difficulty.Impossible:
         // prettier-ignore
-        return [bots, veryWeak, betray, assist, victim, crown, traitor, juicy, afk, nuked, hated, weakest, island, donate];
+        return [focus, bots, veryWeak, betray, assist, victim, crown, traitor, juicy, afk, nuked, hated, weakest, island, donate];
       default:
         assertNever(difficulty);
     }

@@ -2,8 +2,20 @@
 // the state it's in (open, met, missed) as this client sees the war, with
 // the engine's end-of-game stats having the last word.
 
-import { goalTileXY } from "@openfront/engine-lib/scenario/ScenarioGoals";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  allScenarioGoals,
+  goalTileXY,
+  type ScenarioGoal,
+} from "@openfront/engine-lib/scenario/ScenarioGoals";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 vi.mock("../../src/client/Utils", () => ({
   translateText: vi.fn((key: string, p: { minute?: number } = {}) =>
@@ -20,6 +32,25 @@ import type { ScenarioGoalPanel } from "../../src/client/components/ScenarioGoal
 import type { GameView } from "../../src/client/view";
 
 const ME = "HUMAN001";
+
+// Fixture goals, so that retuning the real ones (SCEN3 r27 did) doesn't
+// break this test: the same places as goals.json's (their tiles are
+// goal-tiles.json's), with a hold and a take of known minutes.
+const FIXTURE: Record<string, ScenarioGoal> = {
+  poland: { kind: "hold", place: { capitalOf: "poland" }, minute: 20 },
+  hungary: { kind: "take", place: { capitalOf: "yugoslavia" }, minute: 15 },
+};
+const europe = allScenarioGoals().europe1939 as Record<string, ScenarioGoal>;
+const real: Record<string, ScenarioGoal> = {};
+beforeAll(() => {
+  for (const [nation, goal] of Object.entries(FIXTURE)) {
+    real[nation] = europe[nation];
+    europe[nation] = goal;
+  }
+});
+afterAll(() => {
+  Object.assign(europe, real);
+});
 
 /** A Europe 1939 game as the panel sees it: who holds the goal's tile, and the time. */
 function game(nation: string, difficulty = "Hard", size = "Normal") {

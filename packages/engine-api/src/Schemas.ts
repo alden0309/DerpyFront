@@ -16,6 +16,7 @@ import {
   Trios,
   UnitType,
 } from "./game/GameTypes";
+import { SCENARIO_SIDE_RE } from "./game/ScenarioDiplomacy"; // DIPLO (r27)
 import { SCENARIO_KEY_RE, scenarioConfigProblem } from "./game/Scenarios"; // SCEN (r25)
 import { PlayerStatsSchema } from "./StatsSchemas";
 
@@ -53,7 +54,12 @@ export type Intent =
   | TradeAgreementCancelIntent
   | EscortedBoatAttackIntent
   | ScenarioSeatIntent // SCEN (r25)
-  | ScenarioDealIntent; // DFX (r26)
+  | ScenarioDealIntent // DFX (r26)
+  // DIPLO (r27)
+  | ScenarioGiftIntent
+  | ScenarioInviteIntent
+  | ScenarioAskJoinIntent
+  | ScenarioJoinReplyIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -106,6 +112,13 @@ export type EscortedBoatAttackIntent = z.infer<
 export type ScenarioSeatIntent = z.infer<typeof ScenarioSeatIntentSchema>;
 // DFX (r26)
 export type ScenarioDealIntent = z.infer<typeof ScenarioDealIntentSchema>;
+// DIPLO (r27)
+export type ScenarioGiftIntent = z.infer<typeof ScenarioGiftIntentSchema>;
+export type ScenarioInviteIntent = z.infer<typeof ScenarioInviteIntentSchema>;
+export type ScenarioAskJoinIntent = z.infer<typeof ScenarioAskJoinIntentSchema>;
+export type ScenarioJoinReplyIntent = z.infer<
+  typeof ScenarioJoinReplyIntentSchema
+>;
 export type ScenarioConfig = z.infer<typeof ScenarioConfigSchema>;
 
 export type Turn = z.infer<typeof TurnSchema>;
@@ -692,6 +705,33 @@ export const ScenarioDealIntentSchema = z.object({
   seats: z.record(z.string().regex(SCENARIO_KEY_RE), ID),
 });
 
+// DIPLO (r27): courting the neutrals in a Scenario
+// (packages/engine/src/scenario/ScenarioDiplomacy.ts). A side's nation sends
+// a neutral a gift of gold (it raises the neutral's goodwill toward its side)
+// or invites it to join; a neutral asks to join a side; and either answers
+// the other's invitation or ask (other: the inviter, or the asking neutral).
+export const ScenarioGiftIntentSchema = z.object({
+  type: z.literal("scenario_gift"),
+  neutral: MappedID,
+  gold: zb.float({ min: 0 }),
+});
+
+export const ScenarioInviteIntentSchema = z.object({
+  type: z.literal("scenario_invite"),
+  neutral: MappedID,
+});
+
+export const ScenarioAskJoinIntentSchema = z.object({
+  type: z.literal("scenario_ask_join"),
+  side: z.string().regex(SCENARIO_SIDE_RE),
+});
+
+export const ScenarioJoinReplyIntentSchema = z.object({
+  type: z.literal("scenario_join_reply"),
+  other: MappedID,
+  accept: z.boolean(),
+});
+
 export const IntentSchema = z.discriminatedUnion("type", [
   AttackIntentSchema,
   CancelAttackIntentSchema,
@@ -724,6 +764,11 @@ export const IntentSchema = z.discriminatedUnion("type", [
   EscortedBoatAttackIntentSchema,
   ScenarioSeatIntentSchema, // SCEN (r25)
   ScenarioDealIntentSchema, // DFX (r26)
+  // DIPLO (r27)
+  ScenarioGiftIntentSchema,
+  ScenarioInviteIntentSchema,
+  ScenarioAskJoinIntentSchema,
+  ScenarioJoinReplyIntentSchema,
 ]);
 
 // StampedIntent = Intent with server-stamped clientID (used in turns and execution)

@@ -63,6 +63,7 @@ import {
   SendUpdateGameConfigIntentEvent,
 } from "./LobbyEvents";
 import { LocalServer } from "./LocalServer";
+import { SendScenarioDiplomacyIntentEvent } from "./scenario/ScenarioDiplomacyClient"; // DIPLO (r27)
 import { describeSocketClose } from "./SocketClose";
 import { homeHref, translateText } from "./Utils";
 import { PlayerView } from "./view";
@@ -432,6 +433,10 @@ export class Transport {
     // DFX (r26)
     this.subscribe(SendScenarioDealIntentEvent, (e) =>
       this.sendIntent({ type: "scenario_deal", seats: e.seats }),
+    );
+    // DIPLO (r27): courting the neutrals (gifts, invitations, asks, answers).
+    this.subscribe(SendScenarioDiplomacyIntentEvent, (e) =>
+      this.sendIntent(e.intent),
     );
     this.subscribe(SendSpectateEvent, (e) => {
       this.lobbyConfig.spectator = e.spectator;

@@ -236,6 +236,11 @@ export interface GameConfigSettingsData {
   unitTypes: {
     titleKey: string;
     disabledUnits: UnitType[];
+    /**
+     * SCEN3 (r27): units the game leaves out whatever is picked here (a
+     * scenario set before nukes): shown off, and they can't be turned on.
+     */
+    lockedUnits?: readonly UnitType[];
   };
   /**
    * SCEN (r25): a Scenario's panel. When set it takes the place of the map,
@@ -383,14 +388,28 @@ export class GameConfigSettings extends LitElement {
     `;
   }
 
-  private renderUnitTypeOptions(disabledUnits: UnitType[]): TemplateResult[] {
+  private renderUnitTypeOptions(
+    disabledUnits: UnitType[],
+    lockedUnits: readonly UnitType[] = [],
+  ): TemplateResult[] {
     return unitOptions.map(({ type, translationKey }) => {
-      const isEnabled = !disabledUnits.includes(type);
+      const locked = lockedUnits.includes(type);
+      const isEnabled = !locked && !disabledUnits.includes(type);
       return html`
         <button
-          class="${cardClass(isEnabled, "p-4 text-center")}"
+          class="${cardClass(
+            isEnabled,
+            `p-4 text-center${locked ? " opacity-40 cursor-not-allowed" : ""}`,
+          )}"
           aria-pressed=${isEnabled}
-          @click=${() => this.handleUnitToggle(type, isEnabled)}
+          ?disabled=${locked}
+          data-locked-unit=${locked ? type : nothing}
+          title=${locked
+            ? translateText("game_settings.unit_before_nukes")
+            : nothing}
+          @click=${() => {
+            if (!locked) this.handleUnitToggle(type, isEnabled);
+          }}
         >
           <span class="${CARD_LABEL_CLASS} ${stateTextClass(isEnabled)}">
             ${translateText(translationKey)}
@@ -649,8 +668,16 @@ export class GameConfigSettings extends LitElement {
           settings.unitTypes.titleKey,
           html`
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              ${this.renderUnitTypeOptions(settings.unitTypes.disabledUnits)}
+              ${this.renderUnitTypeOptions(
+                settings.unitTypes.disabledUnits,
+                settings.unitTypes.lockedUnits,
+              )}
             </div>
+            ${(settings.unitTypes.lockedUnits?.length ?? 0) > 0
+              ? html`<p class="text-xs text-white/60" data-units-locked>
+                  ${translateText("game_settings.unit_before_nukes")}
+                </p>`
+              : nothing}
           `,
           "space-y-6 pb-6",
         )}

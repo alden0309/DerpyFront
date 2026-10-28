@@ -1,21 +1,38 @@
-import { PlayerType, UnitType } from "@openfront/engine-api/game/GameTypes";
+import {
+  GameUpdates,
+  PlayerType,
+  UnitType,
+} from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
+import { SCENARIO_IDS } from "@openfront/engine-api/game/Scenarios";
 import { GameConfigSchema } from "@openfront/engine-api/Schemas";
+import { applyScenarioRules } from "@openfront/engine-lib/scenario/ScenarioConfig";
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { resolveScenarioSeats } from "@openfront/engine-lib/scenario/ScenarioSeats";
 import { BreakAllianceExecution } from "@openfront/engine/execution/alliance/BreakAllianceExecution";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import { Game, Player } from "@openfront/engine/game/Game";
 import { PlayerImpl } from "@openfront/engine/game/PlayerImpl";
-import { scenarioAttackFactor } from "@openfront/engine/scenario/ScenarioFronts";
+import {
+  frontRules,
+  scenarioAttackFactor,
+} from "@openfront/engine/scenario/ScenarioFronts";
 import {
   enemySideFor,
+  EUROPE_1939_BLITZ_FACTOR,
+  EUROPE_1939_BLITZ_TICKS,
   EUROPE_1939_HOLD_TICKS,
   EUROPE_1939_PURGE_FACTOR,
   EUROPE_1939_PURGE_TICKS,
+  EUROPE_1939_SOVIET_ABROAD,
+  EUROPE_1939_SOVIET_PACT_TICKS,
+  EUROPE_1939_SOVIET_WAR,
   holdTargetTiles,
+  joinSide,
   SCENARIO_RULES,
   scenarioHoldsFire,
+  scenarioSparesTarget,
+  SIDE_OUT_DIVISOR,
 } from "@openfront/engine/scenario/ScenarioRules";
 import { describe, expect, it } from "vitest";
 import { scenarioGame } from "./ScenarioTestUtil";
@@ -177,7 +194,7 @@ describe("a scenario's special rule", () => {
 });
 
 describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
-  it("holds the Soviet Union back while the purges last, France and Britain ten minutes, unless attacked", async () => {
+  it("holds the Soviet Union back until the Axis attacks it or minute 20, France and Britain ten minutes, unless attacked", async () => {
     const g = await scenarioGame("europe1939");
     const at = (ticks: number) => {
       const view = Object.create(g.game) as Game;
@@ -188,8 +205,8 @@ describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
     const france = g.nation("france");
     const germany = g.nation("germany");
     const spain = g.nation("spain");
-    expect(EUROPE_1939_HOLD_TICKS.soviet_union).toBe(EUROPE_1939_PURGE_TICKS);
     expect(EUROPE_1939_HOLD_TICKS.france).toBe(10 * 600);
+    expect(EUROPE_1939_SOVIET_PACT_TICKS).toBe(20 * 600);
     expect(scenarioHoldsFire(at(100), ussr)).toBe(true);
     expect(scenarioHoldsFire(at(100), france)).toBe(true);
     expect(scenarioHoldsFire(at(100), germany)).toBe(false);
@@ -197,9 +214,11 @@ describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
     expect(scenarioHoldsFire(at(100_000), spain)).toBe(true);
     expect(scenarioHoldsFire(at(10 * 600 - 1), france)).toBe(true);
     expect(scenarioHoldsFire(at(10 * 600), france)).toBe(false);
-    expect(scenarioHoldsFire(at(EUROPE_1939_PURGE_TICKS - 1), ussr)).toBe(true);
-    expect(scenarioHoldsFire(at(EUROPE_1939_PURGE_TICKS), ussr)).toBe(false);
-    // Attacked, it fights back at once.
+    // The pact outlasts the purges now: to minute 20.
+    expect(scenarioHoldsFire(at(EUROPE_1939_PURGE_TICKS), ussr)).toBe(true);
+    expect(scenarioHoldsFire(at(20 * 600 - 10), ussr)).toBe(true);
+    expect(scenarioHoldsFire(at(20 * 600), ussr)).toBe(false);
+    // Attacked, it fights back at once...
     const finland = g.nation("finland");
     g.game.addExecution(
       new AttackExecution(finland.troops() / 2, finland, ussr.id()),
@@ -207,9 +226,16 @@ describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
     g.step(2);
     expect(ussr.incomingAttacks().length).toBeGreaterThan(0);
     expect(scenarioHoldsFire(at(100), ussr)).toBe(false);
+    // ...and stays at war once the attack is over (the rule remembers).
+    expect(g.game.scenarioMark(EUROPE_1939_SOVIET_WAR)).toBeUndefined();
+    SCENARIO_RULES.europe1939.tick!(at(200));
+    expect(g.game.scenarioMark(EUROPE_1939_SOVIET_WAR)).toBe(200);
+    const calm = Object.create(ussr) as Player;
+    calm.incomingAttacks = () => [];
+    expect(scenarioHoldsFire(at(300), calm)).toBe(false);
   }, 120_000);
 
-  it("gives the Soviet Union the biggest army, weak in attack while the purges last", async () => {
+  it("gives the Soviet Union the biggest army, weak in attack while the purges last, a wall at home", async () => {
     const g = await scenarioGame("europe1939");
     const { game } = g;
     const ussr = g.nation("soviet_union");
@@ -228,25 +254,35 @@ describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
       );
     }
     expect(ussr.troops()).toBeLessThan(game.config().maxTroops(ussr) * 0.85);
-    // Its attacks cost double for the first minutes; nobody else's do.
+    // A wall at home: attacking it on its own land costs more than others.
+    const scenario = game.scenario()!;
+    const index = scenario.data.nations.findIndex(
+      (n) => n.key === "soviet_union",
+    );
+    expect(frontRules(scenario, index).homeland).toBeGreaterThan(
+      frontRules(scenario).homeland,
+    );
+    // Its attacks at home (on its 1939 land) cost double while the purges
+    // last; nobody else's do.
     const rule = SCENARIO_RULES.europe1939;
     const at = (ticks: number) => {
       const view = Object.create(game) as Game;
       view.ticks = () => ticks;
       return view;
     };
-    expect(rule.attackFactor!(at(100), ussr, finland)).toBe(
+    const home = [...ussr.tiles()][0];
+    expect(rule.attackFactor!(at(100), ussr, finland, home)).toBe(
       EUROPE_1939_PURGE_FACTOR,
     );
     expect(EUROPE_1939_PURGE_FACTOR).toBeGreaterThan(1);
     expect(
-      rule.attackFactor!(at(EUROPE_1939_PURGE_TICKS - 1), ussr, finland),
+      rule.attackFactor!(at(EUROPE_1939_PURGE_TICKS - 1), ussr, finland, home),
     ).toBe(EUROPE_1939_PURGE_FACTOR);
-    expect(rule.attackFactor!(at(EUROPE_1939_PURGE_TICKS), ussr, finland)).toBe(
-      1,
-    );
-    expect(rule.attackFactor!(at(100), germany, ussr)).toBe(1);
-    expect(rule.attackFactor!(at(100), finland, ussr)).toBe(1);
+    expect(
+      rule.attackFactor!(at(EUROPE_1939_PURGE_TICKS), ussr, finland, home),
+    ).toBe(1);
+    expect(rule.attackFactor!(at(100), germany, ussr, home)).toBe(1);
+    expect(rule.attackFactor!(at(100), finland, ussr, home)).toBe(1);
     // ...and it shows in the cost of a tile (ScenarioFronts).
     const karelia = [...finland.tiles()].find((t) =>
       game.neighbors(t).some((n) => game.owner(n) === ussr),
@@ -260,6 +296,150 @@ describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
     );
     expect(early / late).toBeCloseTo(EUROPE_1939_PURGE_FACTOR, 6);
   }, 120_000);
+
+  it("binds the computer's Axis too: it leaves the Soviet Union alone until it is in the war", async () => {
+    const g = await scenarioGame("europe1939");
+    const { game } = g;
+    const at = (ticks: number) => {
+      const view = Object.create(game) as Game;
+      view.ticks = () => ticks;
+      return view;
+    };
+    const ussr = g.nation("soviet_union");
+    const germany = g.nation("germany");
+    const finland = g.nation("finland");
+    const poland = g.nation("poland");
+    expect(scenarioSparesTarget(at(100), germany, ussr)).toBe(true);
+    expect(scenarioSparesTarget(at(100), finland, ussr)).toBe(true);
+    expect(scenarioSparesTarget(at(100), germany, poland)).toBe(false);
+    // From minute 20, or once the Soviet Union is in the war, no longer.
+    expect(
+      scenarioSparesTarget(at(EUROPE_1939_SOVIET_PACT_TICKS), germany, ussr),
+    ).toBe(false);
+    game.setScenarioMark(EUROPE_1939_SOVIET_WAR, 500);
+    expect(scenarioSparesTarget(at(600), germany, ussr)).toBe(false);
+  }, 120_000);
+
+  it("makes Soviet attacks beyond its 1939 borders cost extra for a while after it enters the war", async () => {
+    const g = await scenarioGame("europe1939");
+    const { game } = g;
+    const ussr = g.nation("soviet_union");
+    const finland = g.nation("finland");
+    const rule = SCENARIO_RULES.europe1939;
+    const at = (ticks: number) => {
+      const view = Object.create(game) as Game;
+      view.ticks = () => ticks;
+      return view;
+    };
+    const abroad = [...finland.tiles()][0];
+    const home = [...ussr.tiles()][0];
+    // It entered the war at minute 20 (the pact ran out).
+    const entry = EUROPE_1939_SOVIET_PACT_TICKS;
+    rule.tick!(at(entry));
+    expect(game.scenarioMark(EUROPE_1939_SOVIET_WAR)).toBe(entry);
+    const [[m1, f1], [m2, f2]] = EUROPE_1939_SOVIET_ABROAD;
+    expect(f1).toBeGreaterThan(f2);
+    expect(f2).toBeGreaterThan(1);
+    expect(rule.attackFactor!(at(entry), ussr, finland, abroad)).toBe(f1);
+    expect(
+      rule.attackFactor!(at(entry + m1 * 600 - 1), ussr, finland, abroad),
+    ).toBe(f1);
+    expect(
+      rule.attackFactor!(at(entry + m1 * 600), ussr, finland, abroad),
+    ).toBe(f2);
+    expect(
+      rule.attackFactor!(at(entry + m2 * 600), ussr, finland, abroad),
+    ).toBe(1);
+    // At home (retaking its own land) it is not slowed.
+    expect(rule.attackFactor!(at(entry), ussr, finland, home)).toBe(1);
+    // In the cost of a tile: the abroad factor on top of the fronts.
+    const slow = scenarioAttackFactor(at(entry), ussr, finland, abroad);
+    const free = scenarioAttackFactor(
+      at(entry + m2 * 600),
+      ussr,
+      finland,
+      abroad,
+    );
+    expect(slow / free).toBeCloseTo(f1, 6);
+  }, 120_000);
+});
+
+describe("Europe 1939: Germany goes for Poland first (SCEN3 r27)", () => {
+  const rule = SCENARIO_RULES.europe1939;
+
+  it("sends a computer-run Germany into Poland, with help only against a computer-run Poland", async () => {
+    const g = await scenarioGame("europe1939");
+    const { game } = g;
+    const germany = g.nation("germany");
+    const poland = g.nation("poland");
+    const at = (ticks: number) => {
+      const view = Object.create(game) as Game;
+      view.ticks = () => ticks;
+      return view;
+    };
+    expect(rule.target!(game, germany)).toBe(poland);
+    expect(rule.target!(game, g.nation("italy"))).toBeNull();
+    const tile = [...poland.tiles()][0];
+    expect(rule.attackFactor!(at(100), germany, poland, tile)).toBe(
+      EUROPE_1939_BLITZ_FACTOR,
+    );
+    expect(EUROPE_1939_BLITZ_FACTOR).toBeLessThan(1);
+    expect(
+      rule.attackFactor!(at(EUROPE_1939_BLITZ_TICKS), germany, poland, tile),
+    ).toBe(1);
+    // Cheaper in the cost of a tile too (ScenarioFronts lets it below 1).
+    expect(
+      scenarioAttackFactor(at(100), germany, poland, tile) /
+        scenarioAttackFactor(
+          at(EUROPE_1939_BLITZ_TICKS),
+          germany,
+          poland,
+          tile,
+        ),
+    ).toBeCloseTo(EUROPE_1939_BLITZ_FACTOR, 6);
+
+    // In play: its first attacks go into Poland, and it keeps a reserve.
+    g.step(300);
+    const targets = new Set(
+      germany.outgoingAttacks().map((a) => a.target().id()),
+    );
+    expect(targets.has(poland.id())).toBe(true);
+    expect(poland.numTilesOwned()).toBeLessThan(
+      holdTargetTiles(game, ["poland"], 0).length,
+    );
+    expect(germany.troops()).toBeGreaterThan(
+      game.config().maxTroops(germany) * 0.2,
+    );
+  }, 180_000);
+
+  it("gives Germany no help against a person's Poland; only the computer's logic follows the target", async () => {
+    const g = await scenarioGame("europe1939", {
+      players: [{ clientID: "HUMAN001", username: "Alden", nation: "poland" }],
+    });
+    const germany = g.nation("germany");
+    const poland = g.nation("poland");
+    expect(poland.type()).toBe(PlayerType.Human);
+    const tile = [...poland.tiles()][0];
+    expect(rule.attackFactor!(g.game, germany, poland, tile)).toBe(1);
+    // Germany still goes for Poland first: that's its war, not help.
+    expect(rule.target!(g.game, germany)).toBe(poland);
+
+    // A person's Germany: the target is there for the computer's logic
+    // (nothing drives a person's nation by it), and Germany keeps the
+    // opening's help against a computer-run Poland.
+    const h = await scenarioGame("europe1939", {
+      players: [{ clientID: "HUMAN001", username: "Alden", nation: "germany" }],
+    });
+    expect(h.nation("germany").type()).toBe(PlayerType.Human);
+    const pl = h.nation("poland");
+    expect(rule.target!(h.game, h.nation("germany"))).toBe(pl);
+    expect(
+      rule.attackFactor!(h.game, h.nation("germany"), pl, [...pl.tiles()][0]),
+    ).toBe(EUROPE_1939_BLITZ_FACTOR);
+    // Poland gone: no target.
+    for (const t of [...pl.tiles()]) h.nation("germany").conquer(t);
+    expect(rule.target!(h.game, h.nation("germany"))).toBeNull();
+  }, 180_000);
 });
 
 describe("deep reserves (troopGrowth)", () => {
@@ -341,45 +521,116 @@ describe("Scenario victory", () => {
   }, 120_000);
 });
 
-describe("Scenario victory by land", () => {
-  it("each side has its own bar: Britain wins at its own share of the land", async () => {
+describe("Scenario victory: the whole other side beaten (SCEN3 r27)", () => {
+  /** The win updates sent since the last clear. */
+  const winsOf = (g: { updates: { updates: GameUpdates }[] }) =>
+    g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
+  /** Hands `from`'s land to `to` until `from` holds `keep` tiles. */
+  const takeAllBut = (from: Player, to: Player, keep: number) => {
+    const tiles = [...from.tiles()];
+    for (const t of tiles.slice(keep)) to.conquer(t);
+  };
+
+  it("has no land bars in any scenario's data", () => {
+    for (const id of SCENARIO_IDS) {
+      const data = scenarioData(id)! as unknown as Record<string, unknown>;
+      expect(data.winPercent, id).toBeUndefined();
+      expect(data.overtimeFrom, id).toBeUndefined();
+      for (const side of scenarioData(id)!.sides) {
+        expect(
+          (side as unknown as Record<string, unknown>).winPercent,
+          `${id} ${side.id}`,
+        ).toBeUndefined();
+      }
+    }
+  });
+
+  it("holding most of the land doesn't win while the other side holds more than scraps", async () => {
     const g = await scenarioGame("continental1776");
     const britain = g.nation("great_britain");
     const colonies = g.nation("united_colonies");
     const land = g.game.numLandTiles();
-    const data = scenarioData("continental1776")!;
-    const bar = data.sides.find((s) => s.id === "British")!.winPercent!;
-    expect(bar).toBeLessThan(data.winPercent);
-    // Give Britain the colonies' land until it holds just over its bar.
-    const want = Math.floor((land * bar) / 100) + 1 - britain.numTilesOwned();
-    let moved = 0;
-    for (const t of [...colonies.tiles()]) {
-      if (moved >= want) break;
-      britain.conquer(t);
-      moved++;
-    }
+    const scraps = Math.ceil(land / SIDE_OUT_DIVISOR);
+    // Britain takes all the colonies' land but twice the scraps' size.
+    takeAllBut(colonies, britain, 2 * scraps);
+    for (const p of g.game.players()) p.setTroops(0);
     g.updates.length = 0;
     g.step(20);
-    const wins = g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
+    expect(winsOf(g)).toHaveLength(0);
+    // Down to scraps (under 0.2% of the land): beaten, Britain wins.
+    takeAllBut(colonies, britain, scraps - 1);
+    expect(colonies.numTilesOwned()).toBeGreaterThan(0);
+    g.step(20);
+    const wins = winsOf(g);
     expect(wins).toHaveLength(1);
     expect(wins[0].winner?.[1]).toBe("British");
   }, 120_000);
 
-  it("at the timer, the side nearest its bar wins", async () => {
-    const g = await scenarioGame("continental1776", {
-      config: { maxTimerValue: 1 },
-    });
-    // Nobody fights: the sides stay as they start. The colonies hold some
-    // 42% of the land (bar 66), Britain 30% (bar 55).
+  it("a neutral that joined a side counts as that side; one that never joined counts for nobody", async () => {
+    const g = await scenarioGame("continental1776");
+    const britain = g.nation("great_britain");
+    const colonies = g.nation("united_colonies");
+    const six = g.nation("haudenosaunee");
+    const creek = g.nation("creek");
+    // The Six Nations join Britain (a colonial invasion would do it).
+    joinSide(g.game, six, "British", colonies);
+    expect(six.team()).toBe("British");
+    expect(creek.team()).toBeNull();
+    // Britain itself is down to a fort: the Six Nations keep the war going.
+    takeAllBut(britain, colonies, 20);
+    for (const p of g.game.players()) p.setTroops(0);
     g.updates.length = 0;
-    for (let i = 0; i < 620; i++) {
-      for (const p of g.game.players()) p.setTroops(0);
-      g.step(1);
-    }
-    const wins = g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
+    g.step(20);
+    expect(winsOf(g)).toHaveLength(0);
+    // The Six Nations beaten too: the Patriots win, with the Creek, who
+    // never joined, still holding all their land.
+    takeAllBut(six, colonies, 20);
+    const creekLand = creek.numTilesOwned();
+    expect(creekLand).toBeGreaterThan(
+      Math.ceil(g.game.numLandTiles() / SIDE_OUT_DIVISOR),
+    );
+    g.step(20);
+    const wins = winsOf(g);
     expect(wins).toHaveLength(1);
     expect(wins[0].winner?.[1]).toBe("Patriots");
+    expect(creek.numTilesOwned()).toBe(creekLand);
   }, 120_000);
+
+  it("at the timer, the side holding the most of its own starting land wins", async () => {
+    for (const [gainer, winner] of [
+      ["great_britain", "British"],
+      ["united_colonies", "Patriots"],
+    ] as const) {
+      const g = await scenarioGame("continental1776", {
+        config: { maxTimerValue: 1 },
+      });
+      const britain = g.nation("great_britain");
+      const colonies = g.nation("united_colonies");
+      // A little of the other's land: the gainer holds more than it
+      // started with, the loser less. Then nobody fights.
+      const [to, from] =
+        gainer === "great_britain" ? [britain, colonies] : [colonies, britain];
+      for (const t of [...from.tiles()].slice(0, 2000)) to.conquer(t);
+      g.updates.length = 0;
+      for (let i = 0; i < 620; i++) {
+        for (const p of g.game.players()) p.setTroops(0);
+        g.step(1);
+      }
+      const wins = winsOf(g);
+      expect(wins, gainer).toHaveLength(1);
+      expect(wins[0].winner?.[1], gainer).toBe(winner);
+    }
+  }, 240_000);
+
+  it("leaves Overtime off in a scenario, whatever the host picked", () => {
+    for (const id of SCENARIO_IDS) {
+      const config = applyScenarioRules({
+        scenario: { id },
+        overtime: { enabled: true, startMinutes: 10 },
+      });
+      expect(config.overtime, id).toEqual({ enabled: false });
+    }
+  });
 });
 
 describe("winning by holding another nation's land (winByHolding)", () => {
@@ -392,12 +643,6 @@ describe("winning by holding another nation's land (winByHolding)", () => {
       (s) => s.id === "Patriots",
     )!;
     patriots.winByHolding = { nations: ["great_britain"], ignoreUnder: 2000 };
-    // Only the holding rule may end it here, not the land bars.
-    const data = scenarioData("continental1776")!;
-    const bars = data.sides.map((s) => s.winPercent);
-    const barAll = data.winPercent;
-    data.winPercent = 99;
-    for (const s of data.sides) s.winPercent = 99;
     try {
       const g = await scenarioGame("continental1776");
       const britain = g.nation("great_britain");
@@ -433,8 +678,6 @@ describe("winning by holding another nation's land (winByHolding)", () => {
       expect(britain.numTilesOwned()).toBeGreaterThan(0);
     } finally {
       delete patriots.winByHolding;
-      data.winPercent = barAll;
-      data.sides.forEach((s, i) => (s.winPercent = bars[i]));
     }
   }, 120_000);
 });

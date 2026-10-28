@@ -6,7 +6,10 @@ import {
   GameMode,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
-import { SCENARIO_EDITION } from "@openfront/engine-api/game/Scenarios";
+import {
+  NUCLEAR_UNITS,
+  SCENARIO_EDITION,
+} from "@openfront/engine-api/game/Scenarios";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/client/Cosmetics", () => ({
@@ -76,10 +79,57 @@ describe("SinglePlayerModal with a scenario", () => {
     expect(info.config.playerTeams).toBe(2);
     expect(info.config.bots).toBe(0);
     expect(info.config.randomSpawn).toBe(false);
-    expect(info.config.disabledUnits).toEqual([UnitType.Warship]);
+    // SCEN3 (r27): 1939 is before nukes, so they are left out too.
+    expect(info.config.disabledUnits).toEqual([
+      UnitType.Warship,
+      ...NUCLEAR_UNITS,
+    ]);
   });
 
-  it("shows a scenario's own Overtime on and locked, and plays it whatever the player set", async () => {
+  it("shows the nuclear units off and locked in a scenario before 1945, not in Korea 1950 (SCEN3 r27)", async () => {
+    const locked = (modal: any) =>
+      [...modal.querySelectorAll("[data-locked-unit]")].map(
+        (b: any) => b.dataset.lockedUnit,
+      );
+    const modal = createModal();
+    document.body.appendChild(modal);
+    try {
+      modal.onOpen({ scenario: "colonies1776", nation: "virginia" });
+      await modal.updateComplete;
+      await modal.querySelector("game-config-settings")?.updateComplete;
+      expect(locked(modal).sort()).toEqual(
+        [
+          UnitType.AtomBomb,
+          UnitType.HydrogenBomb,
+          UnitType.MIRV,
+          UnitType.MissileSilo,
+          UnitType.SAMLauncher,
+          UnitType.Dome,
+        ].sort(),
+      );
+      expect(modal.querySelector("[data-units-locked]")).not.toBeNull();
+      // Clicking one doesn't turn it on (or off).
+      const silo = modal.querySelector(
+        `[data-locked-unit="${UnitType.MissileSilo}"]`,
+      ) as HTMLButtonElement;
+      expect(silo.disabled).toBe(true);
+      expect(silo.getAttribute("aria-pressed")).toBe("false");
+      silo.click();
+      expect(modal.disabledUnits).toEqual([]);
+
+      modal.onOpen({ scenario: "korea1950", nation: "north_korea" });
+      await modal.updateComplete;
+      await modal.querySelector("game-config-settings")?.updateComplete;
+      expect(locked(modal)).toEqual([]);
+      expect(modal.querySelector("[data-units-locked]")).toBeNull();
+      const events = await start(modal);
+      expect(events[0].gameStartInfo.config.disabledUnits).toEqual([]);
+    } finally {
+      modal.remove();
+    }
+  });
+
+  it("has no Overtime in a scenario (SCEN3 r27: no land bar to lower), whatever the player set", async () => {
     const overtimeCard = (modal: any) =>
       [...modal.querySelectorAll("toggle-input-card")].find(
         (c: any) => c.labelKey === "game_settings.overtime",
@@ -87,24 +137,18 @@ describe("SinglePlayerModal with a scenario", () => {
     const modal = createModal();
     document.body.appendChild(modal);
     try {
-      modal.onOpen({ scenario: "colonies1776", nation: "virginia" });
+      // An ordinary game shows the option.
       await modal.updateComplete;
-      const card = overtimeCard(modal);
-      expect(card.locked).toBe(true);
-      expect(card.checked).toBe(true);
-      expect(card.inputValue).toBe(40);
-      expect(typeof card.note).toBe("string");
-      expect(modal.overtime).toBe(false);
+      expect(overtimeCard(modal)).toBeDefined();
+      modal.overtime = true;
+      modal.onOpen({ scenario: "colonies1776", nation: "virginia" });
+      modal.overtime = true;
+      await modal.updateComplete;
+      expect(overtimeCard(modal)).toBeUndefined();
       const events = await start(modal);
       expect(events[0].gameStartInfo.config.overtime).toEqual({
-        enabled: true,
-        startMinutes: 40,
+        enabled: false,
       });
-      // A scenario without its own Overtime leaves the option the player's.
-      modal.onOpen({ scenario: "europe1939", nation: "france" });
-      await modal.updateComplete;
-      expect(overtimeCard(modal).locked).toBe(false);
-      expect(overtimeCard(modal).note).toBeUndefined();
     } finally {
       modal.remove();
     }

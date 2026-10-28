@@ -13,6 +13,7 @@ import { TeamCountConfig } from "@openfront/engine-api/Schemas";
 import { NukeType } from "@openfront/engine-api/StatsSchemas";
 import { Config } from "@openfront/engine-lib/configuration/Config";
 import { exp, log, pow2 } from "@openfront/engine-lib/DetMath";
+import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import {
   assertNever,
   sigmoid,
@@ -356,9 +357,15 @@ export class EngineConfig extends Config {
           ),
         );
       case UnitType.AtomBomb:
-        return this.costWrapper(() => 750_000, UnitType.AtomBomb);
+        return this.costWrapper(
+          () => this.scenarioNukePrice(750_000),
+          UnitType.AtomBomb,
+        );
       case UnitType.HydrogenBomb:
-        return this.costWrapper(() => 5_000_000, UnitType.HydrogenBomb);
+        return this.costWrapper(
+          () => this.scenarioNukePrice(5_000_000),
+          UnitType.HydrogenBomb,
+        );
       case UnitType.MIRV:
         return (game: Game, player: Player) => {
           if (
@@ -367,7 +374,11 @@ export class EngineConfig extends Config {
           ) {
             return 0n;
           }
-          return 25_000_000n + BigInt(game.mirvsLaunched()) * 15_000_000n;
+          return (
+            BigInt(this.scenarioNukePrice(25_000_000)) +
+            BigInt(game.mirvsLaunched()) *
+              BigInt(this.scenarioNukePrice(15_000_000))
+          );
         };
       case UnitType.MissileSilo:
         return this.factoryDiscounted(
@@ -494,6 +505,15 @@ export class EngineConfig extends Config {
       const off = this.factoryDiscount(player);
       return off === 0 ? full : (full * BigInt(100 - off)) / 100n;
     };
+  }
+
+  /**
+   * SCEN3 (r27): a bomb's price in a scenario that sets `nukePrice` (Korea
+   * 1950), else the usual.
+   */
+  private scenarioNukePrice(price: number): number {
+    const m = scenarioData(this._gameConfig.scenario?.id)?.nukePrice ?? 1;
+    return Math.round(price * m);
   }
 
   private costWrapper(

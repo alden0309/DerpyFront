@@ -8,7 +8,12 @@ import { UnitType } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
-import { holdTargetTiles } from "@openfront/engine/scenario/ScenarioRules";
+import { Game } from "@openfront/engine/game/Game";
+import {
+  holdMark,
+  holdTargetTiles,
+  scenarioWinner,
+} from "@openfront/engine/scenario/ScenarioRules";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -328,22 +333,20 @@ describe("Korea 1950: North Korea takes the South", () => {
     expect(en.scenarios.win.northkorea).toBe("North Korea takes the South");
   });
 
-  it("has no China: the map's far bank of the Yalu is impassable ground", () => {
+  it("has no Chinese nation: the map's far bank of the Yalu is impassable ground (China comes as waves, SCEN3 r27)", () => {
     const data = scenarioData("korea1950")!;
     expect(data.nations.map((n) => n.key).sort()).toEqual([
       "north_korea",
       "south_korea",
       "un_command",
     ]);
-    expect(data.rule).toBeUndefined();
-    // The North's land bar is above its own land and the South's together,
-    // so its land win can't come before it holds the South.
+    expect(data.rule).toBe("korea1950");
     const north = data.sides.find((s) => s.id === "NorthKorea")!;
-    expect(north.winPercent).toBeGreaterThanOrEqual(97);
     expect(north.winByHolding?.nations).toEqual(["south_korea"]);
   });
 
   it("wins holding all of South Korea's land, islets ignored and Japan not needed", async () => {
+    const data = scenarioData("korea1950")!;
     const g = await scenarioGame("korea1950");
     const north = g.nation("north_korea");
     const south = g.nation("south_korea");
@@ -361,29 +364,38 @@ describe("Korea 1950: North Korea takes the South", () => {
     south.setTroops(0);
     un.setTroops(0);
 
-    // All of it but one tile, which the UN holds (an Inchon landing): the
-    // war goes on.
-    for (let i = 0; i < big.length - 1; i++) north.conquer(big[i]);
-    un.conquer(big[big.length - 1]);
+    // All of it but a beachhead the UN holds (an Inchon landing), as big as
+    // breaks a hold (SCEN3 r27: smaller ones don't): the war goes on.
+    const breakAt = data.sides.find((s) => s.id === "NorthKorea")!.winByHolding!
+      .breakAt!;
+    const beachhead = big.slice(big.length - breakAt);
+    for (let i = 0; i < big.length - breakAt; i++) north.conquer(big[i]);
+    for (const t of beachhead) un.conquer(t);
     g.updates.length = 0;
     g.step(20);
     expect(wins(g)).toHaveLength(0);
+    expect(g.game.scenarioMark(holdMark("NorthKorea"))).toBeUndefined();
 
     // South Korea holding it back instead: still no win.
-    south.conquer(big[big.length - 1]);
+    for (const t of beachhead) south.conquer(t);
     south.setTroops(0);
     un.setTroops(0);
     g.step(20);
     expect(wins(g)).toHaveLength(0);
+    expect(g.game.scenarioMark(holdMark("NorthKorea"))).toBeUndefined();
 
-    // The last tile: the North wins, with the UN's base in Japan untouched
-    // and South Korea's islets still its own.
+    // The last of it: the North's hold begins (SCEN3 r27: it wins after
+    // holding it 150 s in a row, ScenarioKorea.test.ts), with the UN's base
+    // in Japan untouched and South Korea's islets still its own.
     expect(un.numTilesOwned()).toBeGreaterThan(unLand * 0.9);
-    north.conquer(big[big.length - 1]);
+    for (const t of beachhead) north.conquer(t);
     g.step(20);
-    const w = wins(g);
-    expect(w).toHaveLength(1);
-    expect(w[0].winner?.[1]).toBe("NorthKorea");
+    expect(wins(g)).toHaveLength(0);
+    const since = g.game.scenarioMark(holdMark("NorthKorea"))!;
+    expect(since).toBeDefined();
+    const later = Object.create(g.game) as Game;
+    later.ticks = () => since + 1500;
+    expect(scenarioWinner(later, false)).toBe("NorthKorea");
     expect(un.numTilesOwned()).toBeGreaterThan(unLand / 2);
     expect(south.numTilesOwned()).toBeGreaterThan(0);
   }, 120_000);

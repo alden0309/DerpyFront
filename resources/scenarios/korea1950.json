@@ -3,7 +3,8 @@
   "title": "Korean War",
   "map": "Korea",
   "year": 1950,
-  "winPercent": 95,
+  "rule": "korea1950",
+  "nukePrice": 2,
   "fronts": {
     "homeland": 1,
     "lastStand": 2,
@@ -16,8 +17,12 @@
       "id": "NorthKorea",
       "name": "North Korea",
       "color": "#b8433f",
-      "winPercent": 98,
-      "winByHolding": { "nations": ["south_korea"], "ignoreUnder": 200 }
+      "winByHolding": {
+        "nations": ["south_korea"],
+        "ignoreUnder": 200,
+        "seconds": 150,
+        "breakAt": 1000
+      }
     },
     { "id": "UnitedNations", "name": "United Nations", "color": "#3f74c4" }
   ],
@@ -28,9 +33,11 @@
       "flag": "kp",
       "side": "NorthKorea",
       "color": "#a8423c",
-      "troopsPercent": 100,
+      "troopsPercent": 50,
       "gold": 1500000,
-      "troopCapBonus": 4000000,
+      "troopCapBonus": 2800000,
+      "fronts": { "supplyPer100": 0.8, "supplyMax": 3.5 },
+      "troopGrowth": 1.03,
       "capital": [264, 972],
       "structures": [
         { "type": "City", "at": [552, 784], "level": 2 },
@@ -64,6 +71,8 @@
       "color": "#3f6fc0",
       "troopsPercent": 42,
       "gold": 400000,
+      "goldIncome": 0.5,
+      "fronts": { "homeland": 0.5, "lastStand": 0.5 },
       "capital": [464, 1270],
       "structures": [
         { "type": "City", "at": [726, 1613], "level": 2 },
@@ -93,15 +102,22 @@
       "flag": "un",
       "side": "UnitedNations",
       "color": "#58b0c8",
-      "troopsPercent": 50,
-      "gold": 500000,
+      "troopsPercent": 100,
+      "gold": 200000,
+      "troopCapBonus": 800000,
+      "goldIncome": 0.5,
       "capital": [1019, 2061],
       "structures": [
         { "type": "City", "at": [1003, 2125] },
         { "type": "Port", "at": [909, 2143] },
         { "type": "Port", "at": [943, 2187] },
         { "type": "Port", "at": [1009, 2048] },
-        { "type": "Port", "at": [840, 1942] }
+        { "type": "Port", "at": [840, 1942] },
+        { "type": "Dome", "at": [1029, 2185] },
+        { "type": "Dome", "at": [901, 2101] },
+        { "type": "Dome", "at": [848, 1890] },
+        { "type": "Dome", "at": [1033, 2074] },
+        { "type": "Dome", "at": [814, 2122] }
       ],
       "warships": [[890, 2059]],
       "regions": [

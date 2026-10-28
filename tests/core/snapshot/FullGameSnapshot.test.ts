@@ -202,8 +202,17 @@ describe.each(VARIANTS)("full game snapshots: %s", (_, overrides) => {
       // running game ever holds one.
       // ScenarioStart (SCEN r25) runs only in scenario games;
       // tests/scenario/ScenarioSnapshot.test.ts covers it.
+      // ScenarioDiplomacy (DIPLO r27) runs only in a scenario game with
+      // courting; the same file checks that its whole state (goodwill,
+      // cooldowns, pending invitations and asks, chests, rate, random)
+      // comes back exactly and that the restored game courts on the same.
+      // ScenarioDiplomacyIntent finishes in init(), like the Trade
+      // Agreement intents, so no snapshot holds one; that test applies
+      // them on both sides of a restore.
       const neverStored = new Set([
         "ScenarioStart",
+        "ScenarioDiplomacy",
+        "ScenarioDiplomacyIntent",
         "Pause",
         "Capital",
         "TradeAgreementRequest",

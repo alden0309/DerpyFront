@@ -438,7 +438,16 @@ export class PlayerImpl implements Player {
       betrayals: this._betrayalCount,
       lastDeleteUnitTick: this.lastDeleteUnitTick,
       isLobbyCreator: this.isLobbyCreator(),
+      // SCEN3 (r27): what a scenario rule adds to its troop cap (waves).
+      ...this.scenarioCapField(),
     };
+  }
+
+  // SCEN3 (r27): absent outside scenarios and while there is none.
+  private scenarioCapField(): { scenarioCap?: number } {
+    if (this.mg.scenario() === null) return {};
+    const cap = this.scenarioRuleCap();
+    return cap === 0 ? {} : { scenarioCap: cap };
   }
 
   smallID(): number {
@@ -1411,10 +1420,17 @@ export class PlayerImpl implements Player {
   scenarioTroopCap(): number {
     const scenario = this.mg.scenario();
     if (scenario === null) return 0;
-    const bonus =
-      (scenario.nationOf(this)?.troopCapBonus ?? 0) +
-      (scenarioRule(this.mg)?.troopCapBonus?.(this.mg, this) ?? 0);
-    return (bonus * 10) / (scenario.scale > 1 ? 2 : 1);
+    const bonus = scenario.nationOf(this)?.troopCapBonus ?? 0;
+    return (bonus * 10) / (scenario.scale > 1 ? 2 : 1) + this.scenarioRuleCap();
+  }
+
+  // SCEN3 (r27): the part of it the scenario's rule adds now (waves), as
+  // stored troops; the client gets it in the player's update.
+  scenarioRuleCap(): number {
+    const scenario = this.mg.scenario();
+    if (scenario === null) return 0;
+    const bonus = scenarioRule(this.mg)?.troopCapBonus?.(this.mg, this) ?? 0;
+    return bonus === 0 ? 0 : (bonus * 10) / (scenario.scale > 1 ? 2 : 1);
   }
 
   // SCEN (r25): its scenario nation's goldIncome (1: as usual).
@@ -1429,6 +1445,16 @@ export class PlayerImpl implements Player {
     const scenario = this.mg.scenario();
     if (scenario === null) return 1;
     return scenario.nationOf(this)?.troopGrowth ?? 1;
+  }
+
+  // SCEN3 (r27): the most its cities may add to its troop cap, as stored
+  // troops (Infinity: no limit), from its nation's cityTroopsMax.
+  scenarioCityTroopsMax(): number {
+    const scenario = this.mg.scenario();
+    if (scenario === null) return Infinity;
+    const max = scenario.nationOf(this)?.cityTroopsMax;
+    if (max === undefined) return Infinity;
+    return (max * 10) / (scenario.scale > 1 ? 2 : 1);
   }
 
   // SCEN (r25): a scenario nation's starting gold (not income).
