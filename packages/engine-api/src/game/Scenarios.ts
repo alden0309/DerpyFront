@@ -34,11 +34,13 @@ export const SCENARIO_EDITION = 3;
  * r27, still tuning) caps what Germany's cities add to its troops.
  * Continental Army 1776: 4 (SCEN3, r27) gives Britain a smaller army.
  * Thirteen Colonies 1776: 5 (SCEN3, r27) adds the Loyalist colonies.
+ * Italy 1859: 4 (SCEN3, r27) gives Austria a bigger army.
  */
 const SCENARIO_EDITION_OF: Readonly<Record<string, number>> = {
   colonies1776: 5,
   continental1776: 4,
   europe1939: 4,
+  italy1859: 4,
   korea1950: 4,
 };
 

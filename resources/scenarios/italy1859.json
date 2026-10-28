@@ -89,7 +89,7 @@
       "color": "#d9b23c",
       "troopsPercent": 100,
       "gold": 1400000,
-      "troopCapBonus": 900000,
+      "troopCapBonus": 3500000,
       "capital": [302, 190],
       "structures": [
         { "type": "City", "at": [652, 186], "level": 2 },

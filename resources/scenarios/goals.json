@@ -843,7 +843,8 @@
           "at": [648, 191],
           "of": "austria"
         },
-        "minute": 10
+        "minute": 28,
+        "side": true
       },
       "france": {
         "kind": "take",
@@ -852,14 +853,15 @@
           "at": [453, 199],
           "of": "austria"
         },
-        "minute": 30
+        "minute": 22,
+        "side": true
       },
       "austria": {
-        "kind": "take",
+        "kind": "hold",
         "place": {
-          "capitalOf": "sardinia"
+          "capitalOf": "austria"
         },
-        "minute": 25
+        "minute": 30
       },
       "parma": {
         "kind": "hold",

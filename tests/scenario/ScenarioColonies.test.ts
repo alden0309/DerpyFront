@@ -460,6 +460,7 @@ describe("Thirteen Colonies 1776 as the owner picked it (idea E3)", () => {
     // their tuning went on (SCEN3 r27).
     expect(scenarioEdition("europe1939")).toBe(4);
     expect(scenarioEdition("continental1776")).toBe(4);
+    expect(scenarioEdition("italy1859")).toBe(4);
     expect(scenarioEdition("napoleon1812")).toBe(SCENARIO_EDITION);
     // Edition 4's games had no Loyalist colonies.
     for (const old of [2, 3, 4]) {

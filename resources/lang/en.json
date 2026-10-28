@@ -2908,8 +2908,8 @@
       "yugoslavia": "Hold Belgrade past minute {minute}"
     },
     "italy1859": {
-      "austria": "Take Turin before minute {minute}",
-      "france": "Take Solferino before minute {minute}",
+      "austria": "Hold Milan at minute {minute}",
+      "france": "Help take Solferino before minute {minute}",
       "malta": "Join the war and hold Valletta to the end",
       "modena": "Join Austria and hold Modena at minute {minute}",
       "montenegro": "Take Trebinje",
@@ -2917,7 +2917,7 @@
       "papal_states": "Join Austria and hold Rome at minute {minute}",
       "parma": "Join Austria and hold Parma at minute {minute}",
       "san_marino": "Join the war and hold San Marino to the end",
-      "sardinia": "Take Venice before minute {minute}",
+      "sardinia": "Help take Venice before minute {minute}",
       "switzerland": "Take Sondrio",
       "tunis": "Take La Calle",
       "tuscany": "Take Bologna",
