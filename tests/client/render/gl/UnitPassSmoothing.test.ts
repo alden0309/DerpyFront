@@ -54,6 +54,8 @@ function makeSmoothingHarness(
     missileBuf: { float32: f32, buffer: {} },
     lastUnitsUpdateMs: lastUpdateMs,
     tickIntervalMs: TICK_MS,
+    // The game's clock (the store preview swaps in its own via setTimeFn).
+    timeFn: () => performance.now(),
   });
 
   return { pass, f32, bufferSubData };

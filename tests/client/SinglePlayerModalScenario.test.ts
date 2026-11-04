@@ -8,7 +8,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import {
   NUCLEAR_UNITS,
-  SCENARIO_EDITION,
+  scenarioEdition,
 } from "@openfront/engine-api/game/Scenarios";
 import { describe, expect, it, vi } from "vitest";
 
@@ -72,7 +72,7 @@ describe("SinglePlayerModal with a scenario", () => {
     expect(info.config.scenario).toEqual({
       id: "europe1939",
       seats: { france: me },
-      edition: SCENARIO_EDITION,
+      edition: scenarioEdition("europe1939"),
     });
     expect(info.config.gameMap).toBe(GameMapType.Europe);
     expect(info.config.gameMode).toBe(GameMode.Team);
