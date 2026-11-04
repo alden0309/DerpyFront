@@ -44,6 +44,12 @@ function loadPlayer(): Promise<FxPreviewPlayer | null> {
   return player;
 }
 
+/** `el` becomes the card that plays; whichever played before stops. */
+function takeStage(el: DfxLive): void {
+  if (playing !== null && playing !== el) playing.stop();
+  playing = el;
+}
+
 function reducedMotion(): boolean {
   return (
     typeof matchMedia === "function" &&
@@ -122,8 +128,7 @@ export class DfxLive extends HTMLElement {
     this.wanted = true;
     void loadPlayer().then((p) => {
       if (p === null || !this.wanted || !this.isConnected) return;
-      if (playing !== null && playing !== this) playing.stop();
-      playing = this;
+      takeStage(this);
       this.dataset.playing = "";
       p.play(this.pack, this);
     });
