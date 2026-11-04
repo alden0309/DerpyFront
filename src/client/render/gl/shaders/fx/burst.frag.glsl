@@ -259,7 +259,8 @@ void main() {
       emit += rc * band * fade * 1.05 + vec3(1.0) * band * band * band * fade * 0.3 +
               rc * wake * fade * 0.45;
       // A dark line just behind the front: the air bending the light.
-      float refr = exp(-pow(x + 1.9, 2.0) * 1.5) * 0.28 * fade;
+      float xr = x + 1.9;
+      float refr = exp(-xr * xr * 1.5) * 0.28 * fade;
       if (domeStop) refr *= 0.4;
       smokeA += refr * (1.0 - smokeA);
     }

@@ -129,7 +129,8 @@ float shimmer(float code, float speed) {
     // slowly across.
     float span = vCircle.z * 2.0;
     float pos = mod(t * vCircle.z * 0.6, span * 1.6) - span * 0.8;
-    float gleam = exp(-pow((rel.x + rel.y * 0.5 - pos) / 3.0, 2.0));
+    float gx = (rel.x + rel.y * 0.5 - pos) / 3.0;
+    float gleam = exp(-gx * gx);
     float engr = smoothstep(0.85, 1.0, sin(length(rel) * 1.1)) * 0.22;
     return clamp(gleam + engr, 0.0, 1.0);
   }
@@ -158,9 +159,12 @@ float impactRipple() {
     float front = age * 90.0;
     float reach = 1.0 - smoothstep(im.w * 0.75, im.w, front);
     float w = 2.5 + age * 5.0;
-    float wave = exp(-pow((dd - front) / w, 2.0)) * pow(1.0 - age / 1.8, 1.6) * reach;
+    // (x*x, not pow: pow is undefined for a negative base.)
+    float x1 = (dd - front) / w;
+    float wave = exp(-x1 * x1) * pow(1.0 - age / 1.8, 1.6) * reach;
     // A second, fainter ring chasing the first.
-    float wave2 = exp(-pow((dd - front * 0.7) / (w * 0.8), 2.0)) * pow(1.0 - age / 1.8, 2.0) * 0.45 * reach;
+    float x2 = (dd - front * 0.7) / (w * 0.8);
+    float wave2 = exp(-x2 * x2) * pow(1.0 - age / 1.8, 2.0) * 0.45 * reach;
     float flash = exp(-dd * dd / 300.0) * max(0.0, 1.0 - age / 0.35);
     rip += wave + wave2 + flash;
   }
@@ -227,7 +231,8 @@ void main() {
     float ph = mod(uTime * vAccent.w + hc * period, period);
     float along = dot(rel / vCircle.z, normalize(vec2(1.0, 0.45)));
     float sweepPos = ph / 1.6 * 2.6 - 1.3;
-    float sweep = ph < 1.6 ? exp(-pow((along - sweepPos) / 0.09, 2.0)) : 0.0;
+    float sx = (along - sweepPos) / 0.09;
+    float sweep = ph < 1.6 ? exp(-sx * sx) : 0.0;
     float glow = clamp(sh * 0.75 + fres * 0.7 + sweep, 0.0, 1.0);
     fillRGB = mix(vStyle.rgb, vAccent.rgb, glow);
     fillA = inside * (uFillAlpha * 1.1 + uRimAlpha * fresWide * 0.8 +
@@ -243,7 +248,7 @@ void main() {
       vec3 rc = styled ? vAccent.rgb : mix(vColor.rgb, vec3(1.0), 0.5);
       float r = clamp(rip, 0.0, 1.0);
       fillRGB = mix(fillRGB, rc, r);
-      fillA = max(fillA, inside * (0.08 + 0.5 * r));
+      fillA = max(fillA, inside * (0.1 + 0.65 * r));
       ringA = min(1.0, ringA * (1.0 + 1.5 * r));
     }
   }
