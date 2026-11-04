@@ -268,7 +268,8 @@ export class DomeShieldPass {
       localPlayerID: this.localPlayerID,
       allies: this.allies,
       nukeAiming: this.nukeAiming,
-      margin: MAX_PAD,
+      // FX (r28): styled shields reach HALO further (their halo).
+      margin: MAX_PAD + HALO,
       styles: this.styles,
     });
     this.upload(circles);
@@ -342,6 +343,42 @@ export class DomeShieldPass {
     this.impacts[n * 4 + 2] = now;
     this.impacts[n * 4 + 3] = reach;
     this.impactCount = n + 1;
+    this.writeImpactFlags();
+  }
+
+  /**
+   * Mark the shields a recent strike's ripple can reach (instance param
+   * z), so only they run the ripple in the shader; re-upload if any changed.
+   */
+  private writeImpactFlags(): void {
+    const data = this.instanceBuf.float32;
+    let changed = false;
+    for (let i = 0; i < this.circles.length; i++) {
+      const c = this.circles[i];
+      let hit = 0;
+      for (let k = 0; k < this.impactCount && hit === 0; k++) {
+        const dx = this.impacts[k * 4] - c.x;
+        const dy = this.impacts[k * 4 + 1] - c.y;
+        const r = c.radius + this.impacts[k * 4 + 3] + HALO;
+        if (dx * dx + dy * dy <= r * r) hit = 1;
+      }
+      const off = i * FLOATS_PER_INSTANCE + 9;
+      if (data[off] !== hit) {
+        data[off] = hit;
+        changed = true;
+      }
+    }
+    if (changed && this.circles.length > 0) {
+      const gl = this.gl;
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuf.buffer);
+      gl.bufferSubData(
+        gl.ARRAY_BUFFER,
+        0,
+        data,
+        0,
+        this.circles.length * FLOATS_PER_INSTANCE,
+      );
+    }
   }
 
   private upload(circles: DomeShieldCircle[]): void {
@@ -364,7 +401,7 @@ export class DomeShieldPass {
       data[off + 6] = 1;
       data[off + 7] = c.building ? 1 : 0;
       data[off + 8] = blocked ? 1 : 0;
-      data[off + 9] = 0;
+      data[off + 9] = 0; // FX (r28): a strike's ripple can reach it
       data[off + 10] = 0;
       for (let n = 0; n < DOME_MAX_NEIGHBORS; n++) {
         const o = off + 11 + n * 3;
@@ -393,6 +430,7 @@ export class DomeShieldPass {
       data[so + 7] = st.speed;
     }
     this.instanceCount = circles.length;
+    if (this.impactCount > 0) this.writeImpactFlags();
     if (circles.length > 0) {
       const gl = this.gl;
       gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuf.buffer);
@@ -408,6 +446,14 @@ export class DomeShieldPass {
 
   draw(cameraMatrix: Float32Array, zoom: number): void {
     if (this.instanceCount === 0) return;
+    // FX (r28): once the newest strike's ripple has run, forget them all.
+    if (
+      this.impactCount > 0 &&
+      this.sec() - this.impacts[(this.impactCount - 1) * 4 + 2] > IMPACT_SEC
+    ) {
+      this.impactCount = 0;
+      this.writeImpactFlags();
+    }
     const gl = this.gl;
     const s = this.settings.domeShield;
     // World units per screen pixel.
@@ -416,8 +462,7 @@ export class DomeShieldPass {
       MAX_PAD / 2,
       Math.max(s.ringWidth, s.ringMinPx * px) / 2,
     );
-    // FX (r28): room for a styled shield's halo.
-    const pad = Math.min(MAX_PAD, ringHalf + 2 * px + HALO);
+    const pad = Math.min(MAX_PAD, ringHalf + 2 * px);
 
     gl.useProgram(this.program);
     gl.uniformMatrix3fv(this.uCamera, false, cameraMatrix);

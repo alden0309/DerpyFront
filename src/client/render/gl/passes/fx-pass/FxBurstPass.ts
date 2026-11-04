@@ -3,8 +3,12 @@
  *
  * Each burst is two instanced draws' worth of data, written once when the
  * nuke goes off and never touched per frame:
- *   - one quad (burst.*.glsl) for the flash, fireball, shockwave ring and the
- *     pack's lingering residue field; the vertex shader sizes it from its age;
+ *   - one quad (burst.*.glsl) for the flash and fireball, and one more for
+ *     the pack's lingering residue field where it leaves one (the same
+ *     shaders built with RESIDUE_PASS); the vertex shader sizes each from
+ *     the burst's age;
+ *   - the shockwave ring as a thin annulus round its front
+ *     (burst-ring.*.glsl), so a MIRV's 350 rings shade only their bands;
  *   - a handful of particles (burst-particle.*.glsl): debris thrown out with
  *     drag and gravity, and the pack's residue drifting after, moved in
  *     closed form on the GPU.
@@ -35,6 +39,8 @@ import { createProgram, shaderSrc } from "../../utils/GlUtils";
 
 import particleFragSrc from "../../shaders/fx/burst-particle.frag.glsl?raw";
 import particleVertSrc from "../../shaders/fx/burst-particle.vert.glsl?raw";
+import ringFragSrc from "../../shaders/fx/burst-ring.frag.glsl?raw";
+import ringVertSrc from "../../shaders/fx/burst-ring.vert.glsl?raw";
 import burstFragSrc from "../../shaders/fx/burst.frag.glsl?raw";
 import burstVertSrc from "../../shaders/fx/burst.vert.glsl?raw";
 
@@ -42,6 +48,8 @@ const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1]);
 const BURST_FLOATS = 16;
 const PARTICLE_FLOATS = 16;
 const TAU = Math.PI * 2;
+/** Segments round a shockwave ring's annulus. */
+const RING_SEGMENTS = 72;
 
 /** Particle kinds in the shaders: debris 0–5 (6 = a banana peel), residue 10–15. */
 const PEEL_KIND = 6;
@@ -106,6 +114,19 @@ function claim(r: Ring, cap = r.capacity): number {
 
 export class FxBurstPass {
   private readonly burstProgram: WebGLProgram;
+  /**
+   * The residue pass, one program per pack residue (compiled the first time
+   * that residue is seen), so each residue pixel runs only its own pack's
+   * code; and when each kind's last residue fades (scene seconds).
+   */
+  private readonly residuePrograms: ({
+    program: WebGLProgram;
+    u: Record<string, WebGLUniformLocation>;
+  } | null)[] = BURST_RESIDUE.map(() => null);
+  private readonly residueUntil: number[] = BURST_RESIDUE.map(() => -1);
+  private readonly defines: Record<string, number>;
+  private readonly ringProgram: WebGLProgram;
+  private readonly ringVao: WebGLVertexArrayObject;
   private readonly particleProgram: WebGLProgram;
   private readonly burstVao: WebGLVertexArrayObject;
   private readonly particleVao: WebGLVertexArrayObject;
@@ -116,6 +137,7 @@ export class FxBurstPass {
   private readonly particles: Ring;
   private readonly uB: Record<string, WebGLUniformLocation>;
   private readonly uP: Record<string, WebGLUniformLocation>;
+  private readonly uR: Record<string, WebGLUniformLocation>;
   private readonly lookTable = burstLookTable();
 
   private timeFn: () => number = () => performance.now();
@@ -134,11 +156,18 @@ export class FxBurstPass {
       shaderSrc(burstFragSrc, defines),
       "FxBurstPass.burst",
     );
+    this.defines = defines;
     this.particleProgram = createProgram(
       gl,
       shaderSrc(particleVertSrc, defines),
       particleFragSrc,
       "FxBurstPass.particle",
+    );
+    this.ringProgram = createProgram(
+      gl,
+      shaderSrc(ringVertSrc, { RING_SEGMENTS }),
+      shaderSrc(ringFragSrc, defines),
+      "FxBurstPass.ring",
     );
     const uniforms = (p: WebGLProgram, names: string[]) =>
       Object.fromEntries(
@@ -151,6 +180,12 @@ export class FxBurstPass {
       "uPxPerTile",
     ]);
     this.uP = uniforms(this.particleProgram, [
+      "uCamera",
+      "uTime",
+      "uLook",
+      "uPxPerTile",
+    ]);
+    this.uR = uniforms(this.ringProgram, [
       "uCamera",
       "uTime",
       "uLook",
@@ -185,6 +220,24 @@ export class FxBurstPass {
     this.particleVbo = gl.createBuffer()!;
     this.burstVao = instanced(this.burstVbo, this.bursts);
     this.particleVao = instanced(this.particleVbo, this.particles);
+    // The rings read the bursts' instance data; their vertices come from
+    // gl_VertexID, so no per-vertex attribute.
+    this.ringVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.ringVao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.burstVbo);
+    for (let k = 0; k < 3; k++) {
+      gl.enableVertexAttribArray(1 + k);
+      gl.vertexAttribPointer(
+        1 + k,
+        4,
+        gl.FLOAT,
+        false,
+        BURST_FLOATS * 4,
+        k * 16,
+      );
+      gl.vertexAttribDivisor(1 + k, 1);
+    }
+    gl.bindVertexArray(null);
   }
 
   private get detail(): BurstDetail {
@@ -263,6 +316,13 @@ export class FxBurstPass {
         cap,
       );
     }
+    if (plan.residueField && residueKind >= 0) {
+      this.residueProgram(residueKind);
+      this.residueUntil[residueKind] = Math.max(
+        this.residueUntil[residueKind],
+        start + plan.residueSec,
+      );
+    }
     const end =
       start +
       Math.max(
@@ -274,6 +334,24 @@ export class FxBurstPass {
         4, // the longest debris life
       );
     if (end > this.activeUntil) this.activeUntil = end;
+  }
+
+  /** The residue pass for one pack residue, compiled on first use. */
+  private residueProgram(kind: number): void {
+    if (this.residuePrograms[kind] !== null) return;
+    const gl = this.gl;
+    const defines = { ...this.defines, RESIDUE_PASS: 1, RESIDUE_KIND: kind };
+    const program = createProgram(
+      gl,
+      shaderSrc(burstVertSrc, defines),
+      shaderSrc(burstFragSrc, defines),
+      `FxBurstPass.residue.${BURST_RESIDUE[kind]}`,
+    );
+    const u: Record<string, WebGLUniformLocation> = {};
+    for (const n of ["uCamera", "uTime", "uLook", "uPxPerTile"]) {
+      u[n] = gl.getUniformLocation(program, n)!;
+    }
+    this.residuePrograms[kind] = { program, u };
   }
 
   /** Claim a particle slot, keeping the light fallback inside its smaller cap. */
@@ -465,13 +543,36 @@ export class FxBurstPass {
     const now = this.sec();
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
-    gl.useProgram(this.burstProgram);
-    gl.uniformMatrix3fv(this.uB.uCamera, false, cameraMatrix);
-    gl.uniform1f(this.uB.uTime, now);
-    gl.uniform1f(this.uB.uPxPerTile, pxPerTile);
-    gl.uniform3fv(this.uB.uLook, this.lookTable);
     gl.bindVertexArray(this.burstVao);
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.bursts.count);
+    // The residue first, under the fireballs (one draw per pack residue
+    // still on screen); then the flashes and fireballs.
+    const passes: [WebGLProgram, Record<string, WebGLUniformLocation>][] = [];
+    this.residuePrograms.forEach((r, kind) => {
+      if (r !== null && this.residueUntil[kind] >= now)
+        passes.push([r.program, r.u]);
+    });
+    passes.push([this.burstProgram, this.uB]);
+    for (const [program, u] of passes) {
+      gl.useProgram(program);
+      gl.uniformMatrix3fv(u.uCamera, false, cameraMatrix);
+      gl.uniform1f(u.uTime, now);
+      gl.uniform1f(u.uPxPerTile, pxPerTile);
+      gl.uniform3fv(u.uLook, this.lookTable);
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.bursts.count);
+    }
+
+    gl.useProgram(this.ringProgram);
+    gl.uniformMatrix3fv(this.uR.uCamera, false, cameraMatrix);
+    gl.uniform1f(this.uR.uTime, now);
+    gl.uniform1f(this.uR.uPxPerTile, pxPerTile);
+    gl.uniform3fv(this.uR.uLook, this.lookTable);
+    gl.bindVertexArray(this.ringVao);
+    gl.drawArraysInstanced(
+      gl.TRIANGLE_STRIP,
+      0,
+      (RING_SEGMENTS + 1) * 2,
+      this.bursts.count,
+    );
 
     if (this.particles.count > 0) {
       gl.useProgram(this.particleProgram);
@@ -501,12 +602,16 @@ export class FxBurstPass {
       r.dirtyHi = -1;
     }
     this.activeUntil = -1;
+    this.residueUntil.fill(-1);
   }
 
   dispose(): void {
     const gl = this.gl;
     gl.deleteProgram(this.burstProgram);
+    for (const r of this.residuePrograms) if (r) gl.deleteProgram(r.program);
     gl.deleteProgram(this.particleProgram);
+    gl.deleteProgram(this.ringProgram);
+    gl.deleteVertexArray(this.ringVao);
     gl.deleteVertexArray(this.burstVao);
     gl.deleteVertexArray(this.particleVao);
     gl.deleteBuffer(this.quadVbo);

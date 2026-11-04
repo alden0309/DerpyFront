@@ -263,11 +263,15 @@ function violations(): {
 }
 
 /**
- * The game client files and on-demand modals the homepage loads up front, each
- * as the chain of static imports from src/client/Main.ts that reaches it.
+ * The game client files and on-demand modals a page loads up front, each as
+ * the chain of static imports from its entry (by default DerpyFront's
+ * homepage, src/client/Main.ts) that reaches it. `reached`, if given,
+ * collects every file the entry loads statically.
  */
-function homepageOnDemandImports(): string[] {
-  const ENTRY = "src/client/Main.ts";
+function homepageOnDemandImports(
+  ENTRY = "src/client/Main.ts",
+  reached?: Set<string>,
+): string[] {
   const lazyModals = new Set(
     [
       ...fs
@@ -288,6 +292,7 @@ function homepageOnDemandImports(): string[] {
       const r = resolve(file, spec);
       if ("npm" in r || importer.has(r.file)) continue;
       importer.set(r.file, file);
+      reached?.add(r.file);
       if (
         (GAME_CLIENT.test(r.file) && !HOMEPAGE_RENDER_SETTINGS.has(r.file)) ||
         lazyModals.has(r.file)
@@ -303,9 +308,21 @@ function homepageOnDemandImports(): string[] {
   return found.sort();
 }
 
+/** Derp Land's hub pages (/, /store, /inventory...): src/hub/Main.ts. */
+const HUB_ENTRY = "src/hub/Main.ts";
+/** FX (r28): the store's effect-pack pictures, and the renderer they load. */
+const FX_LIVE = "src/derpland/FxLive.ts";
+const FX_PREVIEW = "src/client/render/fxpreview/FxPreview.ts";
+
 describe("layer boundaries", () => {
   const { edges, determinism, inexactMath, io } = violations();
-  const homepageOnDemand = homepageOnDemandImports();
+  const homepageReach = new Set<string>();
+  const hubReach = new Set<string>();
+  const homepageOnDemand = homepageOnDemandImports(
+    "src/client/Main.ts",
+    homepageReach,
+  );
+  const hubOnDemand = homepageOnDemandImports(HUB_ENTRY, hubReach);
 
   test("no import edges outside the allowed graph", () => {
     const allowed = new Set(ALLOWLIST);
@@ -354,6 +371,29 @@ describe("layer boundaries", () => {
 
   test("the homepage loads the game client and its modals only on demand", () => {
     expect(homepageOnDemand).toEqual([]);
+  });
+
+  test("Derp Land's pages (the Store, the Inventory) load no game client up front", () => {
+    expect(hubOnDemand).toEqual([]);
+  });
+
+  test("the store's effect previews load the renderer only with import()", () => {
+    // Both stores show the packs' live previews...
+    expect(homepageReach.has(FX_LIVE)).toBe(true);
+    expect(hubReach.has(FX_LIVE)).toBe(true);
+    // ...whose renderer is the game client's, so neither page has it in its
+    // first download: FxLive asks for it when a pack's card appears.
+    expect(GAME_CLIENT.test(FX_PREVIEW)).toBe(true);
+    expect(homepageReach.has(FX_PREVIEW)).toBe(false);
+    expect(hubReach.has(FX_PREVIEW)).toBe(false);
+    // No pass, shader or preview code at all (the homepage's settings
+    // screens may read RenderSettings, nothing more of render/).
+    const drawing =
+      /^src\/client\/render\/(fxpreview|gl\/passes|gl\/shaders)\//;
+    expect([...homepageReach].filter((f) => drawing.test(f))).toEqual([]);
+    expect([...hubReach].filter((f) => drawing.test(f))).toEqual([]);
+    const text = fs.readFileSync(path.join(ROOT, FX_LIVE), "utf8");
+    expect(text).toContain('import("../client/render/fxpreview/FxPreview")');
   });
 
   test("the homepage check follows only imports that load something", () => {

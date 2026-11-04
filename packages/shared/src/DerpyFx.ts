@@ -440,9 +440,9 @@ const BURST_BASE: Readonly<Record<BurstKind, BurstPlan>> = {
   mirvWarhead: {
     ringRadius: 55,
     fireballRadius: 15,
-    flashRadius: 55,
+    flashRadius: 30,
     flashSec: 0.3,
-    fireballSec: 1.4,
+    fireballSec: 1.1,
     ringSec: 1.0,
     residueSec: 2,
     debris: 8,

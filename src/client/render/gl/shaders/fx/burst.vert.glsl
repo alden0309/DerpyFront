@@ -1,10 +1,11 @@
 #version 300 es
 precision highp float;
 
-// FX (r28): one quad per Derp Store burst (flash, fireball, shockwave ring
-// and the pack's lingering residue). Instances live in a ring buffer and are
-// never rewritten per frame: the quad sizes itself from its age, shrinking
-// as the wide layers (flash, ring) end, and collapses once all have.
+// FX (r28): one quad per Derp Store burst (flash, fireball and the pack's
+// lingering residue; the shockwave ring is a mesh of its own,
+// burst-ring.*.glsl). Instances live in a ring buffer and are never
+// rewritten per frame: the quad sizes itself from its age, shrinking as the
+// flash and the fireball end, and collapses once all layers have.
 
 layout(location = 0) in vec2 aPos;    // unit quad 0..1
 layout(location = 1) in vec4 aBurst;  // x, y, start (s), pack index (1-based)
@@ -27,10 +28,24 @@ void main() {
   float flags = aSize.w;
   bool residue = mod(floor(flags / 2.0), 2.0) > 0.5;
   float ext = 0.0;
+#ifdef RESIDUE_PASS
+  // Only this program's pack residue (RESIDUE_KIND) draws here.
+  if (residue && age < aTimes.w && abs(aKinds.z - float(RESIDUE_KIND)) < 0.5) {
+    // The residue field (burst.frag.glsl): radius 1.5→2.4 fireballs, fading
+    // out by 1.25 of it, drifting downwind.
+    float rr = aSize.y * (1.5 + 0.9 * min(age / aTimes.w, 1.0));
+    ext = rr * 1.3 + age * aSize.y * 0.07 + 2.0;
+  }
+#else
   if (age < aTimes.x) ext = max(ext, aSize.z);
-  if (age < aTimes.z) ext = max(ext, aSize.x * 1.08 + 2.0);
-  if (age < aTimes.y) ext = max(ext, aSize.y * 1.9);
-  if (residue && age < aTimes.w) ext = max(ext, aSize.y * 2.6 + age * aSize.y * 0.12);
+  if (age < aTimes.y) {
+    // The fireball's radius now (as burst.frag.glsl grows it); its ragged
+    // edge reaches ~1.4 of that.
+    float k = age / aTimes.y;
+    float R = aSize.y * (0.3 + 0.7 * (1.0 - exp(-max(age, 0.0) * 4.5))) * (1.0 + 0.18 * k);
+    ext = max(ext, R * 1.42 + 1.0);
+  }
+#endif
   vAge = age;
   vBurst = aBurst;
   vSize = aSize;

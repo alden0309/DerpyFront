@@ -42,6 +42,7 @@ uniform float uHalo; // world units a styled shield's glow reaches outside it
 
 out vec4 fragColor;
 
+float pad;         // how far this shield draws past its edge (uPad + halo)
 float unionDist;   // signed distance to the merged outline (negative inside)
 vec3 nearestEdge;  // circle whose edge is closest
 
@@ -50,7 +51,7 @@ void addNeighbor(vec3 n) {
   float r = abs(n.z);
   float d = length(vWorld - n.xy);
   // A circle listed earlier draws every pixel its padded disc reaches.
-  if (n.z > 0.0 && d < r + uPad) discard;
+  if (n.z > 0.0 && d < r + pad) discard;
   float sd = d - r;
   if (sd < unionDist) {
     unionDist = sd;
@@ -157,6 +158,8 @@ float impactRipple() {
     if (age < 0.0 || age > 1.8) continue;
     float dd = length(vWorld - im.xy);
     float front = age * 90.0;
+    // Nowhere near either ring or the strike's flash: nothing to add.
+    if (abs(dd - front * 0.85) > front * 0.15 + 30.0 + age * 10.0 && dd > 40.0) continue;
     float reach = 1.0 - smoothstep(im.w * 0.75, im.w, front);
     float w = 2.5 + age * 5.0;
     // (x*x, not pow: pow is undefined for a negative base.)
@@ -172,8 +175,12 @@ float impactRipple() {
 }
 
 void main() {
+  // FX (r28): a styled shield (and its same-style neighbours, which share
+  // its group) draws its halo too.
+  bool haloed = vStyle.w > 0.5 && vParams.x < 0.5 && vParams.y < 0.5;
+  pad = uPad + (haloed ? uHalo : 0.0);
   float own = length(vWorld - vCircle.xy) - vCircle.z;
-  if (own > uPad) discard;
+  if (own > pad) discard;
   unionDist = own;
   nearestEdge = vCircle;
   addNeighbor(vN0);
@@ -242,7 +249,7 @@ void main() {
                  (1.0 - smoothstep(uHalo * 0.6, uHalo, s)) * 0.3;
     fillA += halo;
   }
-  if (building < 0.5) {
+  if (building < 0.5 && vParams.z > 0.5) {
     float rip = impactRipple();
     if (rip > 0.001) {
       vec3 rc = styled ? vAccent.rgb : mix(vColor.rgb, vec3(1.0), 0.5);

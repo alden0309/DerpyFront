@@ -623,11 +623,11 @@ export class DerpInventory extends HubPage {
           null,
           noneLabel,
           html`<span
-            class="dl-skin-none ${items.some(
-              (i) => !!i.fx || !!i.conquest?.palette,
-            )
-              ? "wide"
-              : ""}"
+            class="dl-skin-none ${items.some((i) => !!i.fx)
+              ? "fx"
+              : items.some((i) => !!i.conquest?.palette)
+                ? "wide"
+                : ""}"
             aria-hidden="true"
           ></span>`,
         )}
@@ -636,9 +636,7 @@ export class DerpInventory extends HubPage {
             i.name,
             i.displayName,
             i.fx
-              ? html`<span class="dl-pickart"
-                  >${fxPreview(`inv_${i.name}`, i.fx)}</span
-                >`
+              ? html`<span class="dl-pickart">${fxPreview(i.name, i.fx)}</span>`
               : i.conquest?.palette // DLC (r21): a map style's corner of the chart
                 ? html`<span class="dl-pickart"
                     >${mapStylePreview(

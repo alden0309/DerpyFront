@@ -7,7 +7,8 @@ layout(location = 0) in vec2 aPos;
 layout(location = 1) in vec3 aCircle;
 // Per-instance: r, g, b, alpha multiplier
 layout(location = 2) in vec4 aColor;
-// Per-instance: building (0/1), blocked (0/1), unused, unused
+// Per-instance: building (0/1), blocked (0/1), FX (r28) a recent strike can
+// ripple it (0/1), unused
 layout(location = 3) in vec4 aParams;
 // Per-instance: up to six same-group neighbours (x, y, radius). The radius is
 // positive for circles listed earlier (they own the pixels they reach),
@@ -25,6 +26,7 @@ layout(location = 11) in vec4 aAccent;
 
 uniform mat3 uCamera;
 uniform float uPad; // how far the ring and its soft edge reach past the circle
+uniform float uHalo; // FX (r28): and a styled shield's halo, further still
 
 out vec2 vWorld;
 flat out vec3 vCircle;
@@ -52,7 +54,9 @@ void main() {
   vStyle = aStyle;
   vAccent = aAccent;
 
-  float extent = aCircle.z + uPad;
+  // FX (r28): only a finished, styled shield has a halo to make room for.
+  bool halo = aStyle.w > 0.5 && aParams.x < 0.5 && aParams.y < 0.5;
+  float extent = aCircle.z + uPad + (halo ? uHalo : 0.0);
   vec2 world = aCircle.xy + (aPos * 2.0 - 1.0) * extent;
   vWorld = world;
 

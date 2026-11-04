@@ -1,7 +1,7 @@
 // DFSTORE (r21): small pictures of what the Derp Store's newer items do,
 // shared by Derp Land's Store and Inventory and DerpyFront's Derp Store page:
-// a Nuke & Dome effect pack drawn as a nuke streaking into a burst beside a
-// shimmering Dome, and (AIP r23) an AI personality's mark.
+// a Nuke & Dome effect pack's live preview (FX r28: the real effect, see
+// FxLive.ts), and (AIP r23) an AI personality's mark.
 
 import {
   SKIN_MOTION_TEXT,
@@ -9,6 +9,7 @@ import {
 } from "@openfront/shared/DerpySkinMotion";
 import { html, nothing, svg, TemplateResult } from "lit";
 import { AI_CHOICE_ICON } from "../client/derpy/AiPersonalityIcons";
+import { FX_LIVE_CSS } from "./FxLive";
 
 export interface FxColours {
   trail: string[];
@@ -21,76 +22,18 @@ export interface FxColours {
 const safeId = (s: string) => s.replace(/[^a-z0-9_-]/gi, "_");
 
 /**
- * A nuke's trail arcing into its burst, and a Dome with its shimmer, in the
- * pack's colours. Animated gently (and not at all with reduced motion).
+ * FX (r28): a pack's picture is the real effect: a still of it, playing live
+ * while its card is hovered or focused (FxLive.ts). The pack's colours tint
+ * the frame until the still arrives.
  */
-export function fxPreview(name: string, fx: FxColours): TemplateResult {
-  const id = safeId(name);
-  const stops = (colors: string[]) =>
-    colors.map(
-      (c, i) =>
-        svg`<stop offset=${`${(i / Math.max(1, colors.length - 1)) * 100}%`} stop-color=${c} />`,
-    );
-  const burst = fx.burst.slice(0, 4);
-  return html`<svg
+export function fxPreview(pack: string, fx: FxColours): TemplateResult {
+  const a = fx.burst[0];
+  return html`<dfx-live
     class="dfx-preview"
-    viewBox="0 0 320 120"
-    role="img"
-    aria-hidden="true"
+    pack=${pack}
     data-shimmer=${fx.shimmer}
-  >
-    <defs>
-      <linearGradient id=${`t_${id}`} x1="0" y1="1" x2="1" y2="0">
-        ${stops(fx.trail)}
-      </linearGradient>
-      <radialGradient id=${`d_${id}`} cx="50%" cy="60%" r="60%">
-        <stop offset="0%" stop-color=${fx.dome} stop-opacity="0.12" />
-        <stop offset="70%" stop-color=${fx.dome} stop-opacity="0.35" />
-        <stop offset="100%" stop-color=${fx.accent} stop-opacity="0.75" />
-      </radialGradient>
-    </defs>
-    <rect width="320" height="120" rx="10" fill="#101418" />
-    <path d="M0 104 Q60 92 100 100 T190 96 T320 104 V120 H0Z" fill="#1d2a22" />
-    <!-- the Dome -->
-    <g class="dfx-dome">
-      <circle cx="70" cy="76" r="42" fill=${`url(#d_${id})`} />
-      <circle
-        cx="70"
-        cy="76"
-        r="42"
-        fill="none"
-        stroke=${fx.accent}
-        stroke-width="2"
-        opacity="0.9"
-      />
-      <circle
-        class="dfx-shimmer"
-        cx="70"
-        cy="76"
-        r="30"
-        fill="none"
-        stroke=${fx.accent}
-        stroke-width="1.5"
-        opacity="0.5"
-      />
-    </g>
-    <!-- the nuke, its trail and its burst -->
-    <path
-      class="dfx-trail"
-      d="M128 112 Q190 6 262 58"
-      fill="none"
-      stroke=${`url(#t_${id})`}
-      stroke-width="5"
-      stroke-linecap="round"
-    />
-    <g class="dfx-burst">
-      ${burst.map(
-        (c, i) =>
-          svg`<circle cx="262" cy="58" r=${30 - i * 7} fill="none" stroke=${c} stroke-width=${3 + i} opacity=${0.95 - i * 0.12} />`,
-      )}
-      <circle cx="262" cy="58" r="5" fill=${burst[0] ?? "#fff"} />
-    </g>
-  </svg>`;
+    style=${`background:radial-gradient(circle at 30% 45%,${a ?? "#fff"}33,transparent 45%),radial-gradient(circle at 75% 45%,${fx.dome}2e,transparent 40%),#0f1923`}
+  ></dfx-live>`;
 }
 
 /**
@@ -305,14 +248,7 @@ const DLC_PREVIEW_CSS = `
 /** Styles for the previews; every page that shows them adds them once. */
 export const STORE_PREVIEW_CSS = `
 .dfx-preview{display:block;width:100%;height:auto;max-width:420px;border-radius:10px}
-.dfx-trail{stroke-dasharray:240;stroke-dashoffset:240;animation:dfx-fly 2.8s ease-in infinite}
-.dfx-burst{transform-origin:262px 58px;animation:dfx-burst 2.8s ease-out infinite}
-.dfx-shimmer{transform-origin:70px 76px;animation:dfx-shim 3.2s ease-in-out infinite}
-@keyframes dfx-fly{0%{stroke-dashoffset:240}55%,100%{stroke-dashoffset:0}}
-@keyframes dfx-burst{0%,50%{transform:scale(.1);opacity:0}62%{opacity:1}100%{transform:scale(1);opacity:0}}
-@keyframes dfx-shim{0%,100%{transform:scale(.55);opacity:.15}50%{transform:scale(1.25);opacity:.7}}
-@media (prefers-reduced-motion:reduce){.dfx-trail,.dfx-burst,.dfx-shimmer{animation:none;stroke-dashoffset:0;opacity:1;transform:none}}
-.dfx-aimark{display:inline-flex;align-items:center;justify-content:center;width:1.6em;height:1.6em;margin-right:.45em;border-radius:.45em;font-size:.95em;line-height:1;vertical-align:-.25em;background:#ffffff14;border:1px solid #ffffff24}
+${FX_LIVE_CSS}.dfx-aimark{display:inline-flex;align-items:center;justify-content:center;width:1.6em;height:1.6em;margin-right:.45em;border-radius:.45em;font-size:.95em;line-height:1;vertical-align:-.25em;background:#ffffff14;border:1px solid #ffffff24}
 .dfx-aimark[data-ai-type=mad_scientist]{background:#84cc1624;border-color:#a3e63566}
 .dfx-aimark[data-ai-type=trader]{background:#0ea5e924;border-color:#38bdf866}
 .dfx-aimark[data-ai-type=aggressive]{background:#f9731624;border-color:#fb923c66}

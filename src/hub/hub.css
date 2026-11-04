@@ -904,6 +904,9 @@
   .dl-skin-none.wide {
     aspect-ratio: 8 / 3;
   }
+  .dl-skin-none.fx {
+    aspect-ratio: 16 / 9; /* FX (r28): as tall as a pack's live preview */
+  }
   .dl-music {
     display: grid;
     place-items: center;

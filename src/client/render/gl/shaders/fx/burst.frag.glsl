@@ -5,13 +5,17 @@ precision highp float;
 //   flash    — a white-hot pulse that lights the ground around it, briefly;
 //   fireball — expands fast, churns, and cools through the pack's colours,
 //              then rolls over into smoke;
-//   ring     — a crisp shockwave front with a dark refraction line behind
-//              it and a faint wake;
+//   (the shockwave ring is its own thin mesh: burst-ring.*.glsl;)
 //   residue  — the pack's own afterglow, drifting and fading over seconds:
 //              solar flare loops, toxic haze, frost mist, a sprinkle glow,
 //              a swirling nebula, or turning sun rays.
 // Output is premultiplied: emitted light adds (alpha 0), smoke covers
 // (alpha > 0). Blend ONE, ONE_MINUS_SRC_ALPHA.
+//
+// Compiled twice: with RESIDUE_PASS, the residue alone (drawn first, under
+// the fireball, and only by bursts that leave one); without, the flash and
+// fireball. Two small shaders rather than one big one, so a MIRV's hundreds
+// of warheads (which leave no residue) never pay for it.
 
 uniform float uTime;
 uniform vec3 uLook[LOOK_SIZE]; // 12 colours per pack (burstLookTable)
@@ -74,9 +78,7 @@ void main() {
   float d = length(p);
   float seed = vKinds.x;
   float flags = vSize.w;
-  bool domeStop = mod(flags, 2.0) > 0.5;
   bool residueOn = mod(floor(flags / 2.0), 2.0) > 0.5;
-  float ringR = vSize.x;
   float fireR = vSize.y;
   float flashR = vSize.z;
   float aa = 1.0 / max(uPxPerTile, 0.05); // one device pixel, in tiles
@@ -85,6 +87,7 @@ void main() {
   float smokeA = 0.0;
   vec3 smokeC = vec3(0.0);
 
+#ifdef RESIDUE_PASS
   // ---- residue: the pack's afterglow (under the fireball) ----
   float resT = vTimes.w;
   if (residueOn && t < resT && t > 0.15) {
@@ -95,10 +98,11 @@ void main() {
     vec2 drift = vec2(0.9, -0.35) * t * fireR * 0.06;
     vec2 q = (p - drift) / Rr;
     float dq = length(q);
-    float kind = vKinds.z;
+    // One pack's residue per compiled program (RESIDUE_KIND, BURST_RESIDUE order).
     if (dq < 1.6 && life > 0.0) {
       float body = 1.0 - smoothstep(0.35, 1.25, dq);
-      if (kind < 0.5) {
+#if RESIDUE_KIND == 0
+      {
         // flare: arches of solar plasma springing off the fireball's limb
         // while it burns, then a heat shimmer over the scorched ground.
         float ang = atan(p.y, p.x);
@@ -134,7 +138,9 @@ void main() {
         float shimmer = smoothstep(0.55, 0.8, fbm(q * 7.0 - vec2(0.0, t * 1.2) + n));
         emit += look(10) * body * body * shimmer * 0.14 * life;
         emit += look(11) * body * body * 0.14 * life;
-      } else if (kind < 1.5) {
+      }
+#elif RESIDUE_KIND == 1
+      {
         // haze: thick green fumes that churn, with bubbles welling up and
         // popping in them.
         float n = fbm(q * 2.6 + vec2(t * 0.25, -t * 0.4) + seed);
@@ -149,7 +155,9 @@ void main() {
         float br = ph * 0.42;
         float ring = 1.0 - smoothstep(0.0, 0.05 + aa / 7.0, abs(length(cp - (vec2(h, fract(h * 13.0)) - 0.5) * 0.15) - br));
         emit += look(9) * ring * step(0.55, h) * body * life * (1.0 - ph) * 0.9;
-      } else if (kind < 2.5) {
+      }
+#elif RESIDUE_KIND == 2
+      {
         // mist: a cold white fog rolling outward, glinting with crystals.
         float n = fbm(q * 2.0 + vec2(-t * 0.18, t * 0.12) + seed);
         float den = body * smoothstep(0.3, 0.8, n) * life;
@@ -162,13 +170,17 @@ void main() {
         float star = max(exp(-abs(cp.x) * 30.0) * exp(-abs(cp.y) * 6.0),
                          exp(-abs(cp.y) * 30.0) * exp(-abs(cp.x) * 6.0));
         emit += vec3(1.0) * star * tw * step(0.7, h) * body * life * 1.3;
-      } else if (kind < 3.5) {
+      }
+#elif RESIDUE_KIND == 3
+      {
         // sprinkles: a sugary pastel glow (the sprinkles themselves are
         // particles) with candy-stripe shimmer.
         float ang = atan(q.y, q.x);
         float stripe = 0.5 + 0.5 * sin(ang * 7.0 + dq * 9.0 - t * 2.0);
         emit += residueCol(stripe * 0.66 + t * 0.1) * body * body * 0.20 * life;
-      } else if (kind < 4.5) {
+      }
+#elif RESIDUE_KIND == 4
+      {
         // nebula: colour swirling round the blast like a galaxy, with
         // pinprick stars twinkling in it.
         float ang = atan(q.y, q.x) - t * 0.45 - (1.0 - min(dq, 1.0)) * 2.2;
@@ -184,7 +196,9 @@ void main() {
         float h = hash12(cell + seed * 0.7);
         float tw = 0.5 + 0.5 * sin(t * (3.0 + 4.0 * h) + h * 50.0);
         emit += vec3(1.0) * (1.0 - smoothstep(0.0, 0.18, length(cp))) * step(0.82, h) * tw * body * life * 1.4;
-      } else {
+      }
+#else
+      {
         // rays: sun rays turning slowly round the blast, warm and bright.
         float ang = atan(p.y, p.x);
         float r1 = pow(0.5 + 0.5 * sin(ang * 9.0 + t * 0.35 + seed), 10.0);
@@ -194,18 +208,23 @@ void main() {
         emit += mix(look(10), look(9), r2) * (r1 * 0.9 + r2 * 0.6) * fall * life * 0.9;
         emit += look(11) * body * body * 0.16 * life;
       }
+#endif
     }
   }
 
+#else
   // ---- fireball: expands, churns and cools, then rolls into smoke ----
   float fireT = vTimes.y;
-  if (t < fireT && d < fireR * 1.9) {
+  if (t < fireT && d < fireR * 1.65) {
     float k = t / fireT;
     float R = fireR * (0.3 + 0.7 * (1.0 - exp(-t * 4.5))) * (1.0 + 0.18 * k);
     vec2 q = p / R;
     float dq = length(q);
     float ang = atan(q.y, q.x);
-    float n = fbm(q * 2.2 + vec2(seed, -seed) + vec2(t * 0.7, t * 0.45));
+    // Small bursts (a MIRV's warheads, by the hundred) churn with one
+    // octave of noise; big ones with three.
+    vec2 np = q * 2.2 + vec2(seed, -seed) + vec2(t * 0.7, t * 0.45);
+    float n = fireR < 20.0 ? vnoise(np) : fbm(np);
     float lobes = 0.08 * sin(ang * 5.0 + seed * 3.0 + t * 0.8);
     float edge = dq + (n - 0.5) * 0.6 + lobes;
     float den = 1.0 - smoothstep(0.62, 1.0, edge);
@@ -244,27 +263,7 @@ void main() {
              look(0) * glint * 0.5) * pulse;
   }
 
-  // ---- shockwave ring ----
-  float ringT = vTimes.z;
-  if (t < ringT) {
-    float u = t / ringT;
-    float r = ringR * (1.0 - pow(1.0 - u, 2.4));
-    float w = max(ringR * 0.022 + 0.6, aa * 1.5);
-    float x = (d - r) / w;
-    float fade = pow(1.0 - u, 1.3);
-    if (x > -14.0 && x < 2.0) {
-      float band = 1.0 - smoothstep(0.0, 1.0, abs(x));
-      float wake = x < 0.0 ? exp(x * 0.35) * 0.22 : 0.0;
-      vec3 rc = look(5);
-      emit += rc * band * fade * 1.05 + vec3(1.0) * band * band * band * fade * 0.3 +
-              rc * wake * fade * 0.45;
-      // A dark line just behind the front: the air bending the light.
-      float xr = x + 1.9;
-      float refr = exp(-xr * xr * 1.5) * 0.28 * fade;
-      if (domeStop) refr *= 0.4;
-      smokeA += refr * (1.0 - smokeA);
-    }
-  }
+#endif
 
   float a = clamp(smokeA, 0.0, 0.9);
   vec3 rgb = smokeC + emit;

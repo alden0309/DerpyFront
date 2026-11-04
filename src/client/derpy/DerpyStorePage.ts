@@ -411,7 +411,7 @@ export class DerpyStorePage extends BaseModal {
         const fx = mine.map((i) => ({
           name: i.name,
           label: itemName(i),
-          art: i.fx ? fxPreview(`mine_${i.name}`, i.fx) : html``,
+          art: i.fx ? fxPreview(i.name, i.fx) : html``,
         }));
         return html`<section class="flex flex-col gap-3">
           ${head("derpy.your_nukes")}
@@ -508,7 +508,7 @@ export class DerpyStorePage extends BaseModal {
         noneLabel,
         html`<span
           class="flex ${wide
-            ? "aspect-[8/3]"
+            ? "aspect-video" // FX (r28): as tall as a live preview
             : "aspect-square"} w-full items-center justify-center rounded-lg bg-black/30 text-2xl text-white/30"
           >∅</span
         >`,
