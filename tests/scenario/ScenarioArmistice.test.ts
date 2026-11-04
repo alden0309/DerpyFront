@@ -2,6 +2,7 @@ import { GameMapSize } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { scenarioEdition } from "@openfront/engine-api/game/Scenarios";
 import {
+  armisticeName,
   armisticeTicks,
   scenarioData,
 } from "@openfront/engine-lib/scenario/ScenarioData";
@@ -11,6 +12,8 @@ import {
   holdMark,
   holdTargetTiles,
   scenarioWinner,
+  SIDE_OUT_DIVISOR,
+  sideOutTiles,
   sideStartTiles,
 } from "@openfront/engine/scenario/ScenarioRules";
 import { describe, expect, it } from "vitest";
@@ -309,5 +312,102 @@ describe("Korea 1950's armistice in the war", () => {
     expect(events).toContain(
       `events_display.scenario_armistice_${String(winner).toLowerCase()}`,
     );
+  }, 120_000);
+});
+
+/**
+ * SCEN3 (r27): Three Kingdoms, the owner's choice of both: a kingdom under
+ * 1% of the land is beaten (`beatenUnder`), and at minute 60 the Mandate of
+ * Heaven passes to the kingdom holding the most land (the armistice, named
+ * for the period).
+ */
+describe("Three Kingdoms: the 1% line and the Mandate of Heaven", () => {
+  it("is in the data, with Wu's city caps and a new edition", () => {
+    const data = scenarioData("threekingdoms219")!;
+    expect(data.beatenUnder).toBe(1);
+    expect(data.armistice).toEqual({
+      minute: 60,
+      warnMinutes: 5,
+      name: "mandate",
+    });
+    expect(armisticeName(data)).toBe("mandate");
+    expect(armisticeName(scenarioData("korea1950")!)).toBe("armistice");
+    expect(armisticeTicks(data, false)).toEqual({ minute: 60, ...NORMAL });
+    const nation = (k: string) => data.nations.find((n) => n.key === k)!;
+    expect(nation("sun_quan").cityTroopsMax).toBe(1_500_000);
+    expect(nation("shi_xie").cityTroopsMax).toBe(500_000);
+    expect(scenarioEdition("threekingdoms219")).toBe(4);
+    // The line: 1% of the land here, 0.2% (as before) everywhere else.
+    expect(sideOutTiles(data, 100_000)).toBe(1000);
+    expect(sideOutTiles(scenarioData("korea1950")!, 100_000)).toBe(
+      Math.ceil(100_000 / SIDE_OUT_DIVISOR),
+    );
+    expect(sideOutTiles({}, 3)).toBe(1);
+  });
+
+  it("counts a kingdom under 1% of the land as beaten, where 0.2% would not", async () => {
+    const g = await scenarioGame("threekingdoms219");
+    const { game } = g;
+    const data = game.scenario()!.data;
+    const land = game.numLandTiles() - game.numTilesWithFallout();
+    const wei = g.nation("cao_cao");
+    // Shu and Wu each keep half a percent of the land: over 0.2%, under 1%.
+    const keep = Math.ceil(land / 200);
+    expect(keep).toBeGreaterThan(Math.ceil(land / SIDE_OUT_DIVISOR));
+    for (const side of ["Shu", "Wu"]) {
+      let kept = 0;
+      for (const p of game.players()) {
+        if (p.team() !== side) continue;
+        for (const t of [...p.tiles()]) {
+          if (kept < keep) kept++;
+          else wei.conquer(t);
+        }
+      }
+    }
+    const land0 = sideLand(game);
+    expect(land0.get("Shu")).toBe(keep);
+    expect(land0.get("Wu")).toBe(keep);
+    // Under the old 0.2% line both would still be in the war.
+    const was = data.beatenUnder;
+    delete data.beatenUnder;
+    try {
+      expect(scenarioWinner(at(game, 600), false)).toBeNull();
+    } finally {
+      data.beatenUnder = was;
+    }
+    // Under Three Kingdoms' 1%: both are beaten, and Wei has won.
+    expect(scenarioWinner(at(game, 600), false)).toBe("Wei");
+  }, 120_000);
+
+  it("warns at minute 55, then passes the Mandate of Heaven to the kingdom holding the most land", async () => {
+    const g = await scenarioGame("threekingdoms219");
+    const { game } = g;
+    const start = clockStart(g);
+    const news: News[] = [];
+    expect(
+      scenarioWinner(at(game, start + NORMAL.warnAt - 10, news), false),
+    ).toBeNull();
+    expect(news).toEqual([]);
+    expect(
+      scenarioWinner(at(game, start + NORMAL.warnAt, news), false),
+    ).toBeNull();
+    expect(news).toEqual([
+      {
+        message: "events_display.scenario_mandate_talks",
+        params: { minute: 60 },
+      },
+    ]);
+    expect(
+      scenarioWinner(at(game, start + NORMAL.at - 10, news), false),
+    ).toBeNull();
+    const land = sideLand(game);
+    const most = ["Wei", "Shu", "Wu"].reduce((a, b) =>
+      (land.get(b) ?? 0) > (land.get(a) ?? 0) ? b : a,
+    );
+    expect(scenarioWinner(at(game, start + NORMAL.at, news), false)).toBe(most);
+    expect(news[news.length - 1]).toEqual({
+      message: `events_display.scenario_mandate_${most.toLowerCase()}`,
+      params: { side: most },
+    });
   }, 120_000);
 });

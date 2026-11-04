@@ -6,7 +6,9 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import {
+  armisticeName,
   armisticeTicks,
+  ScenarioData,
   ScenarioSide,
 } from "@openfront/engine-lib/scenario/ScenarioData";
 import { Game, Player } from "../game/Game";
@@ -658,6 +660,24 @@ export function joinSide(
 /** A side holding less than 1/500 of the land (0.2%) is beaten. */
 export const SIDE_OUT_DIVISOR = 500;
 
+/**
+ * The fewest tiles a side may hold and still be in the war: 0.2% of the
+ * land (SIDE_OUT_DIVISOR), or the scenario's own `beatenUnder` percent
+ * (SCEN3 r27: Three Kingdoms' 1%). At least one tile.
+ */
+export function sideOutTiles(
+  data: Pick<ScenarioData, "beatenUnder">,
+  land: number,
+): number {
+  const under = data.beatenUnder;
+  return Math.max(
+    1,
+    Math.ceil(
+      under === undefined ? land / SIDE_OUT_DIVISOR : (land * under) / 100,
+    ),
+  );
+}
+
 /** The scenario mark holding the tick a side's hold (winByHolding) began. */
 export function holdMark(side: Team): string {
   return `hold:${side}`;
@@ -667,7 +687,8 @@ export function holdMark(side: Team): string {
  * SCEN3 (r27): the side that has won, or null. There are no land bars: a
  * side wins only when every nation on every other side is beaten, which is
  * when those nations together hold under 0.2% of the land (a leftover fort
- * or islet the computer never gets round to doesn't hold the war up). A
+ * or islet the computer never gets round to doesn't hold the war up; the
+ * scenario's `beatenUnder` percent if it has one: sideOutTiles). A
  * neutral that joined a side counts as that side (it is on its team); one
  * that never joined counts for nobody. A side with `winByHolding` also wins
  * by holding that land for its `seconds` in a row (Korea 1950). At the
@@ -688,7 +709,7 @@ export function scenarioWinner(game: Game, timeUp: boolean): Team | null {
     tiles.set(side, tiles.get(side)! + p.numTilesOwned());
   }
   const land = game.numLandTiles() - game.numTilesWithFallout();
-  const minLand = Math.max(1, Math.ceil(land / SIDE_OUT_DIVISOR));
+  const minLand = sideOutTiles(scenario.data, land);
   const alive = new Set<Team>();
   for (const [side, t] of tiles) if (t >= minLand) alive.add(side);
   if (alive.size === 1) return [...alive][0];
@@ -736,13 +757,14 @@ function bestByOwnLand(
 export const ARMISTICE_TALKS = "armistice:talks";
 
 /**
- * SCEN3 (r27): a scenario's armistice (ScenarioData.armistice). At its
+ * SCEN3 (r27): a scenario's armistice (ScenarioData.armistice; its words
+ * by its name: Korea's armistice, Three Kingdoms' Mandate of Heaven). At its
  * warning, everyone hears that the war ends at its minute; at its minute,
- * the side holding more land (all its nations' land, Japan's included in
- * Korea) wins, and everyone hears. A tie in land, which a tile count all
- * but never gives, goes to the side holding the most of its own starting
- * land (the time-up rule), then to the first side listed. Null before then,
- * or without an armistice.
+ * the side still in the war holding the most land (all its nations' land,
+ * Japan's included in Korea) wins, and everyone hears. A tie in land, which
+ * a tile count all but never gives, goes to the side holding the most of
+ * its own starting land (the time-up rule), then to the first side listed.
+ * Null before then, or without an armistice.
  */
 function armisticeWinner(
   game: Game,
@@ -755,10 +777,11 @@ function armisticeWinner(
   if (a === null) return null;
   // The game's clock, like the goals': from the end of the spawn phase.
   const t = Math.round(game.elapsedGameSeconds() * 10);
+  const name = armisticeName(scenario.data);
   if (t >= a.warnAt && game.scenarioMark(ARMISTICE_TALKS) === undefined) {
     game.setScenarioMark(ARMISTICE_TALKS, game.ticks());
     game.displayMessage(
-      "events_display.scenario_armistice_talks",
+      `events_display.scenario_${name}_talks`,
       MessageType.CONQUERED_PLAYER,
       null,
       undefined,
@@ -784,7 +807,7 @@ function armisticeWinner(
       : bestByOwnLand(game, new Set(leaders), tiles);
   if (winner === null) return null;
   game.displayMessage(
-    `events_display.scenario_armistice_${winner.toLowerCase()}`,
+    `events_display.scenario_${name}_${winner.toLowerCase()}`,
     MessageType.CONQUERED_PLAYER,
     null,
     undefined,

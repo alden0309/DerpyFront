@@ -14,6 +14,7 @@ const WORDS: Record<string, string> = {
   "scenarios.win.unitednations": "The United Nations win",
   "scenarios.win_armistice.unitednations":
     "The United Nations win at the armistice",
+  "scenarios.win_mandate.wu": "Wu wins the Mandate of Heaven",
   "scenarios.winning_side": "On the winning side: {names}",
 };
 
@@ -58,6 +59,7 @@ function makeGame(
     side?: string;
     scenario?: string;
     events?: { message: string; params?: Record<string, unknown> }[];
+    armistice?: { minute: number; name?: string };
   } = {},
 ): GameView {
   const winUpdate = {
@@ -81,7 +83,7 @@ function makeGame(
       isReplay: () => false,
     }),
     scenario: () => ({
-      data: { id: opts.scenario ?? "europe1939" },
+      data: { id: opts.scenario ?? "europe1939", armistice: opts.armistice },
       seats: new Map(),
     }),
     playerViews: () => [
@@ -148,5 +150,24 @@ describe("a scenario's win screen", () => {
     ).toBe("The United Nations win at the armistice");
     // Won by beating the North: the plain line.
     expect(await title([])).toBe("The United Nations win");
+  });
+
+  // SCEN3 (r27): Three Kingdoms' armistice is the Mandate of Heaven.
+  it("says so in the armistice's own words (the Mandate of Heaven)", async () => {
+    modal = document.createElement("win-modal") as WinModal;
+    modal.game = makeGame("Wu", {
+      side: "Wu",
+      scenario: "threekingdoms219",
+      armistice: { minute: 60, name: "mandate" },
+      events: [{ message: "events_display.scenario_mandate_wu" }],
+    });
+    modal.eventBus = new EventBus();
+    modal.tick();
+    document.body.appendChild(modal);
+    await vi.waitFor(() => expect(modal!.isVisible).toBe(true));
+    await modal.updateComplete;
+    expect(modal.querySelector("h2")?.textContent?.trim()).toBe(
+      "Wu wins the Mandate of Heaven",
+    );
   });
 });

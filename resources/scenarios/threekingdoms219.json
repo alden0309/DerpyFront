@@ -5,6 +5,8 @@
   "year": 219,
   "nukes": false,
   "capitalFullTiles": 60000,
+  "beatenUnder": 1,
+  "armistice": { "minute": 60, "warnMinutes": 5, "name": "mandate" },
   "fronts": {
     "homeland": 1,
     "lastStand": 1.5,
@@ -85,6 +87,7 @@
       "troopsPercent": 80,
       "gold": 900000,
       "goldIncome": 0.8,
+      "cityTroopsMax": 1500000,
       "capital": [1158, 922],
       "structures": [
         { "type": "City", "at": [1267, 965] },
@@ -124,6 +127,7 @@
       "troopsPercent": 50,
       "gold": 200000,
       "goldIncome": 0.8,
+      "cityTroopsMax": 500000,
       "capital": [394, 1664],
       "structures": [
         { "type": "City", "at": [595, 1631] },

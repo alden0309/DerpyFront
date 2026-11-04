@@ -66,11 +66,20 @@ export interface ScenarioData {
   nukePrice?: number;
   /**
    * SCEN3 (r27): the war ends at `minute` (the map's minute: half, rounded
-   * up, on a Compact map, like the goals): the side holding more land wins,
-   * as at Korea's 1953 armistice. Everyone hears of the talks `warnMinutes`
-   * before (default 5), and a countdown shows from then.
+   * up, on a Compact map, like the goals): the side holding the most land
+   * wins, as at Korea's 1953 armistice. Everyone hears of it `warnMinutes`
+   * before (default 5), and a countdown shows from then. `name` picks the
+   * words (ArmisticeName): Korea's armistice, or Three Kingdoms' Mandate of
+   * Heaven passing to the kingdom holding the most land.
    */
-  armistice?: { minute: number; warnMinutes?: number };
+  armistice?: { minute: number; warnMinutes?: number; name?: ArmisticeName };
+  /**
+   * SCEN3 (r27): a side holding under this percent of the land counts as
+   * beaten (ScenarioRules.scenarioWinner). Default: 0.2% (SIDE_OUT_DIVISOR),
+   * a leftover fort or islet. Three Kingdoms: 1, so a kingdom down to a
+   * corner doesn't hold the war up.
+   */
+  beatenUnder?: number;
   sides: ScenarioSide[];
   nations: ScenarioNation[];
   /**
@@ -226,6 +235,20 @@ const ALL: Record<string, ScenarioData> = {
   ww1914: ww1914 as unknown as ScenarioData,
   korea1950: korea1950 as unknown as ScenarioData,
 };
+
+/**
+ * SCEN3 (r27): the words a scenario's armistice uses, the middle of its keys
+ * (`events_display.scenario_<name>_talks` and `..._<side>`,
+ * `heads_up_message.scenario_<name>`, `scenarios.win_<name>.<side>`).
+ */
+export type ArmisticeName = "armistice" | "mandate";
+
+/** SCEN3 (r27): the words scenario `data`'s armistice uses (default "armistice"). */
+export function armisticeName(
+  data: Pick<ScenarioData, "armistice">,
+): ArmisticeName {
+  return data.armistice?.name ?? "armistice";
+}
 
 /**
  * SCEN3 (r27): when a scenario's armistice ends the war (`at`), and when its

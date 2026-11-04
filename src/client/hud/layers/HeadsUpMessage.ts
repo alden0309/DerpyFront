@@ -5,7 +5,10 @@ import {
   RankedType,
 } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
-import { armisticeTicks } from "@openfront/engine-lib/scenario/ScenarioData";
+import {
+  armisticeName,
+  armisticeTicks,
+} from "@openfront/engine-lib/scenario/ScenarioData";
 import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { Controller } from "../../Controller";
@@ -282,10 +285,15 @@ export class HeadsUpMessage extends LitElement implements Controller {
     return Math.max(0, Math.ceil((a.at - t) / 10));
   }
 
-  /** SCEN3 (r27): "Armistice in 4:12. Whoever holds more ground wins". */
+  /**
+   * SCEN3 (r27): "Armistice in 4:12. Whoever holds more ground wins" (Three
+   * Kingdoms: "Mandate of Heaven in 4:12...", by the armistice's name).
+   */
   private armisticeMessage(): string {
     const s = this.armisticeLeft!;
-    return translateText("heads_up_message.scenario_armistice", {
+    const roster = this.game.scenario();
+    const name = roster === null ? "armistice" : armisticeName(roster.data);
+    return translateText(`heads_up_message.scenario_${name}`, {
       time: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`,
     });
   }

@@ -5,6 +5,7 @@ import {
   WinUpdate,
 } from "@openfront/engine-api/game/GameUpdates";
 import { renderNumber } from "@openfront/engine-lib/Format";
+import { armisticeName } from "@openfront/engine-lib/scenario/ScenarioData"; // SCEN3 (r27)
 import {
   GOAL_COINS,
   goalPaysOn,
@@ -957,19 +958,22 @@ export class WinModal extends LitElement implements Controller {
         }
         // SCEN (r25): a scenario's side wins together, by name ("The
         // Allies win"), with everyone who was on it.
-        if ((this.game.scenario?.() ?? null) !== null) {
+        const roster = this.game.scenario?.() ?? null;
+        if (roster !== null) {
           const side = wu.winner[1];
           // SCEN3 (r27): a war ended by its armistice says so (the engine's
-          // news of it comes on the same tick as the win).
+          // news of it comes on the same tick as the win), in its own words
+          // (Three Kingdoms: the Mandate of Heaven).
+          const name = armisticeName(roster.data);
           const byArmistice = (
             updates?.[GameUpdateType.DisplayEvent] ?? []
           ).some(
             (e) =>
               e.message ===
-              `events_display.scenario_armistice_${side.toLowerCase()}`,
+              `events_display.scenario_${name}_${side.toLowerCase()}`,
           );
           this._title = byArmistice
-            ? sideArmisticeLine(side)
+            ? sideArmisticeLine(side, name)
             : sideWinLine(side);
           this.sideMembers = this.game
             .playerViews()

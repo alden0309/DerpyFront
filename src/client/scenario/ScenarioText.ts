@@ -1,4 +1,5 @@
 import type {
+  ArmisticeName,
   ScenarioData,
   ScenarioNation,
   ScenarioSide,
@@ -51,11 +52,15 @@ export function sideWinLine(side: ScenarioSide | string): string {
 
 /**
  * SCEN3 (r27): "The United Nations win at the armistice": a war ended by its
- * armistice (ScenarioData.armistice), falling back to the plain win line.
+ * armistice (ScenarioData.armistice), in the words of its `name` ("Wei wins
+ * the Mandate of Heaven"), falling back to the plain win line.
  */
-export function sideArmisticeLine(side: ScenarioSide | string): string {
+export function sideArmisticeLine(
+  side: ScenarioSide | string,
+  name: ArmisticeName = "armistice",
+): string {
   const id = typeof side === "string" ? side : side.id;
-  return tr(`scenarios.win_armistice.${id.toLowerCase()}`, sideWinLine(side));
+  return tr(`scenarios.win_${name}.${id.toLowerCase()}`, sideWinLine(side));
 }
 
 /** A side's mark for text-only lists: a coloured circle near its colour. */

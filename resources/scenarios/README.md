@@ -36,8 +36,11 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   as that side; one that never joined counts for nobody. A side with
   `winByHolding` also wins by holding that land for its `seconds` in a row
   (Korea 1950: North Korea, 2.5 minutes, with a countdown everyone sees).
-  A scenario with an `armistice` ends at its minute: the side holding more
-  land wins, a hold under way or not (Korea 1950: minute 60, as in 1953).
+  A scenario with an `armistice` ends at its minute: the side holding the
+  most land wins, a hold under way or not (Korea 1950: minute 60, as in
+  1953; Three Kingdoms: minute 60, the Mandate of Heaven). A scenario's
+  `beatenUnder` (a percent of the land) moves the 0.2% line: Three
+  Kingdoms' is 1, so a kingdom down to a corner is beaten.
   At the lobby timer, or the 170-minute limit, the side holding the most of
   its own starting land (its land now over its land at the start) wins.
   Overtime is off in scenarios: it lowers a land bar, and there is none.
@@ -67,6 +70,7 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   "capitalFullTiles": 40000, // optional, see Capitals
   "nukes": false, // optional: false before August 1945, see Nukes
   "armistice": { "minute": 60, "warnMinutes": 5 }, // optional, see Armistice
+  "beatenUnder": 1, // optional: a side under this % of the land is beaten
   "fronts": { "supplyMax": 2.5 }, // optional, see Fronts
   "rule": "korea", // optional special rule (ScenarioRules.ts)
   "sides": [{ "id": "Axis", "name": "Axis", "color": "#7d7d7d" }],
@@ -120,7 +124,16 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   (`heads_up_message.scenario_armistice`), and the end is a news line
   (`events_display.scenario_armistice_<side>`) and the win screen's
   `scenarios.win_armistice.<side>` (side in lower case). A scenario with
-  one bumps its edition (`SCENARIO_EDITION_OF`).
+  one bumps its edition (`SCENARIO_EDITION_OF`). With three sides, the one
+  still in the war holding the most land wins. `"name": "mandate"` swaps
+  the words for the period's (Three Kingdoms: the Mandate of Heaven passes
+  to the kingdom holding the most land): the keys read `mandate` where they
+  read `armistice` (`events_display.scenario_mandate_talks` and so on).
+- **beatenUnder** (optional, SCEN3 round 27): a side holding under this
+  percent of the land counts as beaten (default 0.2, `SIDE_OUT_DIVISOR`).
+  Three Kingdoms: 1. A kingdom pushed back to a corner held out there for
+  the rest of the game, its last stand and the attackers' supply lines
+  making every tile cost about eight times the usual troops.
 - **Sides:** `id` is the side's team name in the game, its key in en.json and
   the `Winner` the game records. `name` is the English name the server writes
   into the game's record. `color` marks the side wherever players are listed.

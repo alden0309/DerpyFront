@@ -235,6 +235,7 @@ describe("HeadsUpMessage scenario armistice countdown", () => {
   let element: HeadsUpMessage;
   let elapsed = 0;
   let wins: unknown[] = [];
+  let armisticeWords: string | undefined;
   let mapSize: string | undefined;
   let hold: { message: string; params?: Record<string, unknown> }[] = [];
 
@@ -250,7 +251,10 @@ describe("HeadsUpMessage scenario armistice countdown", () => {
     isCatchingUp: () => false,
     elapsedGameSeconds: () => elapsed / 10,
     scenario: () => ({
-      data: { id: "korea1950", armistice: { minute: 60, warnMinutes: 5 } },
+      data: {
+        id: "korea1950",
+        armistice: { minute: 60, warnMinutes: 5, name: armisticeWords },
+      },
       seats: new Map(),
     }),
     config: () => ({
@@ -311,6 +315,19 @@ describe("HeadsUpMessage scenario armistice countdown", () => {
     wins = [{ winner: ["team", "UnitedNations"] }];
     await at(36_010);
     expect(banner()).toBeNull();
+  });
+
+  // SCEN3 (r27): Three Kingdoms' is the Mandate of Heaven, in its words.
+  it("uses the armistice's own words (the Mandate of Heaven)", async () => {
+    armisticeWords = "mandate";
+    try {
+      await at(33_000);
+      expect(banner()?.textContent).toContain(
+        "heads_up_message.scenario_mandate 5:00",
+      );
+    } finally {
+      armisticeWords = undefined;
+    }
   });
 
   it("comes at minute 28 for minute 30 on a Compact map", async () => {

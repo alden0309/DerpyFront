@@ -263,6 +263,10 @@ export class HelpModal extends BaseModal {
             <p class="mb-2 text-white/70 text-sm" data-help-korea>
               ${translateText("help_modal.scenarios_korea")}
             </p>
+            <!-- SCEN3 (r27): Three Kingdoms' 1% line and Mandate of Heaven -->
+            <p class="mb-2 text-white/70 text-sm" data-help-three-kingdoms>
+              ${translateText("help_modal.scenarios_three_kingdoms")}
+            </p>
             <!-- DFX (r26): Random history and Random nations -->
             <p class="mb-2 text-white/70 text-sm" data-help-random-history>
               ${translateText("help_modal.scenarios_random")}
