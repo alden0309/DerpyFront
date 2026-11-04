@@ -251,7 +251,8 @@ export class UnitPass {
   private lastGameTick = -1;
   /** Wall-clock start, for uTime (seconds) — matches StructurePass so the
    *  warship/train effects animate at the same pace as the structures effect. */
-  private startTime = performance.now();
+  private timeFn: () => number = () => performance.now();
+  private startTime = this.timeFn();
 
   /** unitType string → atlas column (0-11) */
   private typeToAtlasCol = new Map<string, number>();
@@ -442,6 +443,15 @@ export class UnitPass {
     this.missileCount++;
   }
 
+  /**
+   * Clock for animation (ms). The store's effect preview (render/fxpreview)
+   * runs these passes on its own scene clock; the game keeps the wall clock.
+   */
+  setTimeFn(fn: () => number): void {
+    this.timeFn = fn;
+    this.startTime = fn();
+  }
+
   setFrameTick(frameTick: number): void {
     this.frameTick = frameTick;
   }
@@ -449,7 +459,7 @@ export class UnitPass {
   updateUnits(units: Map<number, UnitState>, gameTick: number): void {
     if (gameTick !== this.lastGameTick) {
       this.lastGameTick = gameTick;
-      this.lastUnitsUpdateMs = performance.now();
+      this.lastUnitsUpdateMs = this.timeFn();
     }
     this.groundCount = 0;
     this.missileCount = 0;
@@ -593,7 +603,7 @@ export class UnitPass {
     const us = this.settings.unit;
     gl.uniformMatrix3fv(this.uCamera, false, cameraMatrix);
     gl.uniform1f(this.uTick, this.frameTick);
-    gl.uniform1f(this.uTime, (performance.now() - this.startTime) / 1000);
+    gl.uniform1f(this.uTime, (this.timeFn() - this.startTime) / 1000);
     gl.uniform1f(this.uUnitSize, us.unitSize);
     gl.uniform1f(this.uFlickerSpeed, us.flickerSpeed);
     gl.uniform3f(this.uAngryColor, us.angryR, us.angryG, us.angryB);
@@ -653,7 +663,7 @@ export class UnitPass {
     if (segs.length === 0) return;
     const alpha = Math.min(
       1,
-      (performance.now() - this.lastUnitsUpdateMs) / this.tickIntervalMs,
+      (this.timeFn() - this.lastUnitsUpdateMs) / this.tickIntervalMs,
     );
     const f32 = this.missileBuf.float32;
     for (let i = 0; i < segs.length; i += SMOOTH_SEG_STRIDE) {

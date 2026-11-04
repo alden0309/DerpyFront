@@ -79,7 +79,8 @@ export class SpiralRibbonPass {
   private readonly colorScratch = new Float32Array(8 * 3);
   // Anchor animation time at construction (like TrailPass) so the value
   // stays small and sin()/fract() don't quantize over long sessions.
-  private readonly startTime = performance.now();
+  private timeFn: () => number = () => performance.now();
+  private startTime = this.timeFn();
 
   constructor(gl: WebGL2RenderingContext, settings: RenderSettings) {
     this.gl = gl;
@@ -127,6 +128,15 @@ export class SpiralRibbonPass {
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
+  }
+
+  /**
+   * Clock for animation (ms). The store's effect preview (render/fxpreview)
+   * runs these passes on its own scene clock; the game keeps the wall clock.
+   */
+  setTimeFn(fn: () => number): void {
+    this.timeFn = fn;
+    this.startTime = fn();
   }
 
   /**
@@ -318,7 +328,7 @@ export class SpiralRibbonPass {
     gl.uniformMatrix3fv(this.uCamera, false, cameraMatrix);
     gl.uniform1i(this.uCorePass, corePass);
     gl.uniform1f(this.uHalfWidth, halfWidth);
-    gl.uniform1f(this.uTime, (performance.now() - this.startTime) / 1000);
+    gl.uniform1f(this.uTime, (this.timeFn() - this.startTime) / 1000);
     gl.uniform1f(this.uTrailAlpha, this.settings.mapOverlay.trailAlpha);
 
     for (const r of this.ribbons) {

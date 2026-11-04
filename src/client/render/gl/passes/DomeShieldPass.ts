@@ -77,7 +77,8 @@ export class DomeShieldPass {
   private range: number;
   private instanceCount = 0;
   private hasBlocked = false;
-  private readonly startTime = performance.now();
+  private timeFn: () => number = () => performance.now();
+  private startTime = this.timeFn();
 
   private localPlayerID = 0;
   private allies: ReadonlySet<number> = new Set();
@@ -180,6 +181,15 @@ export class DomeShieldPass {
     attrib(5 + DOME_MAX_NEIGHBORS, 4, STYLE_OFFSET + 4); // accent + speed
 
     gl.bindVertexArray(null);
+  }
+
+  /**
+   * Clock for animation (ms). The store's effect preview (render/fxpreview)
+   * runs these passes on its own scene clock; the game keeps the wall clock.
+   */
+  setTimeFn(fn: () => number): void {
+    this.timeFn = fn;
+    this.startTime = fn();
   }
 
   /** DFSTORE (r21): a player's Dome style (0 for the plain shield). */
@@ -339,7 +349,7 @@ export class DomeShieldPass {
     gl.uniform1f(this.uBlockedFill, s.blockedFill);
     gl.uniform1f(this.uBlockedRing, s.blockedRing);
     gl.uniform1f(this.uBlockedPulse, this.hasBlocked ? s.blockedPulse : 0);
-    gl.uniform1f(this.uTime, (performance.now() - this.startTime) / 1000);
+    gl.uniform1f(this.uTime, (this.timeFn() - this.startTime) / 1000);
 
     gl.bindVertexArray(this.vao);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.instanceCount);

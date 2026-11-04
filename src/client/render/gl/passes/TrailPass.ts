@@ -36,7 +36,8 @@ export class TrailPass {
   private altView = false;
   // Anchor animation time at construction (like NukeTelegraphPass/SamRadiusPass)
   // so the value stays small and sin()/fract() don't quantize over long sessions.
-  private readonly startTime = performance.now();
+  private timeFn: () => number = () => performance.now();
+  private startTime = this.timeFn();
 
   private trailsDirty = false;
 
@@ -92,6 +93,15 @@ export class TrailPass {
     gl.uniform1i(gl.getUniformLocation(this.program, "uEffect"), 3);
 
     this.vao = createMapQuad(gl, mapW, mapH);
+  }
+
+  /**
+   * Clock for animation (ms). The store's effect preview (render/fxpreview)
+   * runs these passes on its own scene clock; the game keeps the wall clock.
+   */
+  setTimeFn(fn: () => number): void {
+    this.timeFn = fn;
+    this.startTime = fn();
   }
 
   setAltView(active: boolean): void {
@@ -183,7 +193,7 @@ export class TrailPass {
     gl.uniformMatrix3fv(this.uCamera, false, cameraMatrix);
     gl.uniform2f(this.uMapSize, this.mapW, this.mapH);
     gl.uniform1f(this.uTrailAlpha, this.settings.mapOverlay.trailAlpha);
-    gl.uniform1f(this.uTime, (performance.now() - this.startTime) / 1000);
+    gl.uniform1f(this.uTime, (this.timeFn() - this.startTime) / 1000);
     gl.uniform1i(this.uAltView, this.altView ? 1 : 0);
 
     gl.activeTexture(gl.TEXTURE0);
