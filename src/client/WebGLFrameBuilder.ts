@@ -8,9 +8,9 @@ import {
   type NukeExplosionAttributes,
 } from "@openfront/shared/CosmeticSchemas";
 import {
-  DERPY_DOME_STYLES,
-  domeBurstAttributes,
   domeStyleIndex,
+  findFxTheme,
+  fxThemeOfEffect,
 } from "@openfront/shared/DerpyFx";
 import { getCachedCosmetics } from "./Cosmetics";
 import { buildTerrainRowSpans } from "./render/frame/derive/TerrainRowSpans";
@@ -27,6 +27,8 @@ import {
 import type { PaletteEffectAttributes } from "./render/gl/utils/EffectPalette";
 import {
   attributesToExplosionParams,
+  derpyDomeBurstParams,
+  derpyExplosionParams,
   UNIT_TYPE_TO_NUKE_TYPE,
 } from "./render/gl/utils/ExplosionParams";
 import {
@@ -242,15 +244,19 @@ export class WebGLFrameBuilder {
       if (!name) continue;
       const effect = findEffectForSlot(catalog, nukeType, name);
       if (!effect || !isNukeExplosionEffect(effect)) continue;
-      du.explosion = attributesToExplosionParams(effect.attributes);
+      // FX (r28): a Derp Store pack's burst is its layered one.
+      const theme = fxThemeOfEffect(name);
+      du.explosion = theme
+        ? derpyExplosionParams(theme, nukeType)
+        : attributesToExplosionParams(effect.attributes);
     }
   }
 
   /**
    * DFSTORE (r21): a nuke that died short of its target inside a Dome of
-   * Alden that isn't its owner's was stopped by that Dome. When the Dome's
-   * owner wears a Derp Store Dome style, its burst plays over the spot (on
-   * top of the usual interception puff).
+   * Alden that isn't its owner's was stopped by that Dome: the shield
+   * ripples where it hit (FX r28), and when the Dome's owner wears a Derp
+   * Store Dome style, that pack's burst plays over the spot.
    */
   private resolveDomeBursts(
     gameView: GameView,
@@ -278,6 +284,7 @@ export class WebGLFrameBuilder {
           (d.x - x) ** 2 + (d.y - y) ** 2 <= range2,
       );
       if (keeper === undefined) continue;
+      du.domeStop = true;
       let owner: ReturnType<GameView["playerBySmallID"]>;
       try {
         owner = gameView.playerBySmallID(keeper.ownerID);
@@ -285,9 +292,9 @@ export class WebGLFrameBuilder {
         continue;
       }
       if (!owner.isPlayer()) continue;
-      const style = DERPY_DOME_STYLES.get(owner.cosmetics.derpyDome ?? "");
-      if (style === undefined) continue;
-      du.explosion = attributesToExplosionParams(domeBurstAttributes(style));
+      const theme = findFxTheme(owner.cosmetics.derpyDome ?? "");
+      if (theme === undefined) continue;
+      du.explosion = derpyDomeBurstParams(theme);
     }
   }
 

@@ -20,9 +20,11 @@ uniform float uRadius;    // helix amplitude, tiles
 uniform float uTwist;     // helix phase advance, radians per tile
 uniform float uPhase0;    // this strand's phase offset around the axis
 uniform float uHalfWidth; // strip half-width, tiles (covers core + glow)
+uniform float uTail;      // FX (r28): tiles over which the strands taper
 
 out float vTheta;   // helix angle at this point (un-spun)
 out float vLateral; // signed distance from the strand centerline, tiles
+out float vTaper;   // FX (r28): 1 at the head, falling toward the tail
 
 const float HALF_PI = 1.57079632679;
 
@@ -44,9 +46,12 @@ void main() {
   vec2 tangent = dir + aPerp * offDeriv; // never zero: |dir|=1, aPerp ⊥ dir
   vec2 n = normalize(vec2(-tangent.y, tangent.x));
 
-  vec2 world = aCenter + aPerp * off + n * (aSide * uHalfWidth);
+  // FX (r28): strands thin and fade away behind the head — a tapered tail.
+  float taper = mix(0.4, 1.0, exp(-max(0.0, uHeadDist - aDist) / uTail));
+  vec2 world = aCenter + aPerp * off + n * (aSide * uHalfWidth * taper);
   vec3 clip = uCamera * vec3(world, 1.0);
   gl_Position = vec4(clip.xy, 0.0, 1.0);
   vTheta = theta;
   vLateral = aSide * uHalfWidth;
+  vTaper = taper;
 }

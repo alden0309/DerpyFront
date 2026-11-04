@@ -20,7 +20,8 @@ import {
   type DomeShieldCircle,
   type DomeShieldKind,
 } from "../../frame/derive/DomeShields";
-import type { UnitState } from "../../types";
+import type { DeadUnitFx, UnitState } from "../../types";
+import { UT_ATOM_BOMB, UT_HYDROGEN_BOMB } from "../../types/UnitType";
 import { DynamicInstanceBuffer } from "../DynamicBuffer";
 import type { RenderSettings } from "../RenderSettings";
 import { createProgram } from "../utils/GlUtils";
@@ -66,6 +67,23 @@ const STYLE_DATA: readonly {
  */
 const MAX_PAD = 12;
 
+/** FX (r28): how far a styled shield's halo reaches outside it, world units. */
+const HALO = 6;
+/** FX (r28): strikes remembered at once (uImpacts in the shader). */
+const MAX_IMPACTS = 8;
+/** FX (r28): how long a strike's ripple runs, seconds. */
+const IMPACT_SEC = 1.8;
+
+/**
+ * FX (r28): how far a bomb's blast reaches a shield it lands next to, world
+ * units (the outer blast radius; a Dome stops it at its edge). MIRV warheads
+ * come by the hundred and only ripple a shield when one stops them.
+ */
+const BLAST_REACH: Readonly<Record<string, number>> = {
+  [UT_ATOM_BOMB]: 30,
+  [UT_HYDROGEN_BOMB]: 100,
+};
+
 export class DomeShieldPass {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram;
@@ -87,6 +105,11 @@ export class DomeShieldPass {
   private lastStructures: Map<number, UnitState> | null = null;
   /** DFSTORE (r21): owners' Dome styles (smallID → domeStyleIndex). */
   private styles = new Map<number, number>();
+  /** FX (r28): the shields as last uploaded (to tell which a strike hits). */
+  private circles: DomeShieldCircle[] = [];
+  /** FX (r28): recent strikes, x, y, start (s), reach — newest last. */
+  private readonly impacts = new Float32Array(MAX_IMPACTS * 4);
+  private impactCount = 0;
 
   private uCamera: WebGLUniformLocation;
   private uPad: WebGLUniformLocation;
@@ -103,6 +126,9 @@ export class DomeShieldPass {
   private uBlockedRing: WebGLUniformLocation;
   private uBlockedPulse: WebGLUniformLocation;
   private uTime: WebGLUniformLocation;
+  private uImpacts: WebGLUniformLocation;
+  private uImpactCount: WebGLUniformLocation;
+  private uHalo: WebGLUniformLocation;
 
   /**
    * @param range config().domeRange(), in tiles.
@@ -135,6 +161,9 @@ export class DomeShieldPass {
     this.uBlockedRing = u("uBlockedRing");
     this.uBlockedPulse = u("uBlockedPulse");
     this.uTime = u("uTime");
+    this.uImpacts = u("uImpacts");
+    this.uImpactCount = u("uImpactCount");
+    this.uHalo = u("uHalo");
 
     this.vao = gl.createVertexArray()!;
     gl.bindVertexArray(this.vao);
@@ -261,7 +290,62 @@ export class DomeShieldPass {
     return [0, 1, 2].map((i) => p[off + i] + (1 - p[off + i]) * 0.35);
   }
 
+  private sec(): number {
+    return (this.timeFn() - this.startTime) / 1000;
+  }
+
+  /**
+   * FX (r28): nukes that died this tick. One a Dome stopped ripples across
+   * that shield from where it hit; an atom or hydrogen bomb going off beside
+   * a shield ripples it where the blast meets it.
+   */
+  applyDeadUnits(deadUnits: readonly DeadUnitFx[]): void {
+    if (this.circles.length === 0) return;
+    for (const du of deadUnits) {
+      const x = (du.pos % this.mapW) + 0.5;
+      const y = Math.floor(du.pos / this.mapW) + 0.5;
+      if (du.domeStop) {
+        this.addImpact(x, y, this.range * 1.15);
+        continue;
+      }
+      const reach = du.reachedTarget ? BLAST_REACH[du.unitType] : undefined;
+      if (reach === undefined) continue;
+      if (this.touchesShield(x, y, reach)) this.addImpact(x, y, reach * 2.2);
+    }
+  }
+
+  private touchesShield(x: number, y: number, reach: number): boolean {
+    for (const c of this.circles) {
+      if (c.building) continue;
+      const r = c.radius + reach;
+      if ((c.x - x) ** 2 + (c.y - y) ** 2 <= r * r) return true;
+    }
+    return false;
+  }
+
+  private addImpact(x: number, y: number, reach: number): void {
+    const now = this.sec();
+    // Forget strikes whose ripple has run its course, then drop the oldest
+    // if still full.
+    let n = 0;
+    for (let i = 0; i < this.impactCount; i++) {
+      if (now - this.impacts[i * 4 + 2] > IMPACT_SEC) continue;
+      this.impacts.copyWithin(n * 4, i * 4, i * 4 + 4);
+      n++;
+    }
+    if (n === MAX_IMPACTS) {
+      this.impacts.copyWithin(0, 4, MAX_IMPACTS * 4);
+      n--;
+    }
+    this.impacts[n * 4] = x;
+    this.impacts[n * 4 + 1] = y;
+    this.impacts[n * 4 + 2] = now;
+    this.impacts[n * 4 + 3] = reach;
+    this.impactCount = n + 1;
+  }
+
   private upload(circles: DomeShieldCircle[]): void {
+    this.circles = circles;
     this.instanceBuf.ensureCapacity(Math.max(1, circles.length));
     const data = this.instanceBuf.float32;
     this.hasBlocked = false;
@@ -332,7 +416,8 @@ export class DomeShieldPass {
       MAX_PAD / 2,
       Math.max(s.ringWidth, s.ringMinPx * px) / 2,
     );
-    const pad = Math.min(MAX_PAD, ringHalf + 2 * px);
+    // FX (r28): room for a styled shield's halo.
+    const pad = Math.min(MAX_PAD, ringHalf + 2 * px + HALO);
 
     gl.useProgram(this.program);
     gl.uniformMatrix3fv(this.uCamera, false, cameraMatrix);
@@ -349,7 +434,10 @@ export class DomeShieldPass {
     gl.uniform1f(this.uBlockedFill, s.blockedFill);
     gl.uniform1f(this.uBlockedRing, s.blockedRing);
     gl.uniform1f(this.uBlockedPulse, this.hasBlocked ? s.blockedPulse : 0);
-    gl.uniform1f(this.uTime, (this.timeFn() - this.startTime) / 1000);
+    gl.uniform1f(this.uTime, this.sec());
+    gl.uniform4fv(this.uImpacts, this.impacts);
+    gl.uniform1i(this.uImpactCount, this.impactCount);
+    gl.uniform1f(this.uHalo, HALO);
 
     gl.bindVertexArray(this.vao);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.instanceCount);

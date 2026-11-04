@@ -347,7 +347,12 @@ export class FxSpritePass {
    * Spawn sprite FX for a dead unit. Returns the nuke radius if a nuke
    * exploded (so the orchestrator can also spawn a shockwave), or null.
    */
-  spawnFxForUnit(unit: DeadUnitFx, now: number): void {
+  /**
+   * The sprites for a unit that died. FX (r28): `groundOnly` keeps a nuke's
+   * scattered ground debris but leaves out its explosion sprite — a Derp
+   * Store pack's layered burst (FxBurstPass) draws the blast itself.
+   */
+  spawnFxForUnit(unit: DeadUnitFx, now: number, groundOnly = false): void {
     const typeName = unit.unitType;
     const x = unit.pos % this.mapW;
     const y = (unit.pos - x) / this.mapW;
@@ -355,8 +360,8 @@ export class FxSpritePass {
     const nukeRadius = nukeExplosionRadius(this.settings.fx, typeName);
     if (nukeRadius !== undefined) {
       if (unit.reachedTarget) {
-        this.spawnNukeSprites(x, y, nukeRadius, now, unit.pos);
-      } else {
+        this.spawnNukeSprites(x, y, nukeRadius, now, unit.pos, !groundOnly);
+      } else if (!groundOnly) {
         this.pushFx(x, y, FX_SAM_EXPLOSION, now);
       }
       return;
@@ -389,8 +394,9 @@ export class FxSpritePass {
     radius: number,
     now: number,
     pos: number,
+    withBlast = true,
   ): void {
-    this.pushFx(x, y, FX_NUKE, now);
+    if (withBlast) this.pushFx(x, y, FX_NUKE, now);
 
     let debrisIdx = 0;
     const densityScale = this.settings.fx.debrisDensity;

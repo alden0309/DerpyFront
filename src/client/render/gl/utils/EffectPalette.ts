@@ -17,6 +17,7 @@ import type {
   TrailEffectAttributes,
 } from "@openfront/shared/CosmeticSchemas";
 import { colord } from "colord";
+import type { SpiralParams } from "../../frame/SpiralTrails";
 import { MAX_TRAIL_COLORS } from "./ColorUtils";
 
 /** Catalog attributes of every effect that renders through the effect palette. */
@@ -76,4 +77,46 @@ export function packEffectEntry(
     out[off + 2] = c ? c[2] : 0;
     out[off + 3] = alphas[r] ?? 0;
   }
+}
+
+/**
+ * The ribbon a nukeTrail cosmetic grows (SpiralTrails → SpiralRibbonPass),
+ * or null for none. Spirals render their vortex as ribbon geometry; FX (r28)
+ * gradient and transition trails get a ribbon too, without the helix, for
+ * their glow, smooth core line and shed sparks. The colours are parsed here
+ * so a list that doesn't parse at all falls back to the plain stamped trail.
+ */
+export function nukeTrailRibbon(
+  attrs: PaletteEffectAttributes | undefined,
+): SpiralParams | null {
+  if (attrs === undefined) return null;
+  if (
+    attrs.type !== "spiral" &&
+    attrs.type !== "gradient" &&
+    attrs.type !== "transition"
+  ) {
+    return null;
+  }
+  const colors = parseEffectColors(attrs.colors);
+  if (colors.length === 0) return null;
+  if (attrs.type === "spiral") {
+    return {
+      radius: attrs.radius,
+      strands: attrs.strands,
+      rotationSpeed: attrs.rotationSpeed,
+      colors,
+      helix: true,
+      style: 2,
+    };
+  }
+  return {
+    radius: 0,
+    strands: 1,
+    rotationSpeed: 0,
+    colors,
+    helix: false,
+    style: attrs.type === "gradient" ? 0 : 1,
+    scalar0: attrs.type === "gradient" ? attrs.colorSize : attrs.frequency,
+    scalar1: attrs.type === "gradient" ? attrs.movementSpeed : 0,
+  };
 }

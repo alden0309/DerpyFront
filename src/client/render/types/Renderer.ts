@@ -143,6 +143,11 @@ export interface DeadUnitFx {
   explosion?: NukeExplosionRenderParams;
   /** Ticks since the event occurred (0 = this frame, >0 = seeked past it). */
   tickAge?: number;
+  /**
+   * FX (r28): the nuke was stopped by a Dome of Alden (set by
+   * WebGLFrameBuilder.resolveDomeBursts), so the shield it hit ripples.
+   */
+  domeStop?: boolean;
 }
 
 /**
@@ -176,6 +181,12 @@ interface NukeExplosionRenderParamsBase {
   speed: number;
   thickness?: number;
   transitionSpeed: number;
+  /**
+   * FX (r28): a Derp Store pack's index (fxThemeIndex, 1-based). Set, the
+   * burst is that pack's layered one (FxBurstPass) instead of the flat
+   * shockwave styles above.
+   */
+  look?: number;
 }
 
 export type NukeExplosionRenderParams =

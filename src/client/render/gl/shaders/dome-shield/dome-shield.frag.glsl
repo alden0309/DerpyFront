@@ -34,6 +34,11 @@ uniform float uBlockedFill;  // fill multiplier for shields that stop your nuke
 uniform float uBlockedRing;  // ring multiplier for them
 uniform float uBlockedPulse; // their pulse amplitude
 uniform float uTime;
+// FX (r28): strikes on the shields, newest last: x, y (world), start time
+// (s, uTime's clock), and how far the ripple may run (world units).
+uniform vec4 uImpacts[8];
+uniform int uImpactCount;
+uniform float uHalo; // world units a styled shield's glow reaches outside it
 
 out vec4 fragColor;
 
@@ -59,43 +64,107 @@ float hash21(vec2 p) {
   return fract(p.x * p.y);
 }
 
-// DFSTORE (r21): the style's shimmer at this pixel, 0..1. Cheap patterns in
-// world space, so they hold still under the camera.
+float vnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash21(i), hash21(i + vec2(1, 0)), u.x),
+             mix(hash21(i + vec2(0, 1)), hash21(i + vec2(1, 1)), u.x), u.y);
+}
+
+// DFSTORE (r21), reworked in FX (r28): the style's surface pattern at this
+// pixel, 0..1. Patterns sit in world space, so they hold still under the
+// camera, and stay subtle: the shield must still read as a shield.
 float shimmer(float code, float speed) {
   float t = uTime * speed;
   vec2 rel = vWorld - vCircle.xy;
   if (code < 1.5) {
-    // hex: a honeycomb whose cells light up as a sweep passes.
+    // hex: a frozen honeycomb lattice; cells frost over and clear, and the
+    // lattice's corners glint.
     vec2 q = vWorld / 4.0;
     vec2 a = mod(q, vec2(1.0, 1.732)) - vec2(0.5, 0.866);
     vec2 b = mod(q - vec2(0.5, 0.866), vec2(1.0, 1.732)) - vec2(0.5, 0.866);
     vec2 g = dot(a, a) < dot(b, b) ? a : b;
-    float edge = smoothstep(0.38, 0.48, max(abs(g.x) * 0.866 + abs(g.y) * 0.5, abs(g.y)));
-    float sweep = 0.5 + 0.5 * sin(rel.x * 0.08 + rel.y * 0.05 - t * 1.6);
-    return edge * (0.35 + 0.65 * sweep);
+    float hexd = max(abs(g.x) * 0.866 + abs(g.y) * 0.5, abs(g.y));
+    float edge = smoothstep(0.40, 0.49, hexd);
+    vec2 cid = floor(q - g);
+    float h = hash21(cid);
+    float frost = smoothstep(0.6, 1.0, sin(t * (0.6 + h) + h * 30.0)) * 0.45;
+    float corner = smoothstep(0.47, 0.5, length(g)) * pow(max(0.0, sin(t * 2.0 + h * 50.0)), 8.0);
+    return clamp(edge * 0.75 + frost + corner, 0.0, 1.0);
   }
   if (code < 2.5) {
-    // ripple: rings spreading out from the Dome.
+    // ripple: heat rippling out from the Dome, wavering like air over a
+    // furnace.
     float d = length(rel);
-    return pow(0.5 + 0.5 * sin(d * 0.45 - t * 2.5), 3.0);
+    float n = vnoise(vWorld * 0.08 + vec2(0.0, -t * 0.6));
+    float w = sin(d * 0.42 - t * 2.4 + n * 3.0);
+    return pow(0.5 + 0.5 * w, 4.0) * (0.6 + 0.4 * n);
   }
   if (code < 3.5) {
-    // sparkle: cells that twinkle in their own time.
+    // sparkle: glitter that twinkles in its own time over faint candy
+    // stripes.
     vec2 cell = floor(vWorld / 3.0);
+    vec2 cp = fract(vWorld / 3.0) - 0.5;
     float h = hash21(cell);
-    float tw = 0.5 + 0.5 * sin(t * (2.0 + 3.0 * h) + h * 40.0);
-    return step(0.82, h) * pow(tw, 4.0);
+    float tw = pow(max(0.0, sin(t * (2.0 + 3.0 * h) + h * 40.0)), 6.0);
+    float star = max(exp(-abs(cp.x) * 14.0) * exp(-abs(cp.y) * 3.0),
+                     exp(-abs(cp.y) * 14.0) * exp(-abs(cp.x) * 3.0));
+    float stripe = smoothstep(0.7, 1.0, sin((rel.x + rel.y) * 0.25 - t * 0.8)) * 0.25;
+    return clamp(step(0.78, h) * tw * (0.4 + star * 1.6) + stripe, 0.0, 1.0);
   }
   if (code < 4.5) {
-    // aurora: soft bands drifting across the shield.
+    // aurora: soft curtains of light drifting across, with stars behind.
     float band = sin(rel.x * 0.07 + 2.0 * sin(rel.y * 0.04 + t * 0.7) + t);
-    return smoothstep(0.2, 1.0, band) * 0.8;
+    float band2 = sin(rel.y * 0.09 - 1.5 * sin(rel.x * 0.05 - t * 0.5) - t * 0.8);
+    float aur = smoothstep(0.3, 1.0, band) * 0.75 + smoothstep(0.5, 1.0, band2) * 0.45;
+    vec2 cell = floor(vWorld / 2.5);
+    float h = hash21(cell + 7.0);
+    float star = step(0.93, h) * (0.5 + 0.5 * sin(t * 3.0 + h * 60.0)) *
+                 (1.0 - smoothstep(0.0, 0.3, length(fract(vWorld / 2.5) - 0.5)));
+    return clamp(aur + star, 0.0, 1.0);
   }
-  // scan: a bright line gleaming slowly across, like polished metal.
-  float span = vCircle.z * 2.0;
-  float pos = mod(t * vCircle.z * 0.6, span * 1.6) - span * 0.8;
-  float gleam = exp(-pow((rel.x + rel.y * 0.5 - pos) / 3.0, 2.0));
-  return gleam;
+  if (code < 5.5) {
+    // scan: polished gold, finely engraved, with a bright gleam sliding
+    // slowly across.
+    float span = vCircle.z * 2.0;
+    float pos = mod(t * vCircle.z * 0.6, span * 1.6) - span * 0.8;
+    float gleam = exp(-pow((rel.x + rel.y * 0.5 - pos) / 3.0, 2.0));
+    float engr = smoothstep(0.85, 1.0, sin(length(rel) * 1.1)) * 0.22;
+    return clamp(gleam + engr, 0.0, 1.0);
+  }
+  // bubble: toxic bubbles welling up through the shield and popping.
+  vec2 q = vWorld / 6.0 + vec2(0.0, t * 0.35);
+  vec2 cell = floor(q);
+  vec2 cp = fract(q) - 0.5;
+  float h = hash21(cell + 3.0);
+  float ph = fract(t * (0.35 + 0.4 * h) + h * 9.0);
+  vec2 c = (vec2(h, fract(h * 17.0)) - 0.5) * 0.35;
+  float r = 0.08 + 0.3 * ph;
+  float ring = 1.0 - smoothstep(0.0, 0.06, abs(length(cp - c) - r));
+  float goo = vnoise(vWorld * 0.06 + vec2(t * 0.1, t * 0.25)) * 0.35;
+  return clamp(ring * step(0.35, h) * (1.0 - ph) * 1.4 + goo, 0.0, 1.0);
+}
+
+// FX (r28): how strongly strikes ripple the shield here, 0..~1.5.
+float impactRipple() {
+  float rip = 0.0;
+  for (int i = 0; i < 8; i++) {
+    if (i >= uImpactCount) break;
+    vec4 im = uImpacts[i];
+    float age = uTime - im.z;
+    if (age < 0.0 || age > 1.8) continue;
+    float dd = length(vWorld - im.xy);
+    float front = age * 90.0;
+    float reach = 1.0 - smoothstep(im.w * 0.75, im.w, front);
+    float w = 2.5 + age * 5.0;
+    float wave = exp(-pow((dd - front) / w, 2.0)) * pow(1.0 - age / 1.8, 1.6) * reach;
+    // A second, fainter ring chasing the first.
+    float wave2 = exp(-pow((dd - front * 0.7) / (w * 0.8), 2.0)) * pow(1.0 - age / 1.8, 2.0) * 0.45 * reach;
+    float flash = exp(-dd * dd / 300.0) * max(0.0, 1.0 - age / 0.35);
+    rip += wave + wave2 + flash;
+  }
+  return rip;
 }
 
 void main() {
@@ -140,12 +209,43 @@ void main() {
   // DFSTORE (r21): a Derp Store Dome style colours the fill and adds its
   // shimmer; the ring keeps the shield's meaning (yours, an ally's, a foe's,
   // or the one stopping your aim). A shield that stops your aim stays plain.
+  // FX (r28): styled shields also glow at the edge (brightest where the
+  // dome curves away, like light through glass), catch an occasional sweep
+  // of light, and throw a soft halo outside.
   vec3 fillRGB = vColor.rgb;
   float shimmerCode = vStyle.w;
-  if (shimmerCode > 0.5 && building < 0.5 && blocked < 0.5) {
+  bool styled = shimmerCode > 0.5 && building < 0.5 && blocked < 0.5;
+  float inside = 1.0 - smoothstep(-aa, aa, s);
+  if (styled) {
     float sh = shimmer(shimmerCode, vAccent.w);
-    fillRGB = mix(vStyle.rgb, vAccent.rgb, sh);
-    fillA = min(1.0, fillA * (1.15 + 0.9 * sh));
+    float edge = max(-s, 0.0);
+    float fres = exp(-edge / max(uRimWidth * 0.3, 1.0));
+    float fresWide = exp(-edge / uRimWidth);
+    vec2 rel = vWorld - vCircle.xy;
+    float hc = hash21(floor(vCircle.xy));
+    float period = 7.0 + 3.0 * hc;
+    float ph = mod(uTime * vAccent.w + hc * period, period);
+    float along = dot(rel / vCircle.z, normalize(vec2(1.0, 0.45)));
+    float sweepPos = ph / 1.6 * 2.6 - 1.3;
+    float sweep = ph < 1.6 ? exp(-pow((along - sweepPos) / 0.09, 2.0)) : 0.0;
+    float glow = clamp(sh * 0.75 + fres * 0.7 + sweep, 0.0, 1.0);
+    fillRGB = mix(vStyle.rgb, vAccent.rgb, glow);
+    fillA = inside * (uFillAlpha * 1.1 + uRimAlpha * fresWide * 0.8 +
+                      fres * 0.38 + sh * 0.12 + sweep * 0.3);
+    // The halo just outside the shield's edge.
+    float halo = (1.0 - inside) * exp(-max(s, 0.0) / max(uHalo * 0.4, 0.5)) *
+                 (1.0 - smoothstep(uHalo * 0.6, uHalo, s)) * 0.3;
+    fillA += halo;
+  }
+  if (building < 0.5) {
+    float rip = impactRipple();
+    if (rip > 0.001) {
+      vec3 rc = styled ? vAccent.rgb : mix(vColor.rgb, vec3(1.0), 0.5);
+      float r = clamp(rip, 0.0, 1.0);
+      fillRGB = mix(fillRGB, rc, r);
+      fillA = max(fillA, inside * (0.08 + 0.5 * r));
+      ringA = min(1.0, ringA * (1.0 + 1.5 * r));
+    }
   }
 
   float alpha = (ringA + fillA * (1.0 - ringA)) * vColor.a;

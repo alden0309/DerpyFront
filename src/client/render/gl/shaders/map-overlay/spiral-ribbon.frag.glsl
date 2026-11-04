@@ -23,6 +23,7 @@ uniform int uCorePass;     // 1 = full-res core, 0 = low-res glow halo
 
 in float vTheta;
 in float vLateral;
+in float vTaper; // FX (r28): 1 at the head, falling toward the tail
 out vec4 fragColor;
 
 const float TAU = 6.28318530718;
@@ -55,13 +56,14 @@ void main() {
     // White-hot center, strongest on segments facing the viewer.
     float hot = (1.0 - smoothstep(0.0, RIB_IN, d)) * mix(0.15, 0.55, depth);
     vec3 color = mix(base, vec3(1.0), hot);
-    float a = min(uTrailAlpha * CORE_ALPHA_BOOST, 1.0) * core;
+    float a = min(uTrailAlpha * CORE_ALPHA_BOOST, 1.0) * core *
+              mix(0.45, 1.0, vTaper);
     fragColor = vec4(color, a); // straight alpha — scene default blending
   } else {
     float glowFall = 1.0 - smoothstep(0.0, GLOW_OUT, d);
     float glow = GLOW_STRENGTH * glowFall * glowFall;
     if (glow <= 0.003) discard;
-    float a = uTrailAlpha * glow;
+    float a = uTrailAlpha * glow * vTaper;
     fragColor = vec4(base * a, a); // premultiplied — halo buffer
   }
 }

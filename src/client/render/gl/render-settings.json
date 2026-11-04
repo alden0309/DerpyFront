@@ -261,7 +261,8 @@
     "nukeRadiusAtom": 70,
     "nukeRadiusHydro": 160,
     "nukeRadiusMirv": 70,
-    "debrisDensity": 1
+    "debrisDensity": 1,
+    "burstDetail": "full"
   },
   "nukeTrajectory": {
     "lineWidth": 2.5,

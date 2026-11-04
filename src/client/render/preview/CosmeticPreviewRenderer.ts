@@ -473,7 +473,7 @@ export class CosmeticPreviewRenderer {
     }
     if (snapshot.spiralRibbons.length > 0) {
       this.spiralPass.updateRibbons(snapshot.spiralRibbons);
-      this.spiralPass.draw(camMat);
+      this.spiralPass.draw(camMat, this.camera.zoom);
     }
   }
 

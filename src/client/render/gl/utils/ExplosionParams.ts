@@ -12,6 +12,7 @@ import {
   type DerpyFxTheme,
   domeBurstAttributes,
   fxExplosionAttributes,
+  fxThemeIndex,
 } from "@openfront/shared/DerpyFx";
 import { colord } from "colord";
 import {
@@ -81,12 +82,18 @@ export function derpyExplosionParams(
   theme: DerpyFxTheme,
   nukeType: NukeExplosionType,
 ): NukeExplosionRenderParams {
-  return attributesToExplosionParams(fxExplosionAttributes(theme, nukeType));
+  return {
+    ...attributesToExplosionParams(fxExplosionAttributes(theme, nukeType)),
+    look: fxThemeIndex(theme),
+  };
 }
 
 /** A Derp Store pack's Dome burst, over a nuke the Dome stopped. */
 export function derpyDomeBurstParams(
   theme: DerpyFxTheme,
 ): NukeExplosionRenderParams {
-  return attributesToExplosionParams(domeBurstAttributes(theme.dome));
+  return {
+    ...attributesToExplosionParams(domeBurstAttributes(theme.dome)),
+    look: fxThemeIndex(theme),
+  };
 }

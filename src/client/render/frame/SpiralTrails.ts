@@ -1,6 +1,8 @@
 /**
  * SpiralTrails — per-nuke centerline polylines for the spiral nukeTrail
- * cosmetic, consumed by SpiralRibbonPass.
+ * cosmetic, consumed by SpiralRibbonPass. FX (r28): every nukeTrail cosmetic
+ * now records one (gradient and transition trails with `helix: false`), for
+ * the trails' glow, smooth core line and shed sparks.
  *
  * Unlike TrailManager (per-tile state stamped into the trail texture), spiral
  * vortexes are pure animation: the renderer draws helix ribbons as geometry
@@ -29,7 +31,7 @@ const TAU = 2 * Math.PI;
 const PITCH_PER_RADIUS = 4;
 const MIN_PITCH = 8;
 // Centerline samples per tile of travel — the ribbon strip's segment length.
-const SAMPLES_PER_TILE = 2;
+export const SAMPLES_PER_TILE = 2;
 
 /** Floats per sample in SpiralRibbon.samples: cx, cy, px, py, d. */
 export const SAMPLE_FLOATS = 5;
@@ -40,6 +42,21 @@ export interface SpiralParams {
   strands: number; // helix strand count (clamped to MAX_TRAIL_STRANDS)
   rotationSpeed: number; // vortex spin, radians/sec
   colors: ReadonlyArray<readonly [number, number, number]>; // rgb 0..1
+  /**
+   * FX (r28): false for a gradient or transition trail, which grows no helix
+   * but still records its path for SpiralRibbonPass's glow, smooth core line
+   * and shed sparks. Defaults to true (a spiral).
+   */
+  helix?: boolean;
+  /**
+   * FX (r28): the trail's colour style as trail.frag.glsl reads it (0
+   * gradient, 1 transition, 2 spiral) and its two scalars (gradient
+   * colorSize and movementSpeed; transition frequency), so the core line
+   * matches the stamped trail beneath it.
+   */
+  style?: number;
+  scalar0?: number;
+  scalar1?: number;
 }
 
 /** One live spiral nuke's path, exposed to the renderer as a live ref. */
@@ -50,6 +67,11 @@ export interface SpiralRibbon {
   readonly twist: number; // helix phase advance, radians per tile
   readonly rotationSpeed: number;
   readonly colors: ReadonlyArray<readonly [number, number, number]>;
+  /** FX (r28): see SpiralParams. */
+  readonly helix: boolean;
+  readonly style: number;
+  readonly scalar0: number;
+  readonly scalar1: number;
   /** Cumulative centerline distance at the nuke's head (grows every tick). */
   headDist: number;
   /** Valid sample count; samples may have spare capacity beyond it. */
@@ -98,6 +120,10 @@ export class SpiralTrails {
       ),
       rotationSpeed: params.rotationSpeed,
       colors: params.colors,
+      helix: params.helix ?? true,
+      style: params.style ?? 2,
+      scalar0: params.scalar0 ?? 0,
+      scalar1: params.scalar1 ?? 0,
     });
   }
 
@@ -167,6 +193,10 @@ export class SpiralTrails {
       twist: TAU / pitch,
       rotationSpeed: params.rotationSpeed,
       colors: params.colors,
+      helix: params.helix ?? true,
+      style: params.style ?? 2,
+      scalar0: params.scalar0 ?? 0,
+      scalar1: params.scalar1 ?? 0,
       headDist: 0,
       sampleCount: 0,
       samples: new Float32Array(256 * SAMPLE_FLOATS),

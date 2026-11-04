@@ -1001,7 +1001,11 @@ export class GPURenderer {
   }
 
   applyDeadUnits(deadUnits: DeadUnitFx[]): void {
-    if (deadUnits.length > 0) this.fxPass.applyDeadUnits(deadUnits);
+    if (deadUnits.length > 0) {
+      this.fxPass.applyDeadUnits(deadUnits);
+      // FX (r28): strikes on and beside Domes ripple their shields.
+      this.domeShieldPass.applyDeadUnits(deadUnits);
+    }
   }
 
   applyRailroadDust(tileRefs: number[]): void {
@@ -1419,7 +1423,7 @@ export class GPURenderer {
     if (pe.trail) this.trailPass.draw(cam);
     // Spiral vortexes sit above the plain trails, below the missiles that
     // trail them. Skipped in alt view — the strategic overlay stays effects-free.
-    if (!this.altView) this.spiralRibbonPass.draw(cam);
+    if (!this.altView) this.spiralRibbonPass.draw(cam, zoom);
     if (pe.unit) this.unitPass.drawMissiles(cam);
 
     if (pe.fx) {

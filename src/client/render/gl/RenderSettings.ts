@@ -319,6 +319,12 @@ export interface RenderSettings {
     nukeRadiusMirv: number;
     /** Multiplier on the nuke debris sprite count (1 = default scatter). */
     debrisDensity: number;
+    /**
+     * FX (r28): detail of the Derp Store packs' layered bursts. "light" (the
+     * low-graphics fallback, set when fallout effects are off) throws less
+     * debris and leaves no residue.
+     */
+    burstDetail: "full" | "light";
   };
   nukeTrajectory: {
     lineWidth: number; // px — main line stroke width

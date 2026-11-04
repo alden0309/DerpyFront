@@ -26,8 +26,8 @@ import {
 } from "./ColorUtils";
 import {
   EFFECT_ENTRY_FLOATS,
+  nukeTrailRibbon,
   packEffectEntry,
-  parseEffectColors,
   type PaletteEffectAttributes,
 } from "./EffectPalette";
 
@@ -193,18 +193,9 @@ export function writePlayerEffects(
   PALETTE_EFFECT_TYPES.forEach((effectType, block) => {
     const attrs = attrsFor(effectType);
     if (effectType === "nukeTrail") {
-      // Spiral vortexes render as ribbon geometry (SpiralRibbonPass). The
-      // colours are parsed here so a list that doesn't parse at all falls
-      // back to the plain stamped trail instead of an uncoloured vortex.
-      const colors =
-        attrs?.type === "spiral" ? parseEffectColors(attrs.colors) : [];
-      if (attrs?.type === "spiral" && colors.length > 0) {
-        spirals.setNukeTrailSpiral(smallID, {
-          radius: attrs.radius,
-          strands: attrs.strands,
-          rotationSpeed: attrs.rotationSpeed,
-          colors,
-        });
+      const params = nukeTrailRibbon(attrs);
+      if (params !== null) {
+        spirals.setNukeTrailSpiral(smallID, params);
       } else {
         spirals.clearNukeTrailSpiral(smallID);
       }

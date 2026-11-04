@@ -148,6 +148,9 @@ export function applyGraphicsOverrides(
     // and its additive light contribution in the day/night composite.
     settings.passEnabled.falloutBloom = overrides.passEnabled.fallout;
     settings.passEnabled.falloutLight = overrides.passEnabled.fallout;
+    // FX (r28): turning fallout off is the low-graphics choice; the Derp
+    // Store packs' bursts follow it with their lighter version.
+    settings.fx.burstDetail = overrides.passEnabled.fallout ? "full" : "light";
   }
   if (overrides.terrain?.backgroundColor !== undefined) {
     settings.terrain.backgroundColor = overrides.terrain.backgroundColor;

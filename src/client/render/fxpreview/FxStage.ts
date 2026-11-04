@@ -39,8 +39,8 @@ import {
 import { renderDpr } from "../gl/utils/Dpr";
 import {
   EFFECT_ENTRY_FLOATS,
+  nukeTrailRibbon,
   packEffectEntry,
-  parseEffectColors,
 } from "../gl/utils/EffectPalette";
 import {
   derpyDomeBurstParams,
@@ -250,20 +250,10 @@ export class FxStage {
       this.effectData,
     );
 
-    const colors =
-      theme?.trail.type === "spiral"
-        ? parseEffectColors(theme.trail.colors)
-        : [];
-    if (theme?.trail.type === "spiral" && colors.length > 0) {
-      this.spiralTrails.setParams(STAGE_YOU, {
-        radius: theme.trail.radius,
-        strands: theme.trail.strands,
-        rotationSpeed: theme.trail.rotationSpeed,
-        colors,
-      });
-    } else {
-      this.spiralTrails.clearParams(STAGE_YOU);
-    }
+    // As writePlayerEffects does in a match: the trail's ribbon, if any.
+    const ribbon = theme ? nukeTrailRibbon(theme.trail) : null;
+    if (ribbon !== null) this.spiralTrails.setParams(STAGE_YOU, ribbon);
+    else this.spiralTrails.clearParams(STAGE_YOU);
     this.domes.setPlayerStyle(STAGE_YOU, domeStyleIndex(theme?.name));
     this.restart();
   }
@@ -328,8 +318,10 @@ export class FxStage {
       ownerSmallID: d.owner,
       explosion: this.explosionFor(d.unitType, d.owner, d.reachedTarget),
       tickAge: 0,
+      domeStop: !d.reachedTarget,
     }));
     this.fx.applyDeadUnits(dead);
+    this.domes.applyDeadUnits(dead);
   }
 
   /** The burst a death shows, resolved as WebGLFrameBuilder resolves it. */
@@ -381,7 +373,7 @@ export class FxStage {
     this.territory.draw(cam);
     this.domes.draw(cam, zoom);
     if (this.settings.passEnabled.trail) this.trails.draw(cam);
-    this.ribbons.draw(cam);
+    this.ribbons.draw(cam, zoom);
     this.units.drawGround(cam);
     this.units.drawMissiles(cam);
     if (this.settings.passEnabled.fx) {
