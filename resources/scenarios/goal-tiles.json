@@ -289,12 +289,12 @@
     },
     "threekingdoms219": {
       "cao_cao": {
-        "normal": [782, 937],
-        "compact": [391, 465]
+        "normal": [876, 801],
+        "compact": [438, 400]
       },
       "liu_bei": {
-        "normal": [782, 937],
-        "compact": [391, 465]
+        "normal": [605, 783],
+        "compact": [302, 391]
       },
       "sun_quan": {
         "normal": [785, 1048],

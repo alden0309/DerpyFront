@@ -36,7 +36,7 @@ export const SCENARIO_EDITION = 3;
  * Thirteen Colonies 1776: 5 (SCEN3, r27) adds the Loyalist colonies.
  * Italy 1859: 4 (SCEN3, r27) gives Austria a bigger army. Three Kingdoms:
  * 4 (SCEN3, r27): a kingdom under 1% of the land is beaten, the Mandate of
- * Heaven passes at minute 60, and Wu's cities add at most 1.5M / 0.5M.
+ * Heaven passes at minute 60, and Wu's cities add at most 2M / 0.75M.
  * American Civil War: 4 (SCEN3, r27): the Confederate states hold harder
  * at home.
  */

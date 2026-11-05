@@ -561,20 +561,20 @@
       "cao_cao": {
         "kind": "hold",
         "place": {
-          "name": "Fancheng",
-          "at": [782, 935],
+          "name": "Xuchang",
+          "at": [876, 801],
           "of": "cao_cao"
         },
-        "minute": 25
+        "minute": 40
       },
       "liu_bei": {
         "kind": "hold",
         "place": {
-          "name": "Fancheng",
-          "at": [782, 935],
+          "name": "Chang'an",
+          "at": [605, 783],
           "of": "cao_cao"
         },
-        "minute": 25
+        "minute": 30
       },
       "sun_quan": {
         "kind": "take",
