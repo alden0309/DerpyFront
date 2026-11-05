@@ -28,7 +28,7 @@
       "color": "#3f68b8",
       "troopsPercent": 85,
       "gold": 1200000,
-      "troopCapBonus": 1200000,
+      "troopCapBonus": 800000,
       "capital": [902, 646],
       "structures": [
         { "type": "City", "at": [799, 762], "level": 2 },
@@ -87,7 +87,7 @@
       "troopsPercent": 80,
       "gold": 900000,
       "goldIncome": 0.8,
-      "cityTroopsMax": 1500000,
+      "cityTroopsMax": 2000000,
       "capital": [1158, 922],
       "structures": [
         { "type": "City", "at": [1267, 965] },
@@ -127,7 +127,7 @@
       "troopsPercent": 50,
       "gold": 200000,
       "goldIncome": 0.8,
-      "cityTroopsMax": 500000,
+      "cityTroopsMax": 750000,
       "capital": [394, 1664],
       "structures": [
         { "type": "City", "at": [595, 1631] },

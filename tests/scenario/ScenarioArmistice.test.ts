@@ -334,8 +334,10 @@ describe("Three Kingdoms: the 1% line and the Mandate of Heaven", () => {
     expect(armisticeName(scenarioData("korea1950")!)).toBe("armistice");
     expect(armisticeTicks(data, false)).toEqual({ minute: 60, ...NORMAL });
     const nation = (k: string) => data.nations.find((n) => n.key === k)!;
-    expect(nation("sun_quan").cityTroopsMax).toBe(1_500_000);
-    expect(nation("shi_xie").cityTroopsMax).toBe(500_000);
+    expect(nation("sun_quan").cityTroopsMax).toBe(2_000_000);
+    expect(nation("shi_xie").cityTroopsMax).toBe(750_000);
+    // Wei's head start, cut from 1.2M with Wu's cities capped.
+    expect(nation("cao_cao").troopCapBonus).toBe(800_000);
     expect(scenarioEdition("threekingdoms219")).toBe(4);
     // The line: 1% of the land here, 0.2% (as before) everywhere else.
     expect(sideOutTiles(data, 100_000)).toBe(1000);
