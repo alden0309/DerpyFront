@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-11-05-civil-war-three-kingdoms",
+    "date": "2026-11-05",
+    "game": "derpyfront",
+    "title": "Civil War and Three Kingdoms, rebalanced",
+    "body": "Two scenarios got a rebalance. In the Civil War, the Confederate states fight harder on their own soil, so the Union no longer wins almost every time.\n\nIn the Three Kingdoms, a kingdom pushed under 1% of the land is beaten, and at minute 60 the Mandate of Heaven passes to whoever holds the most land. Wu's cities add fewer troops. Liu Bei's goal is now to take Chang'an and hold it at minute 30, and Cao Cao's is to hold Xuchang at minute 40."
+  },
+  {
     "id": "2026-11-04-effects-remade",
     "date": "2026-11-04",
     "game": "derpyfront",
