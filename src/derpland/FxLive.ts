@@ -57,7 +57,14 @@ function reducedMotion(): boolean {
   );
 }
 
-export class DfxLive extends HTMLElement {
+// Outside a browser (the hub's modules imported by Node tests) there is no
+// HTMLElement; the element is only defined where customElements exists.
+const ElementBase: typeof HTMLElement =
+  typeof HTMLElement === "undefined"
+    ? (class {} as unknown as typeof HTMLElement)
+    : HTMLElement;
+
+export class DfxLive extends ElementBase {
   private img: HTMLImageElement | null = null;
   private card: HTMLElement | null = null;
   private stillFor = "";
