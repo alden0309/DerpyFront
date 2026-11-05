@@ -165,7 +165,8 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   over the scenario's (below): the supply fields when it attacks, homeland
   and lastStand when it is attacked. Korea 1950's North runs out of supply
   sooner (`supplyPer100` 0.8, `supplyMax` 3.5); 1939's Soviet Union is a
-  wall at home (`homeland` 1).
+  wall at home (`homeland` 1); the Civil War's Confederate states hold
+  harder at home (`homeland` 1, `lastStand` 3).
 - **cityTroopsMax** (optional, SCEN3 round 27) caps the troops (as players
   see them, half on a Compact map) a nation's cities add to its troop cap,
   however many it builds. Europe 1939: 400K for the small nations (a

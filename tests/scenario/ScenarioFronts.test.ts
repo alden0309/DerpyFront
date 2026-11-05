@@ -1,6 +1,7 @@
 // SCEN (r25): fronts that hold. Attacks on a nation's own soil cost more (and
 // more as it shrinks); attacks far from the attacker's own land cost more.
 
+import { scenarioEdition } from "@openfront/engine-api/game/Scenarios";
 import { Game } from "@openfront/engine/game/Game";
 import {
   FRONT_DEFAULTS,
@@ -193,4 +194,50 @@ describe("fronts that hold", () => {
     const game = { scenario: () => null } as unknown as Game;
     expect(scenarioAttackFactor(game, {} as never, {} as never, 0)).toBe(1);
   });
+});
+
+// SCEN3 (r27): the Civil War's Confederate states hold harder at home (the
+// Union had won 7 of 8 balance games; now about 5 of 12 go to the South).
+describe("the American Civil War's Confederate home fronts", () => {
+  it("make an attack on a Confederate state at home cost more, and nobody else's", async () => {
+    const g = await scenarioGame("civilwar1861");
+    const { game } = g;
+    const scenario = game.scenario()!;
+    const data = scenario.data;
+    for (const [i, n] of data.nations.entries()) {
+      const rules = frontRules(scenario, i);
+      if (n.side === "Confederacy") {
+        expect(n.fronts, n.key).toEqual({ homeland: 1, lastStand: 3 });
+        expect(rules.homeland).toBe(1);
+        expect(rules.lastStand).toBe(3);
+      } else {
+        expect(n.fronts, n.key).toBeUndefined();
+        expect(rules.homeland).toBe(data.fronts!.homeland);
+      }
+    }
+    const virginia = g.nation("virginia_nc");
+    const union = g.nation("mid_atlantic");
+    const [x, y] = data.nations.find((n) => n.key === "virginia_nc")!.capital;
+    const tile = near(game, x, y, (t) => game.owner(t) === virginia);
+    const harder = scenarioAttackFactor(game, union, virginia, tile);
+    // The same attack in a game without Virginia's own rules (a game keeps
+    // its front rules once worked out).
+    const n = data.nations.find((m) => m.key === "virginia_nc")!;
+    const own = n.fronts;
+    delete n.fronts;
+    try {
+      const h = await scenarioGame("civilwar1861");
+      const plain = scenarioAttackFactor(
+        h.game,
+        h.nation("mid_atlantic"),
+        h.nation("virginia_nc"),
+        tile,
+      );
+      // Untouched, at the start: (1 + 1) against the scenario's (1 + 0.5).
+      expect(harder / plain).toBeCloseTo(2 / 1.5, 2);
+    } finally {
+      n.fronts = own;
+    }
+    expect(scenarioEdition("civilwar1861")).toBe(4);
+  }, 120_000);
 });

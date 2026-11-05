@@ -35,8 +35,11 @@ export const SCENARIO_EDITION = 3;
  * Continental Army 1776: 4 (SCEN3, r27) gives Britain a smaller army.
  * Thirteen Colonies 1776: 5 (SCEN3, r27) adds the Loyalist colonies.
  * Italy 1859: 4 (SCEN3, r27) gives Austria a bigger army.
+ * American Civil War: 4 (SCEN3, r27): the Confederate states hold harder
+ * at home.
  */
 const SCENARIO_EDITION_OF: Readonly<Record<string, number>> = {
+  civilwar1861: 4,
   colonies1776: 5,
   continental1776: 4,
   europe1939: 4,

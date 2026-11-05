@@ -194,6 +194,7 @@
       "troopsPercent": 100,
       "gold": 700000,
       "troopCapBonus": 1490000,
+      "fronts": { "homeland": 1, "lastStand": 3 },
       "capital": [2227, 761],
       "structures": [
         { "type": "City", "at": [2232, 778] },
@@ -221,6 +222,7 @@
       "troopsPercent": 100,
       "gold": 670000,
       "troopCapBonus": 1010000,
+      "fronts": { "homeland": 1, "lastStand": 3 },
       "capital": [2164, 1041],
       "structures": [
         { "type": "City", "at": [1955, 1018] },
@@ -248,6 +250,7 @@
       "troopsPercent": 100,
       "gold": 700000,
       "troopCapBonus": 1085000,
+      "fronts": { "homeland": 1, "lastStand": 3 },
       "capital": [1833, 897],
       "structures": [
         { "type": "City", "at": [1693, 964] },
@@ -273,6 +276,7 @@
       "troopsPercent": 100,
       "gold": 700000,
       "troopCapBonus": 890000,
+      "fronts": { "homeland": 1, "lastStand": 3 },
       "capital": [1530, 1118],
       "structures": [
         { "type": "City", "at": [1710, 1252], "level": 2 },
